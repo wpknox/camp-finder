@@ -2,7 +2,9 @@
 <script lang="ts">
   import CampMap from '$lib/map/CampMap.svelte'
   import DetailPanel from '$lib/detail/DetailPanel.svelte'
+  import FilterSidebar from '$lib/filters/FilterSidebar.svelte'
   import { selectedFacility, searchPending, facilities, isLoading } from '$lib/map/mapStore'
+  import { filteredFacilities } from '$lib/filters/filterStore'
   import type { Facility } from '$lib/types'
 
   let campMap: CampMap
@@ -30,7 +32,11 @@
   function handleSelect(e: CustomEvent<Facility>) {
     selectedFacility.set(e.detail)
   }
+
+  $: if (campMap) campMap.renderPins($filteredFacilities)
 </script>
+
+<FilterSidebar />
 
 <div class="map-wrap">
   <CampMap bind:this={campMap} on:select={handleSelect} />
