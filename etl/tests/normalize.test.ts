@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeAmenities, aggregateFcfs, scoreDataQuality } from '../src/normalize.js'
+import { normalizeAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl } from '../src/normalize.js'
 import type { RidbAttribute, RidbCampsite } from '../src/types.js'
 
 function attrs(pairs: [string, string][]): RidbAttribute[] {
@@ -90,5 +90,28 @@ describe('scoreDataQuality', () => {
       electricHookups: false, waterHookups: false, sewerHookups: false,
       petsAllowed: false, horsesAllowed: false, picnicTables: false, fireRings: false, accessible: false }
     expect(scoreDataQuality(amenities)).toBe('unknown')
+  })
+})
+
+describe('extractFees', () => {
+  it('extracts min and max fee from fee description', () => {
+    expect(extractFees('$15 per night')).toEqual({ fee_min: 15, fee_max: 15 })
+    expect(extractFees('$10–$20 per night')).toEqual({ fee_min: 10, fee_max: 20 })
+    expect(extractFees('Free')).toEqual({ fee_min: 0, fee_max: 0 })
+    expect(extractFees('')).toEqual({ fee_min: null, fee_max: null })
+  })
+})
+
+describe('extractFsUrl', () => {
+  it('returns the first fs.usda.gov link', () => {
+    const links = [
+      { LinkType: 'Official', LinkURL: 'https://www.fs.usda.gov/recarea/arp', Title: '' },
+      { LinkType: 'Reservations', LinkURL: 'https://recreation.gov/...', Title: '' },
+    ]
+    expect(extractFsUrl(links)).toBe('https://www.fs.usda.gov/recarea/arp')
+  })
+
+  it('returns empty string when no fs.usda.gov link', () => {
+    expect(extractFsUrl([])).toBe('')
   })
 })
