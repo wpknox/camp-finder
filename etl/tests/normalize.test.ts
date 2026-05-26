@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeAmenities } from '../src/normalize.js'
-import type { RidbAttribute } from '../src/types.js'
+import { normalizeAmenities, aggregateFcfs, scoreDataQuality } from '../src/normalize.js'
+import type { RidbAttribute, RidbCampsite } from '../src/types.js'
 
 function attrs(pairs: [string, string][]): RidbAttribute[] {
   return pairs.map(([name, value], i) => ({ AttributeID: i, AttributeName: name, AttributeValue: value }))
@@ -37,5 +37,58 @@ describe('normalizeAmenities', () => {
     expect(result.potableWater).toBe(false)
     expect(result.maxRvLength).toBe(null)
     expect(result.toiletType).toBe('unknown')
+  })
+})
+
+function site(reservable: boolean, typeOfUse = 'Overnight'): RidbCampsite {
+  return { CampsiteID: '', FacilityID: '', CampsiteName: '', CampsiteType: '',
+           TypeOfUse: typeOfUse, CampsiteReservable: reservable,
+           CampsiteAccessible: 'N', Loop: '', ATTRIBUTES: [] }
+}
+
+describe('aggregateFcfs', () => {
+  it('counts FCFS vs reservable sites', () => {
+    const result = aggregateFcfs([site(false), site(false), site(true)])
+    expect(result.fcfs_total).toBe(2)
+    expect(result.reservable_total).toBe(1)
+    expect(result.is_partial_fcfs).toBe(true)
+    expect(result.is_fully_fcfs).toBe(false)
+  })
+
+  it('marks fully FCFS when no reservable sites', () => {
+    const result = aggregateFcfs([site(false), site(false)])
+    expect(result.is_fully_fcfs).toBe(true)
+    expect(result.is_partial_fcfs).toBe(false)
+  })
+
+  it('excludes day-use sites from FCFS count', () => {
+    const result = aggregateFcfs([site(false, 'Day'), site(false, 'Overnight')])
+    expect(result.fcfs_total).toBe(1)
+  })
+})
+
+describe('scoreDataQuality', () => {
+  it('returns rich when 5+ amenity fields are populated', () => {
+    const amenities = { potableWater: true, toiletType: 'flush' as const,
+      bearBoxes: true, driveUp: true, maxRvLength: 35,
+      electricHookups: false, waterHookups: false, sewerHookups: false,
+      petsAllowed: true, horsesAllowed: false, picnicTables: true, fireRings: true, accessible: false }
+    expect(scoreDataQuality(amenities)).toBe('rich')
+  })
+
+  it('returns sparse when 1–4 fields are populated', () => {
+    const amenities = { potableWater: true, toiletType: 'unknown' as const,
+      bearBoxes: false, driveUp: false, maxRvLength: null,
+      electricHookups: false, waterHookups: false, sewerHookups: false,
+      petsAllowed: false, horsesAllowed: false, picnicTables: false, fireRings: false, accessible: false }
+    expect(scoreDataQuality(amenities)).toBe('sparse')
+  })
+
+  it('returns unknown when nothing is populated', () => {
+    const amenities = { potableWater: false, toiletType: 'unknown' as const,
+      bearBoxes: false, driveUp: false, maxRvLength: null,
+      electricHookups: false, waterHookups: false, sewerHookups: false,
+      petsAllowed: false, horsesAllowed: false, picnicTables: false, fireRings: false, accessible: false }
+    expect(scoreDataQuality(amenities)).toBe('unknown')
   })
 })
