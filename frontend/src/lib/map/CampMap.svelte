@@ -11,29 +11,31 @@
   let map: any
   let pinsLayer: any
 
-  onMount(async () => {
-    L = (await import('leaflet')).default
-    await import('leaflet/dist/leaflet.css')
-    await import('leaflet.markercluster')
-    await import('leaflet.markercluster/dist/MarkerCluster.css')
-    await import('leaflet.markercluster/dist/MarkerCluster.Default.css')
+  onMount(() => {
+    ;(async () => {
+      L = (await import('leaflet')).default
+      await import('leaflet/dist/leaflet.css')
+      await import('leaflet.markercluster')
+      await import('leaflet.markercluster/dist/MarkerCluster.css')
+      await import('leaflet.markercluster/dist/MarkerCluster.Default.css')
 
-    map = L.map(mapEl, {
-      center: [39.55, -105.78],
-      zoom: 8,
-    })
+      map = L.map(mapEl, {
+        center: [39.55, -105.78],
+        zoom: 8,
+      })
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map)
 
-    pinsLayer = L.markerClusterGroup({ maxClusterRadius: 40 })
-    map.addLayer(pinsLayer)
+      pinsLayer = L.markerClusterGroup({ maxClusterRadius: 40 })
+      map.addLayer(pinsLayer)
 
-    map.on('moveend', () => searchPending.set(true))
+      map.on('moveend', () => searchPending.set(true))
+    })()
 
-    return () => map.remove()
+    return () => { if (map) map.remove() }
   })
 
   export function renderPins(facilityList: Facility[]) {
