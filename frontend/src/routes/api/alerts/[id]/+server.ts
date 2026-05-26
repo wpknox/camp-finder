@@ -1,0 +1,81 @@
+// frontend/src/routes/api/alerts/[id]/+server.ts
+import { json } from '@sveltejs/kit'
+import { parse } from 'node-html-parser'
+import { PUBLIC_TB_URL } from '$env/static/public'
+import { TB_SERVICE_TOKEN } from '$env/static/private'
+import type { RequestHandler } from './$types'
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+const tbHeaders = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${TB_SERVICE_TOKEN}`,
+}
+
+export const GET: RequestHandler = async ({ params }) => {
+  const facilityId = params.id
+  const cutoff = new Date(Date.now() - CACHE_TTL_MS).toISOString()
+
+  const cacheRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/list`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ where: `facility_id == '${facilityId}' && scraped_at >= '${cutoff}'`, limit: 1 }),
+  })
+  const cache = await cacheRes.json() as { items?: Array<{ content: string; scraped_at: string }> }
+
+  if (cache.items?.length) {
+    return json({ content: cache.items[0].content, scraped_at: cache.items[0].scraped_at, cached: true })
+  }
+
+  const facRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/view/${facilityId}`)
+  const facility = facRes.ok ? await facRes.json() as { fs_url?: string } : null
+
+  if (!facility?.fs_url) return json({ content: null, scraped_at: null })
+
+  let content: string | null = null
+  try {
+    const res = await fetch(facility.fs_url, {
+      headers: { 'User-Agent': 'CampFinder/1.0 (campground info aggregator)' },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok) {
+      const root = parse(await res.text())
+      root.querySelectorAll('nav, footer, script, style, header').forEach(el => el.remove())
+
+      const texts = [
+        ...root.querySelectorAll('.usa-alert__text'),
+        ...root.querySelectorAll('[class*="alert"]'),
+        ...root.querySelectorAll('[class*="closure"]'),
+        ...root.querySelectorAll('[class*="notice"]'),
+      ]
+        .map(el => el.text.trim())
+        .filter(t => t.length > 15)
+        .filter((t, i, a) => a.indexOf(t) === i)
+
+      content = texts.join('\n\n') || null
+    }
+  } catch { /* fail gracefully */ }
+
+  const scraped_at = new Date().toISOString()
+
+  const existingRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/list`, {
+    method: 'POST',
+    headers: tbHeaders,
+    body: JSON.stringify({ where: `facility_id == '${facilityId}'`, limit: 1 }),
+  })
+  const existing = await existingRes.json() as { items?: Array<{ id: string }> }
+
+  if (existing.items?.length) {
+    await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/edit/${existing.items[0].id}`, {
+      method: 'POST', headers: tbHeaders,
+      body: JSON.stringify({ content, scraped_at }),
+    })
+  } else {
+    await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/insert`, {
+      method: 'POST', headers: tbHeaders,
+      body: JSON.stringify({ values: { facility_id: facilityId, content, scraped_at } }),
+    })
+  }
+
+  return json({ content, scraped_at, cached: false })
+}

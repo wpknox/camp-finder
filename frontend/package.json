@@ -28,6 +28,7 @@
 	},
 	"dependencies": {
 		"leaflet": "^1.9.4",
-		"leaflet.markercluster": "^1.5.3"
+		"leaflet.markercluster": "^1.5.3",
+		"node-html-parser": "^7.1.0"
 	}
 }
