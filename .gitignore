@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+.svelte-kit/
+.cloudflare/
+
+# Teenybase / Cloudflare Workers
+backend/.dev.vars
+backend/.prod.vars
+backend/migrations/*.sql
+.wrangler/
+
+# ETL secrets
+etl/.env
+
+# SvelteKit
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# PocketBase (if ever used locally)
+pocketbase/pocketbase
+pb_data/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
