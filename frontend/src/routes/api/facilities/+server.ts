@@ -20,6 +20,10 @@ export const GET: RequestHandler = async ({ url }) => {
     body: JSON.stringify({ where, limit: 500 }),
   })
 
-  const data = await res.json() as { items?: unknown[] }
-  return json(data.items ?? [])
+  const data = await res.json() as { items?: Array<Record<string, unknown>> }
+  const items = (data.items ?? []).map(f => ({
+    ...f,
+    amenities: typeof f.amenities === 'string' ? JSON.parse(f.amenities) : f.amenities,
+  }))
+  return json(items)
 }

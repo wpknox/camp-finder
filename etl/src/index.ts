@@ -55,7 +55,7 @@ async function main() {
       season_start: '',
       season_end: '',
       ...fcfs,
-      amenities,
+      amenities: JSON.stringify(amenities) as any,
       ridb_data_quality: scoreDataQuality(amenities),
       fs_url: extractFsUrl(f.LINK ?? []),
       last_synced: new Date().toISOString(),
