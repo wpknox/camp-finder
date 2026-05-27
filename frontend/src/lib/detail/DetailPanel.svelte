@@ -4,6 +4,7 @@
   import AmenityGrid from './AmenityGrid.svelte'
   import AlertsSection from './AlertsSection.svelte'
   import DataQualityWarning from './DataQualityWarning.svelte'
+  import { compareIds } from '$lib/compare/compareStore'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -15,6 +16,7 @@
     : facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
     : `$${facility.fee_min}–$${facility.fee_max}/night`
   )
+  let isComparing = $derived($compareIds.includes(facility.id))
 </script>
 
 <aside class="panel">
@@ -29,6 +31,19 @@
 
     <FCFSBadge fcfs_total={facility.fcfs_total} reservable_total={facility.reservable_total}
                is_fully_fcfs={facility.is_fully_fcfs} />
+
+    <button
+      class="compare-btn"
+      onclick={() => isComparing ? compareIds.remove(facility.id) : compareIds.add(facility.id)}
+    >
+      {isComparing ? '✓ In Compare' : '+ Compare'}
+    </button>
+
+    {#if $compareIds.length >= 2}
+      <a class="compare-link" href="/compare?ids={$compareIds.join(',')}">
+        View comparison ({$compareIds.length} campgrounds) →
+      </a>
+    {/if}
 
     <AmenityGrid amenities={facility.amenities} />
 
@@ -72,4 +87,6 @@
   .fee { margin: .5rem 0 0; font-weight: 600; }
   .links { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; font-size: .9rem; }
   .links a { color: #16a34a; }
+  .compare-btn { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; padding: .4rem .85rem; cursor: pointer; font-size: .85rem; }
+  .compare-link { display: block; color: #16a34a; font-size: .875rem; margin: .5rem 0; }
 </style>
