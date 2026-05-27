@@ -50,9 +50,13 @@
 
     <AmenityGrid amenities={facility.amenities} />
 
+    {#if facility.description}
+      <div class="description">{@html facility.description}</div>
+    {/if}
+
     <AlertsSection facilityId={facility.id} />
 
-    {#if facility.ridb_data_quality !== 'rich'}
+    {#if facility.ridb_data_quality !== 'rich' && facility.fs_url}
       <DataQualityWarning quality={facility.ridb_data_quality} fsUrl={facility.fs_url} />
     {/if}
 
@@ -90,6 +94,9 @@
   h2 { margin: 0 0 .25rem; font-size: 1.2rem; }
   .meta { margin: 0; color: #666; font-size: .9rem; }
   .fee { margin: .5rem 0 0; font-weight: 600; }
+  .description { font-size: .85rem; color: #374151; line-height: 1.55; margin: .75rem 0; }
+  .description :global(h2) { font-size: .95rem; margin: .75rem 0 .25rem; }
+  .description :global(p)  { margin: 0 0 .5rem; }
   .links { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; font-size: .9rem; }
   .links a { color: #16a34a; }
   .compare-btn { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; padding: .4rem .85rem; cursor: pointer; font-size: .85rem; }

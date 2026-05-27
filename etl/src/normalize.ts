@@ -1,5 +1,33 @@
 import type { RidbAttribute, RidbCampsite, Amenities, ToiletType, FcfsAggregation, DataQuality } from './types.js'
 
+// Strip HTML tags for plain-text keyword matching
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').toLowerCase()
+}
+
+// Parse amenity fields from free-text facility description as a fallback
+// when structured attribute data isn't available.
+export function parseDescriptionAmenities(description: string): Partial<Amenities> {
+  const text = stripHtml(description)
+  const has  = (...terms: string[]) => terms.some(t => text.includes(t))
+  const lacks = (...terms: string[]) => terms.some(t => text.includes(t))
+
+  const potableWater = has('drinking water', 'potable water') && !lacks('no drinking water', 'no potable water', 'non-potable')
+
+  let toiletType: ToiletType | undefined
+  if (has('flush toilet', 'flush restroom'))        toiletType = 'flush'
+  else if (has('vault toilet', 'pit toilet', 'vault restroom')) toiletType = 'vault'
+  else if (has('no toilet', 'no restroom', 'no sanitation')) toiletType = 'none'
+
+  const bearBoxes = has('bear box', 'bear locker', 'food storage locker', 'food storage box')
+
+  return {
+    ...(potableWater              ? { potableWater }  : {}),
+    ...(toiletType !== undefined  ? { toiletType }    : {}),
+    ...(bearBoxes                 ? { bearBoxes }     : {}),
+  }
+}
+
 export function normalizeAmenities(attributes: RidbAttribute[] | undefined): Amenities {
   attributes = attributes ?? []
   const get = (needles: string[]): string | null => {
@@ -24,20 +52,28 @@ export function normalizeAmenities(attributes: RidbAttribute[] | undefined): Ame
   const rvRaw = get(['max vehicle length', 'max rv length', 'rv length'])
   const maxRvLength = rvRaw ? (parseInt(rvRaw.replace(/\D.*/, ''), 10) || null) : null
 
+  // driveUp: true if any driveway/site-access attribute exists and isn't walk/hike-in
+  const driveUp = (() => {
+    const siteAccess = get(['site access'])
+    if (siteAccess) return /drive/i.test(siteAccess)
+    const driveAttr = get(['driveway entry', 'driveway surface', 'driveway length'])
+    return driveAttr != null && driveAttr !== '0' && driveAttr !== ''
+  })()
+
   return {
     potableWater:    bool(get(['drinking water', 'potable water', 'water available'])) &&
                      !get(['no drinking water', 'no water']),
     toiletType,
     bearBoxes:       bool(get(['bear box', 'bear locker', 'food storage locker'])),
-    driveUp:         bool(get(['driveway', 'drive-up', 'drive up', 'vehicle site'])),
+    driveUp,
     maxRvLength,
-    electricHookups: bool(get(['electric hookup', 'electrical hookup', 'electricity', 'amp hookup'])),
+    electricHookups: bool(get(['electric hookup', 'electrical hookup', 'electricity', 'amp hookup', 'electric'])),
     waterHookups:    bool(get(['water hookup', 'water service hookup'])),
     sewerHookups:    bool(get(['sewer hookup', 'sewer service hookup'])),
     petsAllowed:     bool(get(['pets allowed', 'pets', 'dogs allowed'])),
     horsesAllowed:   bool(get(['horses', 'horse allowed'])),
     picnicTables:    bool(get(['picnic table', 'table'])),
-    fireRings:       bool(get(['fire pit', 'fire ring', 'campfire ring'])),
+    fireRings:       bool(get(['fire pit', 'fire ring', 'campfire ring', 'campfire allowed'])),
     accessible:      bool(get(['ada', 'accessible', 'wheelchair'])),
   }
 }

@@ -29,6 +29,13 @@ export class RidbClient {
     return all
   }
 
+  async getFacilityDetail(facilityId: string): Promise<RidbFacility> {
+    const url = this.buildUrl(`/facilities/${facilityId}`, {})
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`RIDB error ${res.status}`)
+    return res.json()
+  }
+
   async getCampsites(facilityId: string): Promise<RidbCampsite[]> {
     const all: RidbCampsite[] = []
     let offset = 0

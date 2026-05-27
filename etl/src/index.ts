@@ -2,9 +2,9 @@
 import 'dotenv/config'
 import { RidbClient } from './ridb.js'
 import { TbClient } from './teenybase.js'
-import { CO_QUERY_PARAMS, isColoradoNationalForest } from './forests.js'
-import { normalizeAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl } from './normalize.js'
-import type { NormalizedFacility } from './types.js'
+import { CO_QUERY_PARAMS, parentOrgToAgency } from './forests.js'
+import { normalizeAmenities, parseDescriptionAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl } from './normalize.js'
+import type { NormalizedFacility, RidbAttribute } from './types.js'
 
 const RIDB_API_KEY  = process.env.RIDB_API_KEY!
 const TB_API_URL    = process.env.TB_API_URL ?? 'http://localhost:8787'
@@ -21,24 +21,32 @@ async function main() {
 
   console.log('Fetching Colorado campground facilities from RIDB...')
   const allFacilities = await ridb.getAllFacilities(CO_QUERY_PARAMS)
-
-  const nfFacilities = allFacilities.filter(isColoradoNationalForest)
-  console.log(`Found ${nfFacilities.length} Colorado National Forest campgrounds`)
+  console.log(`Found ${allFacilities.length} Colorado campgrounds`)
 
   const normalized: NormalizedFacility[] = []
 
-  for (let i = 0; i < nfFacilities.length; i++) {
-    const f = nfFacilities[i]
-    process.stdout.write(`\rProcessing ${i + 1}/${nfFacilities.length}: ${f.FacilityName.slice(0, 40).padEnd(40)}`)
+  for (let i = 0; i < allFacilities.length; i++) {
+    const f = allFacilities[i]
+    process.stdout.write(`\rProcessing ${i + 1}/${allFacilities.length}: ${f.FacilityName.slice(0, 40).padEnd(40)}`)
 
+    let detail = f
     let campsites = []
     try {
-      campsites = await ridb.getCampsites(f.FacilityID)
+      ;[detail, campsites] = await Promise.all([
+        ridb.getFacilityDetail(f.FacilityID),
+        ridb.getCampsites(f.FacilityID),
+      ])
     } catch (e) {
-      console.warn(`\nCould not fetch campsites for ${f.FacilityID}: ${e}`)
+      console.warn(`\nCould not fetch detail for ${f.FacilityID}: ${e}`)
     }
 
-    const amenities = normalizeAmenities(f.ATTRIBUTES)
+    // Facility-level ATTRIBUTES are empty in RIDB. Use campsite attributes for
+    // structured fields, then fill gaps (water, toilets, bear boxes) from description text.
+    const campsiteAttrs: RidbAttribute[] = campsites.flatMap(c => c.ATTRIBUTES ?? [])
+    const amenities = {
+      ...normalizeAmenities(campsiteAttrs),
+      ...parseDescriptionAmenities(detail.FacilityDescription ?? ''),
+    }
     const fcfs      = aggregateFcfs(campsites)
     const fees      = extractFees(f.FacilityUseFeeDescription)
 
@@ -47,9 +55,9 @@ async function main() {
       name: f.FacilityName,
       lat: f.FacilityLatitude,
       lng: f.FacilityLongitude,
-      forest: '',
+      forest: parentOrgToAgency(f.ParentOrgID),
       district: '',
-      description: f.FacilityDescription,
+      description: detail.FacilityDescription,
       fee_min: fees.fee_min,
       fee_max: fees.fee_max,
       season_start: '',
@@ -57,7 +65,7 @@ async function main() {
       ...fcfs,
       amenities: JSON.stringify(amenities) as any,
       ridb_data_quality: scoreDataQuality(amenities),
-      fs_url: extractFsUrl(f.LINK ?? []),
+      fs_url: extractFsUrl(detail.LINK ?? []),
       last_synced: new Date().toISOString(),
     })
   }
