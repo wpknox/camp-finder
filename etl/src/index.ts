@@ -57,7 +57,7 @@ async function main() {
       ...fcfs,
       amenities,
       ridb_data_quality: scoreDataQuality(amenities),
-      fs_url: extractFsUrl(f.LINK),
+      fs_url: extractFsUrl(f.LINK ?? []),
       last_synced: new Date().toISOString(),
     })
   }

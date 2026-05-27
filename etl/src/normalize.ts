@@ -1,6 +1,7 @@
 import type { RidbAttribute, RidbCampsite, Amenities, ToiletType, FcfsAggregation, DataQuality } from './types.js'
 
-export function normalizeAmenities(attributes: RidbAttribute[]): Amenities {
+export function normalizeAmenities(attributes: RidbAttribute[] | undefined): Amenities {
+  attributes = attributes ?? []
   const get = (needles: string[]): string | null => {
     const needle = needles.map(n => n.toLowerCase())
     return attributes.find(a =>
