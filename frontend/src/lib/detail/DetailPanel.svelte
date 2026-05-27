@@ -6,6 +6,7 @@
   import DataQualityWarning from './DataQualityWarning.svelte'
   import { compareIds } from '$lib/compare/compareStore'
   import SaveButton from '$lib/saved/SaveButton.svelte'
+  import RatingsSection from './RatingsSection.svelte'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -62,6 +63,8 @@
       <a href={reserveUrl} target="_blank" rel="noopener">Reserve on recreation.gov ↗</a>
       <a href={nearbyMapsUrl} target="_blank" rel="noopener">Nearby activities (Google Maps) ↗</a>
     </div>
+
+    <RatingsSection facilityId={facility.id} />
   </div>
 </aside>
 
