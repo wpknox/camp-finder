@@ -5,6 +5,7 @@
   import AlertsSection from './AlertsSection.svelte'
   import DataQualityWarning from './DataQualityWarning.svelte'
   import { compareIds } from '$lib/compare/compareStore'
+  import SaveButton from '$lib/saved/SaveButton.svelte'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -27,6 +28,7 @@
       <h2>{facility.name}</h2>
       <p class="meta">{facility.forest}{facility.district ? ` · ${facility.district}` : ''}</p>
       <p class="fee">{feeStr}</p>
+      <SaveButton facilityId={facility.id} />
     </header>
 
     <FCFSBadge fcfs_total={facility.fcfs_total} reservable_total={facility.reservable_total}
