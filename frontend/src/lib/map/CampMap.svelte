@@ -1,15 +1,14 @@
-<!-- frontend/src/lib/map/CampMap.svelte -->
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte'
+  import { onMount } from 'svelte'
   import type { Facility } from '$lib/types'
   import { searchPending } from './mapStore'
 
-  const dispatch = createEventDispatcher<{ select: Facility }>()
+  let { onselect }: { onselect?: (f: Facility) => void } = $props()
 
-  let mapEl: HTMLDivElement
-  let L: any
-  let map: any
-  let pinsLayer: any
+  let mapEl: HTMLDivElement = $state(null!)
+  let L: any = $state(null)
+  let map: any = $state(null)
+  let pinsLayer: any = $state(null)
 
   onMount(() => {
     ;(async () => {
@@ -19,10 +18,7 @@
       await import('leaflet.markercluster/dist/MarkerCluster.css')
       await import('leaflet.markercluster/dist/MarkerCluster.Default.css')
 
-      map = L.map(mapEl, {
-        center: [39.55, -105.78],
-        zoom: 8,
-      })
+      map = L.map(mapEl, { center: [39.55, -105.78], zoom: 8 })
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -35,7 +31,7 @@
       map.on('moveend', () => searchPending.set(true))
     })()
 
-    return () => { if (map) map.remove() }
+    return () => map?.remove()
   })
 
   export function renderPins(facilityList: Facility[]) {
@@ -51,7 +47,7 @@
         radius: 9, fillColor, color: '#fff', weight: 2, fillOpacity: 0.9,
       })
       marker.bindTooltip(f.name, { permanent: false, direction: 'top' })
-      marker.on('click', () => dispatch('select', f))
+      marker.on('click', () => onselect?.(f))
       pinsLayer.addLayer(marker)
     }
   }
@@ -66,8 +62,5 @@
 <div bind:this={mapEl} class="map-root"></div>
 
 <style>
-  .map-root {
-    height: 100%;
-    width: 100%;
-  }
+  .map-root { height: 100%; width: 100%; }
 </style>

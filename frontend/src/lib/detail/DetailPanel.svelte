@@ -1,25 +1,24 @@
-<!-- frontend/src/lib/detail/DetailPanel.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
   import type { Facility } from '$lib/types'
   import FCFSBadge from './FCFSBadge.svelte'
   import AmenityGrid from './AmenityGrid.svelte'
   import AlertsSection from './AlertsSection.svelte'
   import DataQualityWarning from './DataQualityWarning.svelte'
 
-  export let facility: Facility
-  const dispatch = createEventDispatcher()
+  let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
-  $: nearbyMapsUrl = `https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`
-  $: reserveUrl    = `https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`
-  $: feeStr = facility.fee_min == null ? 'Fee unknown'
-            : facility.fee_min === 0   ? 'Free'
-            : facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
-            : `$${facility.fee_min}–$${facility.fee_max}/night`
+  let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
+  let reserveUrl    = $derived(`https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`)
+  let feeStr = $derived(
+    facility.fee_min == null ? 'Fee unknown'
+    : facility.fee_min === 0   ? 'Free'
+    : facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
+    : `$${facility.fee_min}–$${facility.fee_max}/night`
+  )
 </script>
 
 <aside class="panel">
-  <button class="close-btn" on:click={() => dispatch('close')} aria-label="Close">✕</button>
+  <button class="close-btn" onclick={() => onclose?.()} aria-label="Close">✕</button>
 
   <div class="panel-content">
     <header>
@@ -59,11 +58,9 @@
     top: 0; right: 0; bottom: 0;
     width: min(420px, 100vw);
   }
-
   @media (max-width: 640px) {
     .panel { top: 40%; left: 0; right: 0; bottom: 0; width: 100%; border-radius: 16px 16px 0 0; }
   }
-
   .close-btn {
     position: sticky; top: 0; float: right;
     background: none; border: none; font-size: 1.2rem; cursor: pointer;

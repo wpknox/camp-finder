@@ -1,13 +1,14 @@
-<!-- frontend/src/lib/detail/AlertsSection.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte'
 
-  export let facilityId: string
+  let { facilityId }: { facilityId: string } = $props()
 
-  let loading = true
-  let content: string | null = null
-  let scraped_at: string | null = null
-  let error = false
+  let loading = $state(true)
+  let content: string | null = $state(null)
+  let scraped_at: string | null = $state(null)
+  let error = $state(false)
+
+  let dateStr = $derived(scraped_at ? new Date(scraped_at).toLocaleDateString() : '')
 
   onMount(async () => {
     try {
@@ -21,8 +22,6 @@
       loading = false
     }
   })
-
-  $: dateStr = scraped_at ? new Date(scraped_at).toLocaleDateString() : ''
 </script>
 
 <section class="alerts">

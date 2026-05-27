@@ -1,4 +1,3 @@
-<!-- frontend/src/lib/filters/FilterSidebar.svelte -->
 <script lang="ts">
   import { filters } from './filterStore'
 </script>
@@ -16,7 +15,7 @@
     <label>Max fee/night</label>
     <input type="number" min="0" step="5" placeholder="Any"
       value={$filters.maxFee ?? ''}
-      on:input={e => filters.update(f => ({ ...f, maxFee: e.currentTarget.value ? +e.currentTarget.value : null }))} />
+      oninput={(e) => filters.update(f => ({ ...f, maxFee: e.currentTarget.value ? +e.currentTarget.value : null }))} />
   </div>
 
   <div class="field">
@@ -35,7 +34,6 @@
   label { display: flex; align-items: center; gap: .5rem; font-size: .875rem; cursor: pointer; }
   .field { display: flex; flex-direction: column; gap: .25rem; font-size: .875rem; }
   input[type=number], select { border: 1px solid #d1d5db; border-radius: 6px; padding: .35rem .5rem; font-size: .875rem; }
-
   @media (max-width: 640px) {
     .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; flex-direction: row; flex-wrap: wrap; }
   }

@@ -1,7 +1,5 @@
-<!-- frontend/src/lib/detail/DataQualityWarning.svelte -->
 <script lang="ts">
-  export let quality: 'sparse' | 'unknown'
-  export let fsUrl: string
+  let { quality, fsUrl }: { quality: 'sparse' | 'unknown'; fsUrl: string } = $props()
 </script>
 
 <div class="warning">

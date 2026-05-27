@@ -1,9 +1,8 @@
-<!-- frontend/src/lib/detail/AmenityGrid.svelte -->
 <script lang="ts">
   import type { Amenities } from '$lib/types'
-  export let amenities: Amenities
+  let { amenities }: { amenities: Amenities } = $props()
 
-  $: items = [
+  let items = $derived([
     { icon: '💧', label: 'Potable Water',  show: amenities.potableWater },
     { icon: amenities.toiletType === 'flush' ? '🚽' : '🪣',
       label: amenities.toiletType === 'flush' ? 'Flush Toilet'
@@ -18,7 +17,7 @@
     { icon: '🔥', label: 'Fire Rings',     show: amenities.fireRings },
     { icon: '🪑', label: 'Picnic Tables',  show: amenities.picnicTables },
     { icon: '♿', label: 'Accessible',     show: amenities.accessible },
-  ].filter(i => i.show && i.label)
+  ].filter(i => i.show && i.label))
 </script>
 
 {#if items.length > 0}

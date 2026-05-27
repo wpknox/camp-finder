@@ -1,4 +1,3 @@
-<!-- frontend/src/routes/+page.svelte -->
 <script lang="ts">
   import CampMap from '$lib/map/CampMap.svelte'
   import DetailPanel from '$lib/detail/DetailPanel.svelte'
@@ -7,10 +6,14 @@
   import { filteredFacilities } from '$lib/filters/filterStore'
   import type { Facility } from '$lib/types'
 
-  let campMap: CampMap
+  let campMap: CampMap = $state(null!)
+
+  $effect(() => {
+    if (campMap) campMap.renderPins($filteredFacilities)
+  })
 
   async function searchArea() {
-    const bounds = campMap.getMapBounds()
+    const bounds = campMap?.getMapBounds()
     if (!bounds) return
 
     isLoading.set(true)
@@ -28,22 +31,16 @@
     campMap.renderPins(data)
     isLoading.set(false)
   }
-
-  function handleSelect(e: CustomEvent<Facility>) {
-    selectedFacility.set(e.detail)
-  }
-
-  $: if (campMap) campMap.renderPins($filteredFacilities)
 </script>
 
 <FilterSidebar />
 
 <div class="map-wrap">
-  <CampMap bind:this={campMap} on:select={handleSelect} />
+  <CampMap bind:this={campMap} onselect={(f) => selectedFacility.set(f)} />
 
   <div class="search-bar">
     {#if $searchPending}
-      <button class="search-btn" on:click={searchArea} disabled={$isLoading}>
+      <button class="search-btn" onclick={searchArea} disabled={$isLoading}>
         {$isLoading ? 'Searching…' : 'Search this area'}
       </button>
     {/if}
@@ -57,7 +54,7 @@
 </div>
 
 {#if $selectedFacility}
-  <DetailPanel facility={$selectedFacility} on:close={() => selectedFacility.set(null)} />
+  <DetailPanel facility={$selectedFacility} onclose={() => selectedFacility.set(null)} />
 {/if}
 
 <style>
