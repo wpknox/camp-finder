@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { parseFsPageFees } from '../src/fsScraper.js'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { parseFsPageFees, scrapeFsPage } from '../src/fsScraper.js'
 
 describe('parseFsPageFees', () => {
-  it('extracts fee from a table cell near "fee" heading', () => {
+  it('extracts fee when "per night" and dollar amount appear in same text block', () => {
     const html = `
       <html><body>
         <h2>Fees &amp; Reservations</h2>
@@ -49,5 +49,27 @@ describe('parseFsPageFees', () => {
       </body></html>
     `
     expect(parseFsPageFees(html)).toEqual({ fee_min: 0, fee_max: 0 })
+  })
+})
+
+describe('scrapeFsPage', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('returns parsed fees on successful fetch', async () => {
+    vi.stubGlobal('fetch', async () => ({
+      ok: true,
+      text: async () => '<html><body><p>Camping fee is $25 per night.</p></body></html>',
+    }))
+    expect(await scrapeFsPage('https://www.fs.usda.gov/fake')).toEqual({ fee_min: 25, fee_max: 25 })
+  })
+
+  it('returns nulls on non-OK response', async () => {
+    vi.stubGlobal('fetch', async () => ({ ok: false, status: 404 }))
+    expect(await scrapeFsPage('https://www.fs.usda.gov/fake')).toEqual({ fee_min: null, fee_max: null })
+  })
+
+  it('returns nulls on network error', async () => {
+    vi.stubGlobal('fetch', async () => { throw new Error('network error') })
+    expect(await scrapeFsPage('https://www.fs.usda.gov/fake')).toEqual({ fee_min: null, fee_max: null })
   })
 })

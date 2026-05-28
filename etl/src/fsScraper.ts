@@ -18,7 +18,7 @@ export function parseFsPageFees(html: string): ScrapedFsData {
   }
 
   const feeContext = /fee|per night|camping cost|nightly rate/
-  const sentences = text.split(/[.!?\n]/)
+  const sentences = text.split(/[.!?]/)
   const dollars: number[] = []
 
   for (const sentence of sentences) {
@@ -37,9 +37,13 @@ export async function scrapeFsPage(url: string): Promise<ScrapedFsData> {
       headers: { 'User-Agent': 'CampFinder/1.0 (campground info aggregator)' },
       signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) return { fee_min: null, fee_max: null }
+    if (!res.ok) {
+      console.warn(`fsScraper: ${res.status} fetching ${url}`)
+      return { fee_min: null, fee_max: null }
+    }
     return parseFsPageFees(await res.text())
-  } catch {
+  } catch (e) {
+    console.warn(`fsScraper: failed to fetch ${url}: ${e}`)
     return { fee_min: null, fee_max: null }
   }
 }
