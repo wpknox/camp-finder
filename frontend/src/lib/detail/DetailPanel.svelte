@@ -13,10 +13,10 @@
   let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
   let reserveUrl    = $derived(`https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`)
   let feeStr = $derived(
-    facility.fee_min == null ? 'Fee unknown'
-    : facility.fee_min === 0   ? 'Free'
-    : facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
-    : `$${facility.fee_min}–$${facility.fee_max}/night`
+    facility.fee_min === 0   ? 'Free'
+    : facility.fee_min != null && facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
+    : facility.fee_min != null ? `$${facility.fee_min}–$${facility.fee_max}/night`
+    : null
   )
   let isComparing = $derived($compareIds.includes(facility.id))
 </script>
@@ -28,7 +28,16 @@
     <header>
       <h2>{facility.name}</h2>
       <p class="meta">{facility.forest}{facility.district ? ` · ${facility.district}` : ''}</p>
-      <p class="fee">{feeStr}</p>
+      {#if feeStr}
+        <p class="fee">{feeStr}</p>
+      {:else}
+        <p class="fee fee-unknown">
+          Fee unknown —
+          <a href="https://www.recreation.gov/camping/campgrounds/{facility.ridb_id}" target="_blank" rel="noopener">
+            check recreation.gov
+          </a>
+        </p>
+      {/if}
       <SaveButton facilityId={facility.id} />
     </header>
 
@@ -94,6 +103,8 @@
   h2 { margin: 0 0 .25rem; font-size: 1.2rem; }
   .meta { margin: 0; color: #666; font-size: .9rem; }
   .fee { margin: .5rem 0 0; font-weight: 600; }
+  .fee-unknown { color: #6b7280; }
+  .fee-unknown a { color: #6b7280; text-decoration: underline; }
   .description { font-size: .85rem; color: #374151; line-height: 1.55; margin: .75rem 0; }
   .description :global(h2) { font-size: .95rem; margin: .75rem 0 .25rem; }
   .description :global(p)  { margin: 0 0 .5rem; }
