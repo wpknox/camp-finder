@@ -3,8 +3,11 @@ import 'dotenv/config'
 import { RidbClient } from './ridb.js'
 import { TbClient } from './teenybase.js'
 import { CO_QUERY_PARAMS, parentOrgToAgency } from './forests.js'
-import { normalizeAmenities, parseDescriptionAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl } from './normalize.js'
+import { normalizeAmenities, parseDescriptionAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFeesFromDescription, extractFsUrl } from './normalize.js'
+import { scrapeFsPage } from './fsScraper.js'
 import type { NormalizedFacility, RidbAttribute } from './types.js'
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 const RIDB_API_KEY  = process.env.RIDB_API_KEY!
 const TB_API_URL    = process.env.TB_API_URL ?? 'http://localhost:8787'
@@ -48,7 +51,18 @@ async function main() {
       ...parseDescriptionAmenities(detail.FacilityDescription ?? ''),
     }
     const fcfs      = aggregateFcfs(campsites)
-    const fees      = extractFees(f.FacilityUseFeeDescription)
+    let fees = extractFees(f.FacilityUseFeeDescription)
+
+    if (fees.fee_min === null) {
+      fees = extractFeesFromDescription(detail.FacilityDescription ?? '')
+    }
+
+    const fsUrl = extractFsUrl(detail.LINK ?? [])
+
+    if (fees.fee_min === null && fsUrl) {
+      fees = await scrapeFsPage(fsUrl)
+      await sleep(300)
+    }
 
     normalized.push({
       ridb_id: f.FacilityID,
@@ -65,7 +79,7 @@ async function main() {
       ...fcfs,
       amenities: JSON.stringify(amenities) as any,
       ridb_data_quality: scoreDataQuality(amenities),
-      fs_url: extractFsUrl(detail.LINK ?? []),
+      fs_url: fsUrl,
       last_synced: new Date().toISOString(),
     })
   }
