@@ -5,8 +5,7 @@ type Env = $Env & {Bindings: CloudflareBindings}
 
 const app = teenyHono<Env>(async (c) => {
     const db = new $Database(c, config, new D1Adapter(c.env.PRIMARY_DB))
-    db.extensions.push(new OpenApiExtension(db, true))
-    db.extensions.push(new PocketUIExtension(db))
+    db.extensions.push(new OpenApiExtension(db, true), new PocketUIExtension(db))
     return db
 })
 
