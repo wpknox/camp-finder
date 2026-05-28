@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl } from '../src/normalize.js'
+import { normalizeAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFeesFromDescription, extractFsUrl } from '../src/normalize.js'
 import type { RidbAttribute, RidbCampsite } from '../src/types.js'
 
 function attrs(pairs: [string, string][]): RidbAttribute[] {
@@ -113,5 +113,36 @@ describe('extractFsUrl', () => {
 
   it('returns empty string when no fs.usda.gov link', () => {
     expect(extractFsUrl([])).toBe('')
+  })
+})
+
+describe('extractFeesFromDescription', () => {
+  it('extracts fee from a sentence with "per night"', () => {
+    expect(extractFeesFromDescription('<p>The camping fee is $20 per night.</p>'))
+      .toEqual({ fee_min: 20, fee_max: 20 })
+  })
+
+  it('extracts fee range from description', () => {
+    expect(extractFeesFromDescription('<p>Fees range from $18 to $24 per night.</p>'))
+      .toEqual({ fee_min: 18, fee_max: 24 })
+  })
+
+  it('returns free when description mentions "no fee"', () => {
+    expect(extractFeesFromDescription('<p>There is no fee to camp here.</p>'))
+      .toEqual({ fee_min: 0, fee_max: 0 })
+  })
+
+  it('returns null when no fee context found', () => {
+    expect(extractFeesFromDescription('<p>Beautiful campground near the river.</p>'))
+      .toEqual({ fee_min: null, fee_max: null })
+  })
+
+  it('returns null for empty description', () => {
+    expect(extractFeesFromDescription('')).toEqual({ fee_min: null, fee_max: null })
+  })
+
+  it('ignores dollar amounts with no fee context', () => {
+    expect(extractFeesFromDescription('<p>Over $1 million in improvements were made.</p>'))
+      .toEqual({ fee_min: null, fee_max: null })
   })
 })

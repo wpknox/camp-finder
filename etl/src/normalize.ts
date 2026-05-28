@@ -111,6 +111,31 @@ export function extractFees(feeDescription: string): { fee_min: number | null; f
   return { fee_min: Math.min(...dollars), fee_max: Math.max(...dollars) }
 }
 
+export function extractFeesFromDescription(description: string): { fee_min: number | null; fee_max: number | null } {
+  if (!description) return { fee_min: null, fee_max: null }
+
+  const text = stripHtml(description)
+
+  // "no fee" / "free" — check before dollar extraction
+  if (/no fee|free of charge|no charge/i.test(text)) return { fee_min: 0, fee_max: 0 }
+
+  // Fee-context keywords that must appear near a dollar amount
+  const feeContext = /fee|per night|camping cost|nightly rate/i
+
+  // Split into sentences and find ones with both a dollar amount and fee context
+  const sentences = text.split(/[.!?]/)
+  const dollars: number[] = []
+
+  for (const sentence of sentences) {
+    if (!feeContext.test(sentence)) continue
+    const matches = [...sentence.matchAll(/\$(\d+(?:\.\d+)?)/g)]
+    for (const m of matches) dollars.push(parseFloat(m[1]))
+  }
+
+  if (dollars.length === 0) return { fee_min: null, fee_max: null }
+  return { fee_min: Math.min(...dollars), fee_max: Math.max(...dollars) }
+}
+
 export function extractFsUrl(links: Array<{ LinkURL: string }>): string {
   return links.find(l => l.LinkURL?.includes('fs.usda.gov'))?.LinkURL ?? ''
 }
