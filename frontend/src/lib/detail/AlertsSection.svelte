@@ -1,27 +1,29 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount } from "svelte";
 
-  let { facilityId }: { facilityId: string } = $props()
+  let { facilityId }: { facilityId: string } = $props();
 
-  let loading = $state(true)
-  let content: string | null = $state(null)
-  let scraped_at: string | null = $state(null)
-  let error = $state(false)
+  let loading = $state(true);
+  let content: string | null = $state(null);
+  let scraped_at: string | null = $state(null);
+  let error = $state(false);
 
-  let dateStr = $derived(scraped_at ? new Date(scraped_at).toLocaleDateString() : '')
+  let dateStr = $derived(
+    scraped_at ? new Date(scraped_at).toLocaleDateString() : "",
+  );
 
   onMount(async () => {
     try {
-      const res = await fetch(`/api/alerts/${facilityId}`)
-      const data = await res.json()
-      content = data.content
-      scraped_at = data.scraped_at
+      const res = await fetch(`/api/alerts/${facilityId}`);
+      const data = await res.json();
+      content = data.content;
+      scraped_at = data.scraped_at;
     } catch {
-      error = true
+      error = true;
     } finally {
-      loading = false
+      loading = false;
     }
-  })
+  });
 </script>
 
 <section class="alerts">
@@ -30,7 +32,9 @@
   {#if loading}
     <p class="status">Checking for alerts…</p>
   {:else if error}
-    <p class="status error">Could not load alerts. Check the official page for current conditions.</p>
+    <p class="status error">
+      Could not load alerts. Check the official page for current conditions.
+    </p>
   {:else if content}
     <div class="content">{content}</div>
     <p class="timestamp">Last checked: {dateStr}</p>
@@ -40,10 +44,31 @@
 </section>
 
 <style>
-  .alerts { margin: 1rem 0; }
-  h3 { font-size: .95rem; margin: 0 0 .5rem; }
-  .status { color: #666; font-size: .85rem; }
-  .error { color: #dc2626; }
-  .content { background: #fef2f2; border-left: 3px solid #ef4444; padding: .6rem .85rem; border-radius: 0 8px 8px 0; font-size: .85rem; white-space: pre-wrap; }
-  .timestamp { color: #999; font-size: .75rem; margin: .25rem 0 0; }
+  .alerts {
+    margin: 1rem 0;
+  }
+  h3 {
+    font-size: 0.95rem;
+    margin: 0 0 0.5rem;
+  }
+  .status {
+    color: #666;
+    font-size: 0.85rem;
+  }
+  .error {
+    color: #dc2626;
+  }
+  .content {
+    background: #fef2f2;
+    border-left: 3px solid #ef4444;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+  }
+  .timestamp {
+    color: #999;
+    font-size: 0.75rem;
+    margin: 0.25rem 0 0;
+  }
 </style>

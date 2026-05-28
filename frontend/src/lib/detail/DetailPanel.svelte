@@ -102,7 +102,7 @@
   .panel-content { padding: 1rem 1.25rem 2rem; }
   h2 { margin: 0 0 .25rem; font-size: 1.2rem; }
   .meta { margin: 0; color: #666; font-size: .9rem; }
-  .fee { margin: .5rem 0 0; font-weight: 600; }
+  .fee { margin: .5rem 0 .5rem; font-weight: 600; }
   .fee-unknown { color: #6b7280; }
   .fee-unknown a { color: #6b7280; text-decoration: underline; }
   .description { font-size: .85rem; color: #374151; line-height: 1.55; margin: .75rem 0; }
