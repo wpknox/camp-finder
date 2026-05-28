@@ -33,7 +33,7 @@
       {:else}
         <p class="fee fee-unknown">
           Fee unknown —
-          <a href="https://www.recreation.gov/camping/campgrounds/{facility.ridb_id}" target="_blank" rel="noopener">
+          <a href={reserveUrl} target="_blank" rel="noopener">
             check recreation.gov
           </a>
         </p>
