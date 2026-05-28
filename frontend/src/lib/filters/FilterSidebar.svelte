@@ -12,15 +12,15 @@
   <label><input type="checkbox" bind:checked={$filters.petsAllowed}> Pets Allowed</label>
 
   <div class="field">
-    <label>Max fee/night</label>
-    <input type="number" min="0" step="5" placeholder="Any"
+    <label for="filter-max-fee">Max fee/night</label>
+    <input id="filter-max-fee" type="number" min="0" step="5" placeholder="Any"
       value={$filters.maxFee ?? ''}
       oninput={(e) => filters.update(f => ({ ...f, maxFee: e.currentTarget.value ? +e.currentTarget.value : null }))} />
   </div>
 
   <div class="field">
-    <label>Sort by</label>
-    <select bind:value={$filters.sortBy}>
+    <label for="filter-sort-by">Sort by</label>
+    <select id="filter-sort-by" bind:value={$filters.sortBy}>
       <option value="name">Name</option>
       <option value="fee">Fee (low to high)</option>
       <option value="fcfs_count">FCFS sites (most first)</option>
