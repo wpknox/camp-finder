@@ -53,7 +53,7 @@ describe('parseFsPageFees', () => {
 })
 
 describe('scrapeFsPage', () => {
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => { vi.restoreAllMocks() })
 
   it('returns parsed fees on successful fetch', async () => {
     vi.stubGlobal('fetch', async () => ({

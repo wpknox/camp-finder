@@ -5,7 +5,7 @@ import { TbClient } from './teenybase.js'
 import { CO_QUERY_PARAMS, parentOrgToAgency } from './forests.js'
 import { normalizeAmenities, parseDescriptionAmenities, aggregateFcfs, scoreDataQuality, extractFees, extractFeesFromDescription, extractFsUrl } from './normalize.js'
 import { scrapeFsPage } from './fsScraper.js'
-import type { NormalizedFacility, RidbAttribute } from './types.js'
+import type { NormalizedFacility, RidbAttribute, RidbCampsite } from './types.js'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -33,7 +33,7 @@ async function main() {
     process.stdout.write(`\rProcessing ${i + 1}/${allFacilities.length}: ${f.FacilityName.slice(0, 40).padEnd(40)}`)
 
     let detail = f
-    let campsites = []
+    let campsites: RidbCampsite[] = []
     try {
       ;[detail, campsites] = await Promise.all([
         ridb.getFacilityDetail(f.FacilityID),
