@@ -117,10 +117,10 @@ export function extractFeesFromDescription(description: string): { fee_min: numb
   const text = stripHtml(description)
 
   // "no fee" / "free" — check before dollar extraction
-  if (/no fee|free of charge|no charge/i.test(text)) return { fee_min: 0, fee_max: 0 }
+  if (/no fee|free of charge|no charge|\bfree\b.*(?:camp|site)|(?:camp|site).*\bfree\b/.test(text)) return { fee_min: 0, fee_max: 0 }
 
   // Fee-context keywords that must appear near a dollar amount
-  const feeContext = /fee|per night|camping cost|nightly rate/i
+  const feeContext = /fee|per night|camping cost|nightly rate/
 
   // Split into sentences and find ones with both a dollar amount and fee context
   const sentences = text.split(/[.!?]/)

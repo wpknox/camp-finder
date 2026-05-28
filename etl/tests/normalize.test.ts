@@ -132,6 +132,11 @@ describe('extractFeesFromDescription', () => {
       .toEqual({ fee_min: 0, fee_max: 0 })
   })
 
+  it('returns free when description says camping is free', () => {
+    expect(extractFeesFromDescription('<p>Camping is free at this campsite.</p>'))
+      .toEqual({ fee_min: 0, fee_max: 0 })
+  })
+
   it('returns null when no fee context found', () => {
     expect(extractFeesFromDescription('<p>Beautiful campground near the river.</p>'))
       .toEqual({ fee_min: null, fee_max: null })
