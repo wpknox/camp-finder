@@ -43,7 +43,7 @@ export function parseDescriptionAmenities(
 
   return {
     ...(potableWater ? { potableWater } : {}),
-    ...(toiletType !== undefined ? { toiletType } : {}),
+    ...(toiletType === undefined ? {} : { toiletType }),
     ...(bearBoxes ? { bearBoxes } : {}),
   };
 }
