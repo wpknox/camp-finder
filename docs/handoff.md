@@ -9,7 +9,7 @@ CampFinder is a map-first PWA for discovering Colorado campgrounds. Built on:
 
 ## Current status: Local testing in progress, core features working
 
-270 Colorado campgrounds seeded. Map, search, detail panel, filters, compare, auth, save, and ratings are all wired up. UI/UX needs a polish pass before deployment.
+270 Colorado campgrounds seeded. Map, search, detail panel, filters, compare, auth, save, and ratings are all wired up. Fee enrichment ETL implemented. fs.usda.gov FCFS discovery plan written and ready to execute. UI/UX needs a polish pass before deployment.
 
 ---
 
@@ -110,6 +110,19 @@ The ETL now does per-facility API calls to get full data:
 2. For each facility in parallel: `GET /facilities/{id}` (description, links) + `GET /facilities/{id}/campsites` (FCFS counts, campsite attributes)
 3. Amenities normalized from campsite `ATTRIBUTES` first, then gaps filled from `FacilityDescription` text parsing
 4. `ParentOrgID` mapped to human-readable agency name stored in `forest` field
+5. **Fee enrichment (three-tier fallback):**
+   - Tier 1: `FacilityUseFeeDescription` from RIDB (usually empty for CO)
+   - Tier 2: Parse `FacilityDescription` text for dollar amounts in fee-context sentences (`extractFeesFromDescription`)
+   - Tier 3: If facility has an `fs_url`, scrape that page and extract fees (`scrapeFsPage` → `parseFsPageFees`)
+   - 1-second sleep between scrape requests to be polite
+
+### `etl/src/fsScraper.ts` (new)
+- `parseFsPageFees(html)` — pure function, strips nav/header/footer chrome, finds fee table or inline dollar amounts
+- `scrapeFsPage(url)` — fetches + parses, `console.warn` on errors
+- Functions for FCFS discovery (Tasks 1–3 of plan, not yet implemented):
+  - `scrapeForestCampgroundUrls(html)` — extracts campground links from listing pages
+  - `isRidbCampground(html)` — detects recreation.gov iframe
+  - `scrapeCampgroundPage(html, url)` — returns `ScrapedCampground | null`
 
 ---
 
@@ -124,13 +137,17 @@ camp-finder/
 
   etl/
     src/
-      index.ts            # Orchestrator — fetches RIDB, normalizes, writes to TB
+      index.ts            # Orchestrator — fetches RIDB, normalizes, writes to TB; three-tier fee fallback
       ridb.ts             # RidbClient — getAllFacilities, getFacilityDetail, getCampsites
       teenybase.ts        # TbClient — upsertFacility (insert or edit by ridb_id)
       normalize.ts        # normalizeAmenities (campsite attrs), parseDescriptionAmenities,
-                          #   aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl
+                          #   aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl,
+                          #   extractFeesFromDescription (new — text scan for fee amounts)
+      fsScraper.ts        # parseFsPageFees, scrapeFsPage; stubs for discovery fns
       forests.ts          # CO_QUERY_PARAMS, parentOrgToAgency (ParentOrgID → agency name)
       types.ts            # RidbFacility, RidbCampsite, NormalizedFacility, Amenities, etc.
+    tests/
+      fsScraper.test.ts   # 8 tests for parseFsPageFees + scrapeFsPage
 
   frontend/
     src/
@@ -181,19 +198,32 @@ camp-finder/
 | Search button did nothing | **Fixed** — Teenybase rejects compound WHERE; now fetches all + filters in server route |
 | ETL only seeding 21 campgrounds | **Fixed** — removed National Forest name filter; now seeds all 270 CO campgrounds |
 | All amenities false/empty | **Fixed** — ETL now fetches per-facility detail + campsite ATTRIBUTES; description parsing fills water/toilet/bear box gaps |
+| Fee data missing for most campgrounds | **Improved** — three-tier ETL fallback added; many still unknown (no `fs_url` in RIDB for CO) |
+| ETL tsconfig TS6059 errors (`rootDir` conflict) | **Fixed** — removed `outDir`/`rootDir`, added `noEmit: true`, `skipLibCheck: true` |
+| `normalizeAmenities` called with possibly-undefined | **Fixed** — removed optional param; all callers always pass arrays |
+| `lacks` function in normalize.ts was identical to `has` | **Fixed** — removed `lacks`, replaced all usages with `!has(...)` |
+| `backend/teenybase.ts` cast errors hiding missing fields | **Fixed** — replaced `as TableAuthExtensionData/TableRulesExtensionData` with `satisfies`; revealed and fixed missing `passwordType: "sha256"` and `listRule: "false"` on users table |
+| Missing `@types/node` in frontend | **Fixed** — added to devDependencies |
+| FilterSidebar missing label `for`/`id` associations | **Fixed** — added to fee and sort-by controls |
+| AuthModal accessibility | **Fixed** — `role="dialog"`, `aria-modal`, `aria-label`, Escape key handler, `role="presentation"` on overlay |
+| Detail panel fee-unknown UX | **Improved** — shows "Fee unknown — check recreation.gov" link (uses `reserveUrl` derived var) with bottom margin above Save button |
 
 ---
 
 ## What's next
 
 ### High priority
-1. **Execute search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`):
+1. **Execute fs.usda.gov FCFS discovery plan** (`docs/superpowers/plans/2026-05-27-fs-campground-discovery.md`):
+   - **STATUS: Plan written, not yet started.** User will review/edit plan before executing.
+   - Scrapes 7 CO forest listing pages, discovers campgrounds not in RIDB, upserts with synthetic `ridb_id = "fs-[forest-slug]-[campground-slug]"`
+   - Covers: `arp`, `psicc`, `riogrande`, `sanjuan`, `gmug`, `whiteriver`, `mbrtb`
+   - Task 1–3: TDD for scraper fns in `fsScraper.ts`. Task 4: `discover.ts` orchestrator + `pnpm discover` script. Task 5: smoke test.
+
+2. **Execute search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`):
    - Move "Search this area" button into sidebar with staleness hint
    - Show dashed viewport bbox overlay on map when search is pending
 
-2. **Fee data** — `FacilityUseFeeDescription` in RIDB is almost always empty for CO campgrounds. Fees are available on recreation.gov and fs.usda.gov but require scraping. This is a visible gap — most campgrounds show "Fee unknown."
-
-3. **fs.usda.gov scraping** — Many CO campgrounds (especially walk-in/FCFS-only sites) are not in RIDB at all. To surface these, we'd need to scrape the Forest Service website. This is a significant effort but would greatly expand coverage.
+3. **Fee data** — Three-tier ETL fallback now implemented. Many campgrounds still show "Fee unknown" because they lack an `fs_url` (no FS link in RIDB for CO). The FCFS discovery work in item 1 will populate `fs_url` for newly discovered campgrounds, which will feed back into fee enrichment on next sync.
 
 ### Medium priority
 4. **Auth UI** — `AuthModal.svelte` exists but a proper `/login` or `/account` page would make auth feel complete, especially as a prerequisite for ratings/reviews.
