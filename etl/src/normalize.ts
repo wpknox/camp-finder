@@ -22,11 +22,10 @@ export function parseDescriptionAmenities(
 ): Partial<Amenities> {
   const text = stripHtml(description);
   const has = (...terms: string[]) => terms.some((t) => text.includes(t));
-  const lacks = (...terms: string[]) => terms.some((t) => text.includes(t));
 
   const potableWater =
     has("drinking water", "potable water") &&
-    !lacks("no drinking water", "no potable water", "non-potable");
+    !has("no drinking water", "no potable water", "non-potable");
 
   let toiletType: ToiletType | undefined;
   if (has("flush toilet", "flush restroom")) toiletType = "flush";
@@ -92,7 +91,7 @@ export function normalizeAmenities(attributes: RidbAttribute[]): Amenities {
   return {
     potableWater:
       bool(get(["drinking water", "potable water", "water available"])) &&
-      !get(["no drinking water", "no water"]),
+      get(["no drinking water", "no water"]) === null,
     toiletType,
     bearBoxes: bool(get(["bear box", "bear locker", "food storage locker"])),
     driveUp,
