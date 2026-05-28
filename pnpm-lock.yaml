@@ -30,6 +30,9 @@ importers:
       dotenv:
         specifier: ^16.0.0
         version: 16.0.0
+      node-html-parser:
+        specifier: ^7.1.0
+        version: 7.1.0
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
