@@ -135,6 +135,7 @@ async function main() {
         amenities: JSON.stringify(amenities) as any,
         ridb_data_quality: scoreDataQuality(amenities),
         fs_url: campground.fs_url,
+        is_closed: campground.is_closed,
         last_synced: new Date().toISOString(),
       });
 

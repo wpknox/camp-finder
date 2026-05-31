@@ -8,6 +8,7 @@ export interface ScrapedCampground {
   fee_min: number | null;
   fee_max: number | null;
   fcfs_total: number;
+  is_closed: boolean;
   fs_url: string;
 }
 
@@ -105,6 +106,8 @@ export function scrapeCampgroundPage(
   const fcfsMatch = new RegExp(/(\d+)\s+first[- ]come/i).exec(description);
   const fcfs_total = fcfsMatch ? Number.parseInt(fcfsMatch[1], 10) : 0;
 
+  const is_closed = /<h2[^>]*>[^<]*closed[^<]*<\/h2>/i.test(html);
+
   return {
     name,
     lat,
@@ -113,6 +116,7 @@ export function scrapeCampgroundPage(
     fee_min: fees.fee_min,
     fee_max: fees.fee_max,
     fcfs_total,
+    is_closed,
     fs_url: url,
   };
 }

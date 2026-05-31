@@ -151,3 +151,26 @@ describe('extractFeesFromDescription', () => {
       .toEqual({ fee_min: null, fee_max: null })
   })
 })
+
+import { parseDescriptionAmenities } from '../src/normalize.js'
+
+describe('parseDescriptionAmenities', () => {
+  it('detects picnic tables', () => {
+    expect(parseDescriptionAmenities('Picnic tables are available at this site.').picnicTables).toBe(true)
+    expect(parseDescriptionAmenities('No picnic tables provided.').picnicTables).toBeUndefined()
+  })
+
+  it('detects pets allowed from leash language', () => {
+    expect(parseDescriptionAmenities('Dogs must be leashed or otherwise physically restrained.').petsAllowed).toBe(true)
+    expect(parseDescriptionAmenities('Pets allowed. Dogs on leash required.').petsAllowed).toBe(true)
+  })
+
+  it('does not set petsAllowed when pets are prohibited', () => {
+    expect(parseDescriptionAmenities('No pets allowed at this campground.').petsAllowed).toBeUndefined()
+  })
+
+  it('detects potable water from well/pump language', () => {
+    expect(parseDescriptionAmenities('A hand pump provides water at the site.').potableWater).toBe(true)
+    expect(parseDescriptionAmenities('Potable water is available at this site.').potableWater).toBe(true)
+  })
+})

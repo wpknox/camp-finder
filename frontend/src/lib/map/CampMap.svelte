@@ -39,7 +39,8 @@
     pinsLayer.clearLayers()
 
     for (const f of facilityList) {
-      const fillColor = f.is_fully_fcfs ? '#22c55e'
+      const fillColor = f.is_closed     ? '#ef4444'
+                      : f.is_fully_fcfs ? '#22c55e'
                       : f.is_partial_fcfs ? '#eab308'
                       : '#3b82f6'
 

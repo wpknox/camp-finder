@@ -37,6 +37,7 @@ export interface Facility {
   amenities: Amenities
   ridb_data_quality: DataQuality
   fs_url: string
+  is_closed: boolean
 }
 
 export interface Alert {

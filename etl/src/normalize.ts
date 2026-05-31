@@ -41,10 +41,20 @@ export function parseDescriptionAmenities(
     "food storage box",
   );
 
+  const picnicTables = has("picnic table") && !has("no picnic table");
+
+  const petsAllowed =
+    (has("pets allowed", "dogs allowed", "pets are permitted", "dogs permitted",
+         "leash required", "dogs must be leashed", "dogs on leash", "pets on leash",
+         "do not leave pets") &&
+     !has("no pets", "pets not allowed", "pets prohibited")) || undefined;
+
   return {
     ...(potableWater ? { potableWater } : {}),
     ...(toiletType === undefined ? {} : { toiletType }),
     ...(bearBoxes ? { bearBoxes } : {}),
+    ...(picnicTables ? { picnicTables } : {}),
+    ...(petsAllowed ? { petsAllowed } : {}),
   };
 }
 

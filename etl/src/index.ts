@@ -96,6 +96,7 @@ async function main() {
       amenities: JSON.stringify(amenities) as any,
       ridb_data_quality: scoreDataQuality(amenities),
       fs_url: fsUrl,
+      is_closed: false,
       last_synced: new Date().toISOString(),
     });
   }

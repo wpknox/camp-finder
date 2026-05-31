@@ -24,6 +24,13 @@
 <aside class="panel">
   <button class="close-btn" onclick={() => onclose?.()} aria-label="Close">✕</button>
 
+  {#if facility.is_closed}
+    <div class="closed-banner">
+      <span class="closed-icon">⚠</span>
+      <span>This campground is currently <strong>CLOSED</strong></span>
+    </div>
+  {/if}
+
   <div class="panel-content">
     <header>
       <h2>{facility.name}</h2>
@@ -112,4 +119,18 @@
   .links a { color: #16a34a; }
   .compare-btn { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; padding: .4rem .85rem; cursor: pointer; font-size: .85rem; }
   .compare-link { display: block; color: #16a34a; font-size: .875rem; margin: .5rem 0; }
+  .closed-banner {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #dc2626;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem 1.25rem;
+    font-size: .95rem;
+    font-weight: 500;
+  }
+  .closed-icon { font-size: 1.1rem; }
 </style>

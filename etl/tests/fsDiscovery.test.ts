@@ -91,6 +91,7 @@ describe('scrapeCampgroundPage', () => {
       fee_min: 21,
       fee_max: 21,
       fcfs_total: 6,
+      is_closed: false,
       fs_url: fcfsUrl,
     })
   })
@@ -156,6 +157,29 @@ describe('scrapeCampgroundPage', () => {
     const result = scrapeCampgroundPage(h3FeeHtml, 'https://www.fs.usda.gov/r02/sanjuan/recreation/lower-piedra-campground')
     expect(result?.fee_min).toBe(28)
     expect(result?.fee_max).toBe(28)
+  })
+
+  it('detects a closed campground from h2 Site Closed heading', () => {
+    const closedHtml = `
+      <html>
+      <head>
+        <title>San Juan National Forest | Lower Piedra Campground | Forest Service</title>
+        <meta name="description" content="Lower Piedra Campground is closed indefinitely." />
+      </head>
+      <body>
+        <h2>Site Closed</h2>
+        <p>Lower Piedra Campground is closed indefinitely due to road damage.</p>
+        <p><b>Latitude: </b> 37.214</p>
+        <p><b>Longitude: </b> -107.339</p>
+      </body></html>
+    `
+    const result = scrapeCampgroundPage(closedHtml, 'https://www.fs.usda.gov/r02/sanjuan/recreation/lower-piedra-campground')
+    expect(result?.is_closed).toBe(true)
+  })
+
+  it('sets is_closed to false for a normal open campground', () => {
+    const result = scrapeCampgroundPage(fcfsHtml, fcfsUrl)
+    expect(result?.is_closed).toBe(false)
   })
 
   it('returns null fee fields when no fee info is present', () => {

@@ -70,6 +70,7 @@ export default {
         { name: "amenities", type: "json", sqlType: "json" },
         { name: "ridb_data_quality", type: "select", sqlType: "text" },
         { name: "fs_url", type: "url", sqlType: "text" },
+        { name: "is_closed", type: "bool", sqlType: "boolean" },
         { name: "last_synced", type: "date", sqlType: "timestamp" },
       ],
       triggers: [createdTrigger, updatedTrigger],

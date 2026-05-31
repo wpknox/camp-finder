@@ -90,5 +90,6 @@ export interface NormalizedFacility {
   amenities: Amenities;
   ridb_data_quality: DataQuality;
   fs_url: string;
+  is_closed: boolean;
   last_synced: string;
 }
