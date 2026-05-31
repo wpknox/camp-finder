@@ -5,11 +5,13 @@
 CampFinder is a map-first PWA for discovering Colorado campgrounds. Built on:
 - **Frontend**: SvelteKit (Svelte 5 runes) + Leaflet + OpenStreetMap, hosted on Cloudflare Pages
 - **Backend**: Teenybase (Cloudflare Workers + D1), REST API at `/api/v1/table/<name>/...`
-- **ETL**: Node/TypeScript script — pulls from RIDB API, normalizes, writes to Teenybase
+- **ETL**: Node/TypeScript scripts — pulls from RIDB API and scrapes fs.usda.gov, normalizes, writes to Teenybase
 
-## Current status: Local testing in progress, core features working
+## Current status: ~570 campgrounds, core features working, FS discovery complete
 
-270 Colorado campgrounds seeded. Map, search, detail panel, filters, compare, auth, save, and ratings are all wired up. Fee enrichment ETL implemented. fs.usda.gov FCFS discovery plan written and ready to execute. UI/UX needs a polish pass before deployment.
+**570 Colorado campgrounds seeded** (270 from RIDB + ~300 discovered from fs.usda.gov). Map, search, detail panel, filters, compare, auth, save, and ratings all wired up. Closed campgrounds show a red marker and a sticky red banner. UI/UX needs a polish pass before deployment.
+
+**Current branch:** `feat/fs-campground-discovery` (not yet merged to main)
 
 ---
 
@@ -29,12 +31,26 @@ cd frontend && pnpm dev
 # Runs on http://localhost:5173
 ```
 
-**ETL (re-seed):**
+**ETL — RIDB sync:**
 ```bash
 cd etl && pnpm sync
 # Requires etl/.env with RIDB_API_KEY, TB_SERVICE_TOKEN, TB_API_URL
 # TB_SERVICE_TOKEN matches ADMIN_SERVICE_TOKEN in backend/.dev.vars
-# Takes ~3-5 minutes for 270 facilities (parallel detail + campsite requests)
+# Takes ~3-5 minutes for 270 facilities
+```
+
+**ETL — FS campground discovery:**
+```bash
+cd etl && pnpm discover
+# No API key needed — scrapes fs.usda.gov
+# Discovers FCFS-only campgrounds not in RIDB
+# Also patches RIDB records with fs_url, is_closed, and fee data from FS pages
+# Expect some 429s from fs.usda.gov; script is idempotent, re-run to fill gaps
+```
+
+**Backend schema migration (after schema changes):**
+```bash
+cd backend && pnpm generate && pnpm migrate
 ```
 
 ---
@@ -70,7 +86,7 @@ All `.svelte` files use Svelte 5 syntax. Never use Svelte 4 patterns.
 When writing to Teenybase, `json`-typed fields (like `amenities`) must be sent as `JSON.stringify(value)` strings — not plain objects. When reading back, parse them: `typeof f.amenities === 'string' ? JSON.parse(f.amenities) : f.amenities`.
 
 ### Teenybase WHERE clause limitation
-**Teenybase does not support compound WHERE expressions** (`&&` or `AND` both fail with parse errors). Work around this by fetching all records with a high `limit` and filtering in the SvelteKit server route. This is fine at current scale (~270 campgrounds). See `frontend/src/routes/api/facilities/+server.ts`.
+**Teenybase does not support compound WHERE expressions** (`&&` or `AND` both fail with parse errors). Work around this by fetching all records with a high `limit` and filtering in the SvelteKit server route. This is fine at current scale (~570 campgrounds). See `frontend/src/routes/api/facilities/+server.ts`.
 
 ### Teenybase auth
 - Service-side writes use `TB_SERVICE_TOKEN` (sent as `Authorization: Bearer <token>` from `+server.ts` routes only — never exposed to client)
@@ -97,32 +113,62 @@ The RIDB public API has significant gaps:
 | fs.usda.gov link | ❌ None | Not in RIDB for CO campgrounds |
 | Facility-level ATTRIBUTES | ❌ Empty | RIDB list and detail endpoints both return `[]` |
 
-**Fee data:** `FacilityUseFeeDescription` exists in RIDB but is empty for almost all CO campgrounds. Fees ARE shown on recreation.gov — they're stored in the reservation system, not the facilities API. This is a known gap. Options: scrape recreation.gov or fs.usda.gov.
+**Fee data:** `FacilityUseFeeDescription` exists in RIDB but is empty for almost all CO campgrounds. `discover.ts` now backfills `fee_min`/`fee_max` onto RIDB records when it scrapes the matching FS page.
 
-**Missing campgrounds:** RIDB only covers campgrounds with recreation.gov listings. Many USFS campgrounds that are walk-in/FCFS-only are not in RIDB at all. These would require scraping `fs.usda.gov` to discover.
+**Missing campgrounds:** RIDB only covers campgrounds with recreation.gov listings. `discover.ts` now fills this gap for USFS campgrounds on fs.usda.gov. Non-USFS campgrounds (BLM, state parks, county parks) are still missing — see next priorities.
+
+---
+
+## Data sources and how they combine
+
+| Source | Script | ridb_id format | Count |
+|--------|--------|----------------|-------|
+| RIDB API | `pnpm sync` | Numeric (e.g. `233847`) | ~270 |
+| fs.usda.gov scrape | `pnpm discover` | `fs-[forest-slug]-[campground-slug]` | ~300 |
+
+**Deduplication:** `discover.ts` loads all RIDB records at startup and matches FS campgrounds by normalized name + lat/lng within ~1km. When a match is found, it patches the RIDB record (adds `fs_url`, `is_closed`, fee data) and does NOT create a new FS record. Campgrounds with no RIDB match are inserted as new FS records.
 
 ---
 
 ## ETL data pipeline
 
-The ETL now does per-facility API calls to get full data:
-1. `GET /facilities?state=CO&activity=CAMPING&facilitytype=Campground` — paginated list (270 facilities)
+### `pnpm sync` (RIDB)
+1. `GET /facilities?state=CO&activity=CAMPING&facilitytype=Campground` — paginated list
 2. For each facility in parallel: `GET /facilities/{id}` (description, links) + `GET /facilities/{id}/campsites` (FCFS counts, campsite attributes)
 3. Amenities normalized from campsite `ATTRIBUTES` first, then gaps filled from `FacilityDescription` text parsing
 4. `ParentOrgID` mapped to human-readable agency name stored in `forest` field
 5. **Fee enrichment (three-tier fallback):**
    - Tier 1: `FacilityUseFeeDescription` from RIDB (usually empty for CO)
-   - Tier 2: Parse `FacilityDescription` text for dollar amounts in fee-context sentences (`extractFeesFromDescription`)
-   - Tier 3: If facility has an `fs_url`, scrape that page and extract fees (`scrapeFsPage` → `parseFsPageFees`)
-   - 1-second sleep between scrape requests to be polite
+   - Tier 2: Parse `FacilityDescription` text for dollar amounts in fee-context sentences
+   - Tier 3: If facility has an `fs_url`, scrape that page (`parseFsPageFees`)
 
-### `etl/src/fsScraper.ts` (new)
-- `parseFsPageFees(html)` — pure function, strips nav/header/footer chrome, finds fee table or inline dollar amounts
-- `scrapeFsPage(url)` — fetches + parses, `console.warn` on errors
-- Functions for FCFS discovery (Tasks 1–3 of plan, not yet implemented):
-  - `scrapeForestCampgroundUrls(html)` — extracts campground links from listing pages
-  - `isRidbCampground(html)` — detects recreation.gov iframe
-  - `scrapeCampgroundPage(html, url)` — returns `ScrapedCampground | null`
+### `pnpm discover` (fs.usda.gov)
+1. For each of 7 CO forest slugs, paginates `https://www.fs.usda.gov/r02/{slug}/recreation/camping-cabins?page=%2C{n}` until 404
+2. Scrapes each campground URL, skips RIDB campgrounds (have reservation iframe)
+3. Detects: fees (from `id="rec_acc_fees"` OR `<h3>Fee...</h3>`), coordinates, name, FCFS count, `is_closed` (from `<h2>...closed...</h2>`), and amenities from full page body text
+4. Matches against existing RIDB records by name+proximity — patches them rather than duplicating
+5. New campgrounds inserted with `is_fully_fcfs: true`, `is_partial_fcfs: false`
+
+### `parseDescriptionAmenities` (both pipelines)
+Detects from free text:
+- `potableWater`: drinking water / water pump / hand pump / water well / well water mentions
+- `toiletType`: flush / vault / pit / no toilet mentions  
+- `bearBoxes`: bear box / bear locker / food storage locker mentions
+- `picnicTables`: "picnic table" (with "no picnic table" negative guard)
+- `petsAllowed`: leash/permission language (with "no pets" negative guard)
+
+---
+
+## Map marker colors
+
+| Color | Meaning |
+|-------|---------|
+| 🔴 Red | Closed (`is_closed: true`) |
+| 🟢 Green | Fully FCFS (all sites first-come) |
+| 🟡 Yellow | Partial FCFS (mix of reservable + first-come) |
+| 🔵 Blue | Reservable only |
+
+Hovering a closed marker shows "⛔ CLOSED — [name]". Opening a closed campground's detail panel shows a sticky red banner at the top.
 
 ---
 
@@ -134,55 +180,69 @@ camp-finder/
     teenybase.ts          # Schema — single source of truth for all 5 tables
     package.json          # hono ^4.12.0, wrangler ^4.63.0, teenybase latest
     .dev.vars             # Local secrets (gitignored)
+    migrations/           # Auto-generated SQL migrations (gitignored, run pnpm generate)
 
   etl/
     src/
-      index.ts            # Orchestrator — fetches RIDB, normalizes, writes to TB; three-tier fee fallback
+      index.ts            # RIDB sync orchestrator — three-tier fee fallback
       ridb.ts             # RidbClient — getAllFacilities, getFacilityDetail, getCampsites
-      teenybase.ts        # TbClient — upsertFacility (insert or edit by ridb_id)
-      normalize.ts        # normalizeAmenities (campsite attrs), parseDescriptionAmenities,
-                          #   aggregateFcfs, scoreDataQuality, extractFees, extractFsUrl,
-                          #   extractFeesFromDescription (new — text scan for fee amounts)
-      fsScraper.ts        # parseFsPageFees, scrapeFsPage; stubs for discovery fns
+      teenybase.ts        # TbClient — upsertFacility, upsertFacilities, listAllRidb, patchFacility
+      normalize.ts        # normalizeAmenities, parseDescriptionAmenities (water/toilet/bears/
+                          #   picnicTables/petsAllowed), aggregateFcfs, scoreDataQuality,
+                          #   extractFees, extractFsUrl, extractFeesFromDescription
+      fsScraper.ts        # parseFsPageFees, scrapeFsPage, scrapeForestCampgroundUrls,
+                          #   isRidbCampground, scrapeCampgroundPage (returns is_closed)
+      discover.ts         # fs.usda.gov discovery orchestrator — 7 CO forests,
+                          #   deduplicates against RIDB by name+proximity
       forests.ts          # CO_QUERY_PARAMS, parentOrgToAgency (ParentOrgID → agency name)
-      types.ts            # RidbFacility, RidbCampsite, NormalizedFacility, Amenities, etc.
+      types.ts            # RidbFacility, RidbCampsite, NormalizedFacility (incl. is_closed),
+                          #   Amenities, etc.
     tests/
-      fsScraper.test.ts   # 8 tests for parseFsPageFees + scrapeFsPage
+      fsScraper.test.ts   # 8 tests — parseFsPageFees, scrapeFsPage
+      fsDiscovery.test.ts # 14 tests — scrapeForestCampgroundUrls, isRidbCampground,
+                          #   scrapeCampgroundPage (incl. h3 fees, is_closed)
+      normalize.test.ts   # 28 tests — normalizeAmenities, aggregateFcfs, scoreDataQuality,
+                          #   extractFees, extractFeesFromDescription, parseDescriptionAmenities
+      ridb.test.ts        # 3 tests — parentOrgToAgency
 
   frontend/
     src/
       lib/
-        types.ts                    # Facility, Alert, Rating, SavedCampground
+        types.ts                    # Facility (incl. is_closed), Alert, Rating, SavedCampground
         auth/authStore.ts           # writable JWT store, login/register/logout
         auth/AuthModal.svelte       # Login/register modal (Svelte 5)
-        map/CampMap.svelte          # Leaflet map — SSR-safe, bind:this, renderPins/getMapBounds
+        map/CampMap.svelte          # Leaflet map — red/green/yellow/blue markers, CLOSED tooltip
         map/mapStore.ts             # facilities, selectedFacility, searchPending, isLoading stores
         filters/filterStore.ts      # filters + filteredFacilities derived store
         filters/FilterSidebar.svelte
-        detail/DetailPanel.svelte   # Full detail view — order: header, FCFS, compare, amenities, description, alerts, links, ratings
+        detail/DetailPanel.svelte   # Sticky red CLOSED banner when is_closed; order: banner,
+                                    #   header, FCFS, compare, amenities, description, alerts,
+                                    #   data quality warning, links, ratings
         detail/FCFSBadge.svelte
         detail/AmenityGrid.svelte
-        detail/AlertsSection.svelte # Fetches /api/alerts/[id]
+        detail/AlertsSection.svelte # On-demand scrape /api/alerts/[id]; renders as deduped
+                                    #   paragraphs; filters "View All Alerts" nav text
         detail/RatingsSection.svelte
-        detail/DataQualityWarning.svelte  # Only shown when fs_url is present
-        saved/SaveButton.svelte     # Toggle save via Teenybase REST
-        compare/compareStore.ts     # Set of facility IDs to compare
+        detail/DataQualityWarning.svelte
+        saved/SaveButton.svelte
+        compare/compareStore.ts
         compare/CompareView.svelte
       routes/
-        +layout.svelte              # AuthModal + global layout
-        +page.svelte                # Main map page
-        api/facilities/+server.ts   # bbox → fetch all from TB, filter server-side (Teenybase WHERE limitation)
-        api/alerts/[id]/+server.ts  # On-demand scrape fs.usda.gov, cache 24hr
-        api/ratings/[facilityId]/+server.ts  # GET public, POST forwards user JWT
-        compare/+page.server.ts     # Fetch facilities by IDs for compare view
-        compare/+page.svelte        # Side-by-side compare table
+        +layout.svelte
+        +page.svelte
+        api/facilities/+server.ts
+        api/alerts/[id]/+server.ts  # Scrapes fs.usda.gov, 24hr cache, whitespace-normalized
+        api/ratings/[facilityId]/+server.ts
+        compare/+page.server.ts
+        compare/+page.svelte
 
   docs/
     handoff.md                      # This file
     campfinder-spec.md              # Original brainstorm spec
     superpowers/
-      specs/2026-05-26-search-ux-design.md   # Approved design doc
-      plans/2026-05-26-search-ux.md          # Ready-to-execute implementation plan
+      specs/2026-05-26-search-ux-design.md
+      plans/2026-05-26-search-ux.md
+      plans/2026-05-27-fs-campground-discovery.md   # COMPLETE
 ```
 
 ---
@@ -191,49 +251,42 @@ camp-finder/
 
 | Issue | Status |
 |-------|--------|
-| Hono 4.0.0 `TypeError: Can't modify immutable headers` in Pocket UI | **Fixed** — pinned hono to `^4.12.0` |
-| `Cannot read properties of undefined (reading 'find')` in normalize.ts | **Fixed** — `attributes = attributes ?? []` + `f.LINK ?? []` |
-| Teenybase 400 "expected string, received object" for amenities | **Fixed** — `JSON.stringify(amenities)` in ETL, parse back in frontend |
-| Svelte 4 syntax used in components | **Fixed** — all components rewritten to Svelte 5 runes |
-| Search button did nothing | **Fixed** — Teenybase rejects compound WHERE; now fetches all + filters in server route |
-| ETL only seeding 21 campgrounds | **Fixed** — removed National Forest name filter; now seeds all 270 CO campgrounds |
-| All amenities false/empty | **Fixed** — ETL now fetches per-facility detail + campsite ATTRIBUTES; description parsing fills water/toilet/bear box gaps |
-| Fee data missing for most campgrounds | **Improved** — three-tier ETL fallback added; many still unknown (no `fs_url` in RIDB for CO) |
-| ETL tsconfig TS6059 errors (`rootDir` conflict) | **Fixed** — removed `outDir`/`rootDir`, added `noEmit: true`, `skipLibCheck: true` |
-| `normalizeAmenities` called with possibly-undefined | **Fixed** — removed optional param; all callers always pass arrays |
-| `lacks` function in normalize.ts was identical to `has` | **Fixed** — removed `lacks`, replaced all usages with `!has(...)` |
-| `backend/teenybase.ts` cast errors hiding missing fields | **Fixed** — replaced `as TableAuthExtensionData/TableRulesExtensionData` with `satisfies`; revealed and fixed missing `passwordType: "sha256"` and `listRule: "false"` on users table |
-| Missing `@types/node` in frontend | **Fixed** — added to devDependencies |
-| FilterSidebar missing label `for`/`id` associations | **Fixed** — added to fee and sort-by controls |
-| AuthModal accessibility | **Fixed** — `role="dialog"`, `aria-modal`, `aria-label`, Escape key handler, `role="presentation"` on overlay |
-| Detail panel fee-unknown UX | **Improved** — shows "Fee unknown — check recreation.gov" link (uses `reserveUrl` derived var) with bottom margin above Save button |
+| Hono 4.0.0 `TypeError: Can't modify immutable headers` | **Fixed** — pinned hono `^4.12.0` |
+| `Cannot read properties of undefined` in normalize.ts | **Fixed** — null guards on attributes/links |
+| Teenybase 400 "expected string, received object" for amenities | **Fixed** — `JSON.stringify(amenities)` in ETL |
+| Svelte 4 syntax in components | **Fixed** — all rewritten to Svelte 5 runes |
+| Search button did nothing | **Fixed** — fetch all + filter server-side (Teenybase WHERE limitation) |
+| ETL only seeding 21 campgrounds | **Fixed** — removed National Forest name filter |
+| All amenities false/empty | **Fixed** — per-facility detail + campsite ATTRIBUTES + description parsing |
+| Fee data missing for most campgrounds | **Improved** — three-tier ETL fallback; discover.ts backfills from FS pages |
+| Alerts section unreadable (raw whitespace) | **Fixed** — paragraph rendering with whitespace normalization + dedup |
+| "View All Alerts" nav text appearing in alerts | **Fixed** — line-level filter in alerts API route |
+| FCFS filter excluding new FS campgrounds | **Fixed** — filter uses `is_fully_fcfs`/`is_partial_fcfs` flags, not `fcfs_total` count |
+| Fee scraping missed h3-based sections | **Fixed** — `hasFeeSection` now detects `<h3>Fee...</h3>` pattern |
+| Amenity detection missing data from page body | **Fixed** — discover.ts passes full page body (not just meta description) to `parseDescriptionAmenities` |
+| FS campgrounds creating duplicates of RIDB records | **Fixed** — name+proximity dedup in discover.ts; 52 existing duplicates removed via SQL |
+| `is_closed` field not recognized by Teenybase | **Fixed** — migration `0005_add_is_closed_to_facilities.sql` (run `pnpm generate && pnpm migrate`) |
 
 ---
 
 ## What's next
 
 ### High priority
-1. **Execute fs.usda.gov FCFS discovery plan** (`docs/superpowers/plans/2026-05-27-fs-campground-discovery.md`):
-   - **STATUS: Plan written, not yet started.** User will review/edit plan before executing.
-   - Scrapes 7 CO forest listing pages, discovers campgrounds not in RIDB, upserts with synthetic `ridb_id = "fs-[forest-slug]-[campground-slug]"`
-   - Covers: `arp`, `psicc`, `riogrande`, `sanjuan`, `gmug`, `whiteriver`, `mbrtb`
-   - Task 1–3: TDD for scraper fns in `fsScraper.ts`. Task 4: `discover.ts` orchestrator + `pnpm discover` script. Task 5: smoke test.
+1. **Non-USFS campgrounds** — BLM, state parks, county parks are not in RIDB and not on fs.usda.gov. User will provide example campgrounds that should appear but don't. Need to identify data sources (Recreation.gov non-USFS? Colorado State Parks API? BLM.gov?) and add scraping/sync for them.
 
 2. **Execute search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`):
    - Move "Search this area" button into sidebar with staleness hint
    - Show dashed viewport bbox overlay on map when search is pending
 
-3. **Fee data** — Three-tier ETL fallback now implemented. Many campgrounds still show "Fee unknown" because they lack an `fs_url` (no FS link in RIDB for CO). The FCFS discovery work in item 1 will populate `fs_url` for newly discovered campgrounds, which will feed back into fee enrichment on next sync.
-
 ### Medium priority
-4. **Auth UI** — `AuthModal.svelte` exists but a proper `/login` or `/account` page would make auth feel complete, especially as a prerequisite for ratings/reviews.
+3. **Auth UI** — `AuthModal.svelte` exists but a proper `/login` or `/account` page would complete the auth flow.
 
-5. **Ratings & reviews UI** — The backend table and API route exist. Need UI for submitting a rating (requires auth).
+4. **Ratings & reviews UI** — Backend and API route exist. Need a UI for submitting ratings (requires auth).
 
-6. **UI/UX polish pass** — The app is functional but visually rough. Install the `frontend-design` superpowers skill before starting this work. Key areas: sidebar layout, detail panel polish, mobile experience, typography.
+5. **UI/UX polish pass** — Functional but visually rough. Install the `frontend-design` superpowers skill before starting. Key areas: sidebar layout, detail panel polish, mobile, typography.
 
 ### Lower priority
-7. **Deployment** (deferred until local testing is solid):
+6. **Deployment** (deferred until local testing is solid):
    - Frontend → Cloudflare Pages
    - Backend → `pnpm deploy` (Teenybase to Cloudflare Workers + D1)
    - Set production env vars
@@ -249,8 +302,12 @@ curl http://localhost:8787/api/v1/table/facilities/list -X POST \
 
 # Check a specific facility by ridb_id
 curl http://localhost:8787/api/v1/table/facilities/list -X POST \
-  -H 'Content-Type: application/json' -d '{"where": "ridb_id = \"251844\"", "limit": 1}'
+  -H 'Content-Type: application/json' -d '{"where": "ridb_id == \"251844\"", "limit": 1}'
 
 # Test the bbox search route
 curl "http://localhost:5173/api/facilities?north=41&south=38&east=-104&west=-107"
+
+# Count closed campgrounds
+sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/*.sqlite \
+  "SELECT COUNT(*) FROM facilities WHERE is_closed = 1"
 ```
