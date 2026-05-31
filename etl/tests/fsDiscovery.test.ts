@@ -63,3 +63,96 @@ describe('isRidbCampground', () => {
     expect(isRidbCampground('<html><body><p>Primitive camping area.</p></body></html>')).toBe(false)
   })
 })
+
+describe('scrapeCampgroundPage', () => {
+  const fcfsHtml = `
+    <html>
+    <head>
+      <title>White River National Forest | Avalanche Campground | Forest Service</title>
+      <meta name="description" content="Avalanche Campground has 6 first-come first-serve campsites. Located adjacent to Avalanche Creek." />
+    </head>
+    <body>
+      <div class="usa-accordion__content" id="rec_acc_fees">
+        <p>Overnight Use:<br />Single Site: $21 per night</p>
+      </div>
+      <p><b>Latitude: </b> 39.236566</p>
+      <p><b>Longitude: </b> -107.203346</p>
+      <a href="https://recreation.gov" class="first">Recreation.gov</a>
+    </body></html>
+  `
+  const fcfsUrl = 'https://www.fs.usda.gov/r02/whiteriver/recreation/avalanche-campground'
+
+  it('extracts a full ScrapedCampground from a FCFS page', () => {
+    expect(scrapeCampgroundPage(fcfsHtml, fcfsUrl)).toEqual({
+      name: 'Avalanche Campground',
+      lat: 39.236566,
+      lng: -107.203346,
+      description: 'Avalanche Campground has 6 first-come first-serve campsites. Located adjacent to Avalanche Creek.',
+      fee_min: 21,
+      fee_max: 21,
+      fcfs_total: 6,
+      fs_url: fcfsUrl,
+    })
+  })
+
+  it('returns null for a RIDB campground page (has reservation iframe)', () => {
+    const ridbHtml = `
+      <html>
+      <head>
+        <title>White River National Forest | Difficult Campground | Forest Service</title>
+        <meta name="description" content="Difficult Campground offers reservable sites." />
+      </head>
+      <body>
+        <iframe src="https://cdn.recreation.gov/widget/fs/camping/index.html?id=231880"></iframe>
+        <p><b>Latitude: </b> 39.14255</p>
+        <p><b>Longitude: </b> -106.77365</p>
+      </body></html>
+    `
+    expect(scrapeCampgroundPage(ridbHtml, 'https://www.fs.usda.gov/r02/whiteriver/recreation/difficult-campground')).toBeNull()
+  })
+
+  it('returns null when lat/lng are missing', () => {
+    const noLatLng = `
+      <html>
+      <head>
+        <title>White River National Forest | Mystery Camp | Forest Service</title>
+        <meta name="description" content="Some campground." />
+      </head>
+      <body><p>No coordinates here.</p></body></html>
+    `
+    expect(scrapeCampgroundPage(noLatLng, 'https://www.fs.usda.gov/r02/whiteriver/recreation/mystery-camp')).toBeNull()
+  })
+
+  it('defaults fcfs_total to 0 when not mentioned in description', () => {
+    const noCount = `
+      <html>
+      <head>
+        <title>Rio Grande National Forest | Lost Trail Campground | Forest Service</title>
+        <meta name="description" content="Lost Trail offers primitive campsites along the river." />
+      </head>
+      <body>
+        <p><b>Latitude: </b> 37.5</p>
+        <p><b>Longitude: </b> -106.8</p>
+      </body></html>
+    `
+    const result = scrapeCampgroundPage(noCount, 'https://www.fs.usda.gov/r02/riogrande/recreation/lost-trail-campground')
+    expect(result?.fcfs_total).toBe(0)
+  })
+
+  it('returns null fee fields when no fee info is present', () => {
+    const noFee = `
+      <html>
+      <head>
+        <title>Rio Grande National Forest | Free Camp | Forest Service</title>
+        <meta name="description" content="Free Camp has 4 first-come first-serve campsites." />
+      </head>
+      <body>
+        <p><b>Latitude: </b> 37.6</p>
+        <p><b>Longitude: </b> -106.9</p>
+      </body></html>
+    `
+    const result = scrapeCampgroundPage(noFee, 'https://www.fs.usda.gov/r02/riogrande/recreation/free-camp')
+    expect(result?.fee_min).toBeNull()
+    expect(result?.fee_max).toBeNull()
+  })
+})

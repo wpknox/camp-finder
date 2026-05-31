@@ -67,6 +67,52 @@ export function parseFsPageFees(html: string): ScrapedFsData {
   return { fee_min: Math.min(...dollars), fee_max: Math.max(...dollars) };
 }
 
+export function scrapeCampgroundPage(
+  html: string,
+  url: string,
+): ScrapedCampground | null {
+  if (isRidbCampground(html)) return null;
+
+  const latMatch = html.match(/<b>Latitude:\s*<\/b>\s*([\d.-]+)/);
+  const lngMatch = html.match(/<b>Longitude:\s*<\/b>\s*([\d.-]+)/);
+  if (!latMatch || !lngMatch) return null;
+
+  const lat = parseFloat(latMatch[1]);
+  const lng = parseFloat(lngMatch[1]);
+  if (isNaN(lat) || isNaN(lng)) return null;
+
+  const titleMatch = html.match(
+    /<title>[^|]+\|\s*([^|]+)\|\s*Forest Service<\/title>/,
+  );
+  const name = titleMatch
+    ? titleMatch[1].trim()
+    : (url.split("/").pop()?.replace(/-/g, " ") ?? "Unknown");
+
+  const descMatch = html.match(/<meta name="description" content="([^"]+)"/);
+  const description = descMatch ? descMatch[1] : "";
+
+  const hasFeeSection =
+    html.includes('id="rec_acc_fees"') ||
+    html.includes("id='rec_acc_fees'");
+  const fees = hasFeeSection
+    ? parseFsPageFees(html)
+    : { fee_min: null, fee_max: null };
+
+  const fcfsMatch = description.match(/(\d+)\s+first.come/i);
+  const fcfs_total = fcfsMatch ? parseInt(fcfsMatch[1], 10) : 0;
+
+  return {
+    name,
+    lat,
+    lng,
+    description,
+    fee_min: fees.fee_min,
+    fee_max: fees.fee_max,
+    fcfs_total,
+    fs_url: url,
+  };
+}
+
 export async function scrapeFsPage(url: string): Promise<ScrapedFsData> {
   try {
     const res = await fetch(url, {
