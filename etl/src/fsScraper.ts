@@ -1,5 +1,31 @@
 import { parse } from "node-html-parser";
 
+export interface ScrapedCampground {
+  name: string;
+  lat: number;
+  lng: number;
+  description: string;
+  fee_min: number | null;
+  fee_max: number | null;
+  fcfs_total: number;
+  fs_url: string;
+}
+
+export function scrapeForestCampgroundUrls(html: string): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
+  const re = /href="(\/r02\/[^"\/]+\/recreation\/[^"\/]*campground[^"\/]*)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const path = m[1];
+    if (!seen.has(path)) {
+      seen.add(path);
+      results.push(path);
+    }
+  }
+  return results;
+}
+
 export interface ScrapedFsData {
   fee_min: number | null;
   fee_max: number | null;
