@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { parse as parseHtml } from "node-html-parser";
 import { TbClient } from "./teenybase.js";
 import {
   scrapeForestCampgroundUrls,
@@ -104,9 +105,13 @@ async function main() {
         continue;
       } // RIDB campground — skip
 
+      const bodyRoot = parseHtml(result);
+      bodyRoot.querySelectorAll("nav, header, footer, script, style").forEach(el => el.remove());
+      const pageText = bodyRoot.text;
+
       const amenities = {
         ...normalizeAmenities([]),
-        ...parseDescriptionAmenities(campground.description),
+        ...parseDescriptionAmenities(pageText),
       };
 
       const ridb_id = `fs-${forest.slug}-${slug}`;

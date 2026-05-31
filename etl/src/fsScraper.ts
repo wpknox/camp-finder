@@ -95,7 +95,9 @@ export function scrapeCampgroundPage(
   const description = descMatch ? descMatch[1] : "";
 
   const hasFeeSection =
-    html.includes('id="rec_acc_fees"') || html.includes("id='rec_acc_fees'");
+    html.includes('id="rec_acc_fees"') ||
+    html.includes("id='rec_acc_fees'") ||
+    /<h3[^>]*>[^<]*fee[^<]*<\/h3>/i.test(html);
   const fees = hasFeeSection
     ? parseFsPageFees(html)
     : { fee_min: null, fee_max: null };

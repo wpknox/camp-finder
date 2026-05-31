@@ -139,6 +139,25 @@ describe('scrapeCampgroundPage', () => {
     expect(result?.fcfs_total).toBe(0)
   })
 
+  it('extracts fees from an h3-based fee section (no id="rec_acc_fees")', () => {
+    const h3FeeHtml = `
+      <html>
+      <head>
+        <title>San Juan National Forest | Lower Piedra Campground | Forest Service</title>
+        <meta name="description" content="Lower Piedra Campground is a fee site along the Piedra River." />
+      </head>
+      <body>
+        <h3>Fee Site and Info</h3>
+        <p>Overnight Use:<br />Single Site: $28 per night</p>
+        <p><b>Latitude: </b> 37.214</p>
+        <p><b>Longitude: </b> -107.339</p>
+      </body></html>
+    `
+    const result = scrapeCampgroundPage(h3FeeHtml, 'https://www.fs.usda.gov/r02/sanjuan/recreation/lower-piedra-campground')
+    expect(result?.fee_min).toBe(28)
+    expect(result?.fee_max).toBe(28)
+  })
+
   it('returns null fee fields when no fee info is present', () => {
     const noFee = `
       <html>
