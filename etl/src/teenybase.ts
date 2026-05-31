@@ -53,12 +53,11 @@ export class TbClient {
     }
   }
 
-  async findByFsUrl(fsUrl: string): Promise<{ id: string; fee_min: number | null } | null> {
-    const res = await this.tbFetch("/table/facilities/list", {
-      where: `fs_url == '${fsUrl}'`,
-      limit: 1,
-    }) as { items: Array<{ id: string; fee_min: number | null }> };
-    return res.items[0] ?? null;
+  async listAllRidb(): Promise<Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string }>> {
+    const res = await this.tbFetch("/table/facilities/list", { limit: 5000 }) as {
+      items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string }>
+    };
+    return res.items.filter(f => !f.ridb_id.startsWith("fs-"));
   }
 
   async patchFacility(id: string, patch: Record<string, unknown>): Promise<void> {
