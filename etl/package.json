@@ -3,6 +3,7 @@
   "type": "module",
   "scripts": {
     "sync": "tsx src/index.ts",
+    "discover": "tsx src/discover.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
