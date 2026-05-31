@@ -47,7 +47,8 @@
       const marker = L.circleMarker([f.lat, f.lng], {
         radius: 9, fillColor, color: '#fff', weight: 2, fillOpacity: 0.9,
       })
-      marker.bindTooltip(f.name, { permanent: false, direction: 'top' })
+      const label = f.is_closed ? `⛔ CLOSED — ${f.name}` : f.name
+      marker.bindTooltip(label, { permanent: false, direction: 'top' })
       marker.on('click', () => onselect?.(f))
       pinsLayer.addLayer(marker)
     }

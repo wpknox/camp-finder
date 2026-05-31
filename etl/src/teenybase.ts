@@ -52,4 +52,16 @@ export class TbClient {
       onProgress?.(i + 1, facilities.length);
     }
   }
+
+  async findByFsUrl(fsUrl: string): Promise<{ id: string; fee_min: number | null } | null> {
+    const res = await this.tbFetch("/table/facilities/list", {
+      where: `fs_url == '${fsUrl}'`,
+      limit: 1,
+    }) as { items: Array<{ id: string; fee_min: number | null }> };
+    return res.items[0] ?? null;
+  }
+
+  async patchFacility(id: string, patch: Record<string, unknown>): Promise<void> {
+    await this.tbFetch(`/table/facilities/edit/${id}`, patch);
+  }
 }

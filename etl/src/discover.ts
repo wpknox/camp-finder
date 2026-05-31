@@ -114,6 +114,20 @@ async function main() {
         ...parseDescriptionAmenities(pageText),
       };
 
+      // If an RIDB record already covers this FS URL, enrich it rather than
+      // creating a duplicate with a different ridb_id.
+      const existingRidb = await tb.findByFsUrl(campground.fs_url);
+      if (existingRidb) {
+        await tb.patchFacility(existingRidb.id, {
+          is_closed: campground.is_closed,
+          ...(existingRidb.fee_min == null && campground.fee_min != null
+            ? { fee_min: campground.fee_min, fee_max: campground.fee_max }
+            : {}),
+        });
+        await sleep(300);
+        continue;
+      }
+
       const ridb_id = `fs-${forest.slug}-${slug}`;
 
       forestDiscovered.push({
