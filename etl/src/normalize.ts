@@ -24,7 +24,7 @@ export function parseDescriptionAmenities(
   const has = (...terms: string[]) => terms.some((t) => text.includes(t));
 
   const potableWater =
-    has("drinking water", "potable water") &&
+    has("drinking water", "potable water", "water pump", "hand pump", "water well", "well water") &&
     !has("no drinking water", "no potable water", "non-potable");
 
   let toiletType: ToiletType | undefined;

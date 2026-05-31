@@ -36,7 +36,11 @@
       Could not load alerts. Check the official page for current conditions.
     </p>
   {:else if content}
-    <div class="content">{content}</div>
+    <div class="content">
+      {#each [...new Set(content.split('\n\n').map(s => s.trim()).filter(s => s))] as paragraph}
+        <p>{paragraph}</p>
+      {/each}
+    </div>
     <p class="timestamp">Last checked: {dateStr}</p>
   {:else}
     <p class="status">No active alerts found.</p>
@@ -64,7 +68,13 @@
     padding: 0.6rem 0.85rem;
     border-radius: 0 8px 8px 0;
     font-size: 0.85rem;
-    white-space: pre-wrap;
+    color: #1a1a1a;
+  }
+  .content p {
+    margin: 0 0 0.5rem;
+  }
+  .content p:last-child {
+    margin-bottom: 0;
   }
   .timestamp {
     color: #999;

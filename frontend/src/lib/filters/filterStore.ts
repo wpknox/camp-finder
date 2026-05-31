@@ -21,7 +21,7 @@ export const filters = writable<FilterState>({
 
 export const filteredFacilities = derived([facilities, filters], ([$facilities, $filters]) => {
   let results = $facilities.filter(f => {
-    if ($filters.fcfsOnly  && f.fcfs_total === 0)           return false
+    if ($filters.fcfsOnly  && !f.is_fully_fcfs && !f.is_partial_fcfs) return false
     if ($filters.water     && !f.amenities.potableWater)    return false
     if ($filters.toilets   && f.amenities.toiletType === 'none') return false
     if ($filters.bearBoxes && !f.amenities.bearBoxes)       return false
