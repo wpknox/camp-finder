@@ -18,7 +18,8 @@ export function isRidbCampground(html: string): boolean {
 export function scrapeForestCampgroundUrls(html: string): string[] {
   const seen = new Set<string>();
   const results: string[] = [];
-  const re = /href=["'](\/r02\/[^"'\/]+\/recreation\/[^"'\/]*campground[^"'\/]*)["']/g;
+  const re =
+    /href=["'](\/r02\/[^"'/]+\/recreation\/[^"'/]*campground[^"'/]*)["']/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     const path = m[1];
@@ -73,33 +74,34 @@ export function scrapeCampgroundPage(
 ): ScrapedCampground | null {
   if (isRidbCampground(html)) return null;
 
-  const latMatch = html.match(/<b>Latitude:\s*<\/b>\s*([\d.-]+)/);
-  const lngMatch = html.match(/<b>Longitude:\s*<\/b>\s*([\d.-]+)/);
+  const latMatch = new RegExp(/<b>Latitude:\s*<\/b>\s*([\d.-]+)/).exec(html);
+  const lngMatch = new RegExp(/<b>Longitude:\s*<\/b>\s*([\d.-]+)/).exec(html);
   if (!latMatch || !lngMatch) return null;
 
-  const lat = parseFloat(latMatch[1]);
-  const lng = parseFloat(lngMatch[1]);
-  if (isNaN(lat) || isNaN(lng)) return null;
+  const lat = Number.parseFloat(latMatch[1]);
+  const lng = Number.parseFloat(lngMatch[1]);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
 
-  const titleMatch = html.match(
+  const titleMatch = new RegExp(
     /<title>[^|]+\|\s*([^|]+)\|\s*Forest Service<\/title>/,
-  );
+  ).exec(html);
   const name = titleMatch
     ? titleMatch[1].trim()
-    : (url.split("/").pop()?.replace(/-/g, " ") ?? "Unknown");
+    : (url.split("/").pop()?.replaceAll("-", " ") ?? "Unknown");
 
-  const descMatch = html.match(/<meta name="description" content="([^"]+)"/);
+  const descMatch = new RegExp(
+    /<meta name="description" content="([^"]+)"/,
+  ).exec(html);
   const description = descMatch ? descMatch[1] : "";
 
   const hasFeeSection =
-    html.includes('id="rec_acc_fees"') ||
-    html.includes("id='rec_acc_fees'");
+    html.includes('id="rec_acc_fees"') || html.includes("id='rec_acc_fees'");
   const fees = hasFeeSection
     ? parseFsPageFees(html)
     : { fee_min: null, fee_max: null };
 
-  const fcfsMatch = description.match(/(\d+)\s+first[- ]come/i);
-  const fcfs_total = fcfsMatch ? parseInt(fcfsMatch[1], 10) : 0;
+  const fcfsMatch = new RegExp(/(\d+)\s+first[- ]come/i).exec(description);
+  const fcfs_total = fcfsMatch ? Number.parseInt(fcfsMatch[1], 10) : 0;
 
   return {
     name,
