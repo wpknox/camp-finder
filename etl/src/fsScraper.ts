@@ -11,6 +11,10 @@ export interface ScrapedCampground {
   fs_url: string;
 }
 
+export function isRidbCampground(html: string): boolean {
+  return html.includes("cdn.recreation.gov/widget/fs/camping/index.html?id=");
+}
+
 export function scrapeForestCampgroundUrls(html: string): string[] {
   const seen = new Set<string>();
   const results: string[] = [];

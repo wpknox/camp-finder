@@ -38,3 +38,28 @@ describe('scrapeForestCampgroundUrls', () => {
     ])
   })
 })
+
+describe('isRidbCampground', () => {
+  it('returns true when page has a specific recreation.gov reservation iframe', () => {
+    const html = `
+      <html><body>
+        <iframe src="https://cdn.recreation.gov/widget/fs/camping/index.html?id=231880"
+                width="100%" height="800"></iframe>
+      </body></html>
+    `
+    expect(isRidbCampground(html)).toBe(true)
+  })
+
+  it('returns false when page only has the generic recreation.gov link', () => {
+    const html = `
+      <html><body>
+        <a href="https://recreation.gov" class="first">Recreation.gov</a>
+      </body></html>
+    `
+    expect(isRidbCampground(html)).toBe(false)
+  })
+
+  it('returns false for a page with no recreation.gov reference at all', () => {
+    expect(isRidbCampground('<html><body><p>Primitive camping area.</p></body></html>')).toBe(false)
+  })
+})
