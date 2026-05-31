@@ -48,9 +48,13 @@ export const GET: RequestHandler = async ({ params }) => {
         ...root.querySelectorAll('[class*="closure"]'),
         ...root.querySelectorAll('[class*="notice"]'),
       ]
-        .map(el => el.text.replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{2,}/g, '\n\n').trim())
+        .map(el => el.text
+          .split('\n')
+          .filter(line => !/view\s+all\s+alerts/i.test(line))
+          .join('\n')
+          .replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{2,}/g, '\n\n').trim()
+        )
         .filter(t => t.replace(/\s/g, '').length > 15)
-        .filter(t => !/^view\s+all\s+alerts/i.test(t.trim()))
         .filter((t, i, a) => a.indexOf(t) === i)
 
       content = texts.join('\n\n') || null
