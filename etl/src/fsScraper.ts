@@ -18,7 +18,7 @@ export function isRidbCampground(html: string): boolean {
 export function scrapeForestCampgroundUrls(html: string): string[] {
   const seen = new Set<string>();
   const results: string[] = [];
-  const re = /href="(\/r02\/[^"\/]+\/recreation\/[^"\/]*campground[^"\/]*)"/g;
+  const re = /href=["'](\/r02\/[^"'\/]+\/recreation\/[^"'\/]*campground[^"'\/]*)["']/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     const path = m[1];
@@ -98,7 +98,7 @@ export function scrapeCampgroundPage(
     ? parseFsPageFees(html)
     : { fee_min: null, fee_max: null };
 
-  const fcfsMatch = description.match(/(\d+)\s+first.come/i);
+  const fcfsMatch = description.match(/(\d+)\s+first[- ]come/i);
   const fcfs_total = fcfsMatch ? parseInt(fcfsMatch[1], 10) : 0;
 
   return {

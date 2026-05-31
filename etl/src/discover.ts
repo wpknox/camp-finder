@@ -26,9 +26,11 @@ const CO_FORESTS: Array<{ slug: string; name: string }> = [
 const BASE = 'https://www.fs.usda.gov'
 const HEADERS = { 'User-Agent': 'CampFinder/1.0 (campground info aggregator)' }
 
-async function fetchHtml(url: string): Promise<string | null> {
+// Returns the HTML string, 'not-found' for 404 (expected end-of-pagination), or null for transient errors.
+async function fetchHtml(url: string): Promise<string | 'not-found' | null> {
   try {
     const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10000) })
+    if (res.status === 404) return 'not-found'
     if (!res.ok) { console.warn(`  HTTP ${res.status}: ${url}`); return null }
     return res.text()
   } catch (e) {
@@ -41,9 +43,13 @@ async function collectCampgroundUrls(slug: string): Promise<string[]> {
   const paths: string[] = []
   for (let page = 0; ; page++) {
     const url = `${BASE}/r02/${slug}/recreation/camping-cabins?page=%2C${page}`
-    const html = await fetchHtml(url)
-    if (!html) break
-    const found = scrapeForestCampgroundUrls(html)
+    const result = await fetchHtml(url)
+    if (result === 'not-found') break
+    if (result === null) {
+      console.warn(`  Pagination error at page ${page} for ${slug} — results may be incomplete`)
+      break
+    }
+    const found = scrapeForestCampgroundUrls(result)
     if (found.length === 0) break
     paths.push(...found)
     await sleep(500)
@@ -54,22 +60,24 @@ async function collectCampgroundUrls(slug: string): Promise<string[]> {
 async function main() {
   console.log(`Connecting to Teenybase at ${TB_API_URL}...`)
 
-  const discovered: NormalizedFacility[] = []
+  let totalDiscovered = 0
 
   for (const forest of CO_FORESTS) {
     console.log(`\nEnumerating ${forest.name} (${forest.slug})...`)
     const paths = await collectCampgroundUrls(forest.slug)
     console.log(`  Found ${paths.length} campground URLs`)
 
+    const forestDiscovered: NormalizedFacility[] = []
+
     for (const path of paths) {
       const url = `${BASE}${path}`
       const slug = path.split('/').pop() ?? path
       process.stdout.write(`  Scraping: ${slug.slice(0, 50).padEnd(50)}\r`)
 
-      const html = await fetchHtml(url)
-      if (!html) { await sleep(300); continue }
+      const result = await fetchHtml(url)
+      if (!result || result === 'not-found') { await sleep(300); continue }
 
-      const campground = scrapeCampgroundPage(html, url)
+      const campground = scrapeCampgroundPage(result, url)
       if (!campground) { await sleep(300); continue } // RIDB campground — skip
 
       const amenities = {
@@ -79,7 +87,7 @@ async function main() {
 
       const ridb_id = `fs-${forest.slug}-${slug}`
 
-      discovered.push({
+      forestDiscovered.push({
         ridb_id,
         name: campground.name,
         lat: campground.lat,
@@ -103,13 +111,19 @@ async function main() {
 
       await sleep(300)
     }
+
+    if (forestDiscovered.length > 0) {
+      process.stdout.write('\n')
+      console.log(`  Upserting ${forestDiscovered.length} campgrounds...`)
+      await tb.upsertFacilities(forestDiscovered, (i, total) => {
+        process.stdout.write(`\r  Upserted ${i}/${total}`)
+      })
+      process.stdout.write('\n')
+      totalDiscovered += forestDiscovered.length
+    }
   }
 
-  console.log(`\n\nDiscovered ${discovered.length} FCFS-only campgrounds. Upserting...`)
-  await tb.upsertFacilities(discovered, (i, total) => {
-    process.stdout.write(`\rUpserted ${i}/${total}`)
-  })
-  console.log('\nDiscover complete.')
+  console.log(`\nDiscover complete. ${totalDiscovered} FCFS-only campgrounds upserted.`)
 }
 
 try {
