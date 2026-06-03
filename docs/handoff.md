@@ -98,8 +98,18 @@ When writing to Teenybase, `json`-typed fields (like `amenities`) must be sent a
 
 ### Teenybase auth
 - Service-side writes use `TB_SERVICE_TOKEN` (sent as `Authorization: Bearer <token>` from `+server.ts` routes only — never exposed to client)
-- User JWT stored in `localStorage` as key `cf_auth`
-- Auth endpoints: `POST /api/v1/table/users/auth/sign-up`, `/auth/login-password`
+- Auth endpoints: `POST /api/v1/table/users/auth/sign-up`, `/auth/login-password`, `/auth/refresh-token`, `/auth/logout`
+
+#### Auth foundation rework (httpOnly cookie session — implemented)
+Auth is now **httpOnly-cookie based; no token is ever in client JS** (replaces the old `localStorage` `cf_auth` token).
+- SvelteKit server routes `/api/auth/{register,login,logout,me}` proxy Teenybase and set two httpOnly cookies `cf_access` + `cf_refresh` (`Secure` in prod, `SameSite=Lax`, 30-day cookie lifetime).
+- `hooks.server.ts` reads `cf_access` each request, decodes the JWT for identity + `exp`, and silently refreshes via `/auth/refresh-token` when expired; populates `event.locals.user` (`{id, username, email}`), exposed to pages via `+layout.server.ts`.
+- Registration fixed: derives a hidden Teenybase-legal `username` (`src/lib/server/auth/username.ts`) and sends `name`; user only enters email + display name + password.
+- Save + review **writes are proxied server-side** (`/api/saved`, `/api/ratings/[facilityId]`): `user_id` is derived from `locals.user`, never trusted from the client. Reviews are an **upsert** (one per user+facility); ratings GET stays public.
+- `/account` page (guarded; redirects guests to `/`), top-nav sign-in + account menu.
+- Pragmatic hardening: email/password validators, generic error messages, in-memory sliding-window rate limiter (10 attempts / 15 min per IP — swap for KV/DO on Workers later).
+- Server-side auth utils live under `frontend/src/lib/server/auth/` with Vitest unit tests (validate, username, rateLimit, jwt).
+- Verified end-to-end (register/login/me/save/ratings-upsert/guards/logout) against local dev; `pnpm check` 0/0, `pnpm test` 17 passing.
 
 ### No PocketBase anywhere
 The project switched from PocketBase to Teenybase. Zero PocketBase SDK usage. All backend calls are plain `fetch()` to the Teenybase REST API.
