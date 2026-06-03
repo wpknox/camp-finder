@@ -42,6 +42,7 @@
     <span class="dot green"></span> Fully FCFS
     <span class="dot yellow"></span> Partial FCFS
     <span class="dot blue"></span> Reservable only
+    <span class="dot red"></span> Closed
   </div>
 </div>
 
@@ -61,4 +62,5 @@
   .dot.green  { background: #22c55e; }
   .dot.yellow { background: #eab308; }
   .dot.blue   { background: #3b82f6; }
+  .dot.red    { background: #ef4444; }
 </style>
