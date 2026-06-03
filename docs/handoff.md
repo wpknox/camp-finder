@@ -291,12 +291,9 @@ camp-finder/
 
 ## What's next
 
-### High priority
-1. **BLM campgrounds** — BLM manages significant CO camping (Browns Canyon, Royal Gorge area, etc.) and is not covered by RIDB, fs.usda.gov, or NPS API. BLM has a public API at `https://www.blm.gov/api` — needs investigation. Lower priority than NPS since BLM campgrounds tend to be more dispersed/primitive.
-
-2. **Execute search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`):
-   - Move "Search this area" button into sidebar with staleness hint
-   - Show dashed viewport bbox overlay on map when search is pending
+### Done this session
+- ✅ **Search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`) — search button moved into sidebar with amber staleness hint; dashed blue viewport bbox overlay shows on the map when a search is pending.
+- ✅ **BLM investigation** — BLM camping data *is* reachable via the BLM ArcGIS REST service (`https://gis.blm.gov/arcgis/rest/services/recreation/BLM_Natl_Recreation_Sites_Facilities/MapServer`, no key). But the camping layers (2, 8) are RIDB-derived, so BLM campgrounds with recreation.gov listings are already pulled by `pnpm sync`. Net-new data lives in the non-RIDB "Recreation Facilities/Sites" layers (0, 1), but those need field-schema work and lack FCFS/amenity richness. **Verdict: low marginal value — deprioritized.**
 
 ### Medium priority
 3. **Auth UI** — `AuthModal.svelte` exists but a proper `/login` or `/account` page would complete the auth flow.
