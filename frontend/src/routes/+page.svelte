@@ -33,18 +33,10 @@
   }
 </script>
 
-<FilterSidebar />
+<FilterSidebar onSearch={searchArea} />
 
 <div class="map-wrap">
   <CampMap bind:this={campMap} onselect={(f) => selectedFacility.set(f)} />
-
-  <div class="search-bar">
-    {#if $searchPending}
-      <button class="search-btn" onclick={searchArea} disabled={$isLoading}>
-        {$isLoading ? 'Searching…' : 'Search this area'}
-      </button>
-    {/if}
-  </div>
 
   <div class="legend">
     <span class="dot green"></span> Fully FCFS
@@ -59,12 +51,6 @@
 
 <style>
   .map-wrap  { position: relative; flex: 1; min-width: 0; }
-  .search-bar { position: absolute; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; }
-  .search-btn {
-    background: white; border: none; border-radius: 24px;
-    padding: .6rem 1.4rem; font-size: .95rem; font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer;
-  }
   .legend {
     position: absolute; bottom: 1rem; left: 1rem; z-index: 1000;
     background: white; border-radius: 8px; padding: .5rem .75rem;

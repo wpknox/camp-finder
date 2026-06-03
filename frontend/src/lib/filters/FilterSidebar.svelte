@@ -1,5 +1,8 @@
 <script lang="ts">
   import { filters } from "./filterStore";
+  import { searchPending, isLoading } from "$lib/map/mapStore";
+
+  let { onSearch }: { onSearch: () => void } = $props();
 </script>
 
 <aside class="sidebar">
@@ -46,6 +49,15 @@
       <option value="fcfs_count">FCFS sites (most first)</option>
     </select>
   </div>
+
+  <div class="search-section">
+    {#if $searchPending}
+      <p class="stale-hint">⚠ Map moved — results may be out of date</p>
+    {/if}
+    <button class="search-btn" onclick={onSearch} disabled={$isLoading}>
+      {$isLoading ? "Searching…" : "Search this area"}
+    </button>
+  </div>
 </aside>
 
 <style>
@@ -81,6 +93,37 @@
     border-radius: 6px;
     padding: 0.35rem 0.5rem;
     font-size: 0.875rem;
+  }
+  .search-section {
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .stale-hint {
+    font-size: 0.75rem;
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    margin: 0;
+  }
+  .search-btn {
+    width: 100%;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .search-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
   @media (max-width: 640px) {
     .sidebar {

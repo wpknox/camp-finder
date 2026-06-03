@@ -9,6 +9,31 @@
   let L: any = $state(null)
   let map: any = $state(null)
   let pinsLayer: any = $state(null)
+  let boundsRect: any = $state(null)
+
+  $effect(() => {
+    if (!map || !L) return
+    if ($searchPending) {
+      const bounds = map.getBounds()
+      if (boundsRect) {
+        boundsRect.setBounds(bounds)
+      } else {
+        boundsRect = L.rectangle(bounds, {
+          color: '#2563eb',
+          weight: 2,
+          dashArray: '6 4',
+          fillColor: '#2563eb',
+          fillOpacity: 0.06,
+          interactive: false,
+        }).addTo(map)
+      }
+    } else {
+      if (boundsRect) {
+        boundsRect.remove()
+        boundsRect = null
+      }
+    }
+  })
 
   onMount(() => {
     ;(async () => {
@@ -28,7 +53,10 @@
       pinsLayer = L.markerClusterGroup({ maxClusterRadius: 40 })
       map.addLayer(pinsLayer)
 
-      map.on('moveend', () => searchPending.set(true))
+      map.on('moveend', () => {
+        searchPending.set(true)
+        if (boundsRect) boundsRect.setBounds(map.getBounds())
+      })
     })()
 
     return () => map?.remove()
