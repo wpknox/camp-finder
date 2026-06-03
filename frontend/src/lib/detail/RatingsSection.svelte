@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { auth } from "$lib/auth/authStore";
+  import { isLoggedIn } from "$lib/auth/authStore";
   import AuthModal from "$lib/auth/AuthModal.svelte";
   import type { Rating } from "$lib/types";
 
@@ -27,24 +27,14 @@
   }
 
   async function submit() {
-    if (!$auth.model) {
-      showAuth = true;
-      return;
-    }
+    if (!$isLoggedIn) { showAuth = true; return; }
     if (score < 1 || score > 5) return;
     submitting = true;
     await fetch(`/api/ratings/${facilityId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${$auth.token}`,
-      },
-      body: JSON.stringify({
-        score,
-        notes,
-        visited_at,
-        user_id: $auth.model.id,
-      }),
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ score, notes, visited_at }),
     });
     score = 0;
     notes = "";
@@ -87,17 +77,13 @@
       onclick={submit}
       disabled={submitting || score === 0}
     >
-      {$auth.model
-        ? submitting
-          ? "Submitting…"
-          : "Submit review"
-        : "Sign in to review"}
+      {$isLoggedIn ? (submitting ? "Submitting…" : "Submit review") : "Sign in to review"}
     </button>
   </div>
 </section>
 
 {#if showAuth}
-  <AuthModal onclose={() => (showAuth = false)} />
+  <AuthModal onclose={() => (showAuth = false)} onsuccess={() => { showAuth = false; }} />
 {/if}
 
 <style>
