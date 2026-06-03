@@ -1,6 +1,6 @@
 <script lang="ts">
   import { filters } from "./filterStore";
-  import { searchPending, isLoading } from "$lib/map/mapStore";
+  import { isLoading } from "$lib/map/mapStore";
 
   let { onSearch }: { onSearch: () => void } = $props();
 </script>
@@ -51,9 +51,6 @@
   </div>
 
   <div class="search-section">
-    {#if $searchPending}
-      <p class="stale-hint">⚠ Map moved — results may be out of date</p>
-    {/if}
     <button class="search-btn" onclick={onSearch} disabled={$isLoading}>
       {$isLoading ? "Searching…" : "Search this area"}
     </button>
@@ -101,14 +98,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-  }
-  .stale-hint {
-    font-size: 0.75rem;
-    color: #92400e;
-    background: #fef3c7;
-    border-radius: 4px;
-    padding: 0.25rem 0.5rem;
-    margin: 0;
   }
   .search-btn {
     width: 100%;
