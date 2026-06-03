@@ -76,6 +76,18 @@ function classifyCampgrounds(
       continue;
     }
     toUpsert.push(normalized);
+    // Add to the index so later records in this same batch dedupe against it.
+    // Without this, the same campground listed under two park codes (e.g. East
+    // Portal under both cure and blca) would be inserted twice.
+    const key = normalizeName(normalized.name);
+    if (!byName.has(key)) byName.set(key, []);
+    byName.get(key)!.push({
+      id: "",
+      ridb_id: normalized.ridb_id,
+      name: normalized.name,
+      lat: normalized.lat,
+      lng: normalized.lng,
+    });
   }
 
   return { toUpsert, skippedOutOfState, skippedDupes };
