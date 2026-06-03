@@ -54,10 +54,19 @@ export class TbClient {
   }
 
   async listAllRidb(): Promise<Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string }>> {
-    const res = await this.tbFetch("/table/facilities/list", { limit: 5000 }) as {
+    const res = await this.tbFetch("/table/facilities/list", { limit: 10000 }) as {
       items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string }>
     };
-    return res.items.filter(f => !f.ridb_id.startsWith("fs-"));
+    return res.items.filter(f => !f.ridb_id.startsWith("fs-") && !f.ridb_id.startsWith("nps-"));
+  }
+
+  async listAll(): Promise<Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number }>> {
+    // limit: 10000 — well above current scale (~600 campgrounds). If the table ever
+    // grows past this, add cursor/offset pagination here.
+    const res = await this.tbFetch("/table/facilities/list", { limit: 10000 }) as {
+      items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number }>
+    };
+    return res.items;
   }
 
   async patchFacility(id: string, patch: Record<string, unknown>): Promise<void> {

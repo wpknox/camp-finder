@@ -7,9 +7,17 @@ CampFinder is a map-first PWA for discovering Colorado campgrounds. Built on:
 - **Backend**: Teenybase (Cloudflare Workers + D1), REST API at `/api/v1/table/<name>/...`
 - **ETL**: Node/TypeScript scripts — pulls from RIDB API and scrapes fs.usda.gov, normalizes, writes to Teenybase
 
-## Current status: ~570 campgrounds, core features working, FS discovery complete
+## Current status: ~592 campgrounds (RIDB + FS + NPS all synced)
 
-**570 Colorado campgrounds seeded** (270 from RIDB + ~300 discovered from fs.usda.gov). Map, search, detail panel, filters, compare, auth, save, and ratings all wired up. Closed campgrounds show a red marker and a sticky red banner. UI/UX needs a polish pass before deployment.
+**~592 Colorado campgrounds seeded** (270 from RIDB + ~300 discovered from fs.usda.gov + 22 from NPS API). Map, search, detail panel, filters, compare, auth, save, and ratings all wired up. Closed campgrounds show a red marker and a sticky red banner. UI/UX needs a polish pass before deployment.
+
+**NPS API pipeline is built, tested, and run.** `pnpm sync-nps` added 22 NPS campgrounds across all 8 CO parks (5 ROMO + 17 from the rest), including Gates of Lodore Campground (the original motivation). Park codes: romo, dino, meve, blca, cure, grsa, colm, flfo (flfo has no campgrounds). Re-run anytime — it's idempotent and dedupes against all existing records.
+
+**NPS bug fixed:** `NpsClient.getCampgrounds` was using `URLSearchParams.set()`, which percent-encoded the comma in the multi-park `parkCode` query to `%2C`. The NPS API mishandles that, silently returning only the first park (`romo`, `total: 5`) and breaking pagination. Fixed by building the query string with literal commas (`etl/src/nps.ts`).
+
+**Known data quirk:** "East Portal Campground" appears under both `cure` and `blca` (NPS lists it under both units) — inserted as two records with distinct `nps-{parkCode}-{id}` IDs. Likely the same physical campground; not yet deduped.
+
+**Why NPS was added:** RIDB `state=CO` filter silently drops NPS facilities whose parks span CO/UT — confirmed with Gates of Lodore Campground (RIDB ID `10199750`, `ParentOrgID: 128`, no `FACILITYADDRESS`). NPS API returns `numberOfSitesFirstComeFirstServe` and `numberOfSitesReservable` directly, plus structured amenities (toilet type, potable water, food storage lockers, RV length, electric hookups).
 
 **Current branch:** `feat/fs-campground-discovery` (not yet merged to main)
 
@@ -186,14 +194,21 @@ camp-finder/
     src/
       index.ts            # RIDB sync orchestrator — three-tier fee fallback
       ridb.ts             # RidbClient — getAllFacilities, getFacilityDetail, getCampsites
-      teenybase.ts        # TbClient — upsertFacility, upsertFacilities, listAllRidb, patchFacility
+      teenybase.ts        # TbClient — upsertFacility, upsertFacilities, listAllRidb (excludes
+                          #   fs-/nps- prefixes), listAll (all records, for NPS dedup),
+                          #   patchFacility. All list calls use limit:10000.
       normalize.ts        # normalizeAmenities, parseDescriptionAmenities (water/toilet/bears/
-                          #   picnicTables/petsAllowed), aggregateFcfs, scoreDataQuality,
+                          #   picnicTables/petsAllowed/fireRings), aggregateFcfs, scoreDataQuality,
                           #   extractFees, extractFsUrl, extractFeesFromDescription
       fsScraper.ts        # parseFsPageFees, scrapeFsPage, scrapeForestCampgroundUrls,
                           #   isRidbCampground, scrapeCampgroundPage (returns is_closed)
       discover.ts         # fs.usda.gov discovery orchestrator — 7 CO forests,
                           #   deduplicates against RIDB by name+proximity
+      nps.ts              # NpsClient, CO_NPS_PARKS (8 CO parks), normalizeNpsCampground,
+                          #   normalizeNpsAmenities, extractNpsFees, detectIsClosed,
+                          #   isInColorado — all exported for testing
+      sync-nps.ts         # NPS sync orchestrator — dedupes against ALL existing records,
+                          #   upserts new ones. ridb_id prefix: nps-{parkCode}-{id}
       forests.ts          # CO_QUERY_PARAMS, parentOrgToAgency (ParentOrgID → agency name)
       types.ts            # RidbFacility, RidbCampsite, NormalizedFacility (incl. is_closed),
                           #   Amenities, etc.
@@ -201,8 +216,11 @@ camp-finder/
       fsScraper.test.ts   # 8 tests — parseFsPageFees, scrapeFsPage
       fsDiscovery.test.ts # 14 tests — scrapeForestCampgroundUrls, isRidbCampground,
                           #   scrapeCampgroundPage (incl. h3 fees, is_closed)
-      normalize.test.ts   # 28 tests — normalizeAmenities, aggregateFcfs, scoreDataQuality,
+      normalize.test.ts   # 32 tests — normalizeAmenities, aggregateFcfs, scoreDataQuality,
                           #   extractFees, extractFeesFromDescription, parseDescriptionAmenities
+                          #   (incl. fireRings)
+      nps.test.ts         # 53 tests — normalizeNpsCampground, normalizeNpsAmenities,
+                          #   extractNpsFees, detectIsClosed, isInColorado
       ridb.test.ts        # 3 tests — parentOrgToAgency
 
   frontend/
@@ -266,13 +284,15 @@ camp-finder/
 | Amenity detection missing data from page body | **Fixed** — discover.ts passes full page body (not just meta description) to `parseDescriptionAmenities` |
 | FS campgrounds creating duplicates of RIDB records | **Fixed** — name+proximity dedup in discover.ts; 52 existing duplicates removed via SQL |
 | `is_closed` field not recognized by Teenybase | **Fixed** — migration `0005_add_is_closed_to_facilities.sql` (run `pnpm generate && pnpm migrate`) |
+| NPS campgrounds missing despite being in RIDB | **Fixed** — RIDB `state=CO` silently drops cross-border NPS parks (confirmed: Gates of Lodore, `ParentOrgID: 128`, no `FACILITYADDRESS`). New `nps.ts` + `pnpm sync-nps` fetches directly from NPS API by park code. |
+| `parseDescriptionAmenities` missing fireRings detection | **Fixed** — added `fireRings` via fire pit/ring/grate keywords with negation guard; "grill" excluded (too broad) |
 
 ---
 
 ## What's next
 
 ### High priority
-1. **Non-USFS campgrounds** — BLM, state parks, county parks are not in RIDB and not on fs.usda.gov. User will provide example campgrounds that should appear but don't. Need to identify data sources (Recreation.gov non-USFS? Colorado State Parks API? BLM.gov?) and add scraping/sync for them.
+1. **BLM campgrounds** — BLM manages significant CO camping (Browns Canyon, Royal Gorge area, etc.) and is not covered by RIDB, fs.usda.gov, or NPS API. BLM has a public API at `https://www.blm.gov/api` — needs investigation. Lower priority than NPS since BLM campgrounds tend to be more dispersed/primitive.
 
 2. **Execute search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`):
    - Move "Search this area" button into sidebar with staleness hint
@@ -310,4 +330,12 @@ curl "http://localhost:5173/api/facilities?north=41&south=38&east=-104&west=-107
 # Count closed campgrounds
 sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/*.sqlite \
   "SELECT COUNT(*) FROM facilities WHERE is_closed = 1"
+
+# Verify NPS sync worked (Gates of Lodore should appear after pnpm sync-nps)
+curl http://localhost:8787/api/v1/table/facilities/list -X POST \
+  -H 'Content-Type: application/json' -d '{"where": "ridb_id == \"nps-dino-10199750\"", "limit": 1}'
+
+# Count NPS campgrounds
+sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/*.sqlite \
+  "SELECT COUNT(*) FROM facilities WHERE ridb_id LIKE 'nps-%'"
 ```

@@ -173,4 +173,21 @@ describe('parseDescriptionAmenities', () => {
     expect(parseDescriptionAmenities('A hand pump provides water at the site.').potableWater).toBe(true)
     expect(parseDescriptionAmenities('Potable water is available at this site.').potableWater).toBe(true)
   })
+
+  it('detects fire rings from fire pit / fire ring / fire grate keywords', () => {
+    expect(parseDescriptionAmenities('Each site has a fire pit and picnic table.').fireRings).toBe(true)
+    expect(parseDescriptionAmenities('Fire rings are provided at each campsite.').fireRings).toBe(true)
+    expect(parseDescriptionAmenities('All sites have a fire grate for cooking.').fireRings).toBe(true)
+    expect(parseDescriptionAmenities('There is a campfire ring at each site.').fireRings).toBe(true)
+  })
+
+  it('does not set fireRings when campfires are prohibited', () => {
+    expect(parseDescriptionAmenities('Fire pit present but campfire not allowed.').fireRings).toBeUndefined()
+    expect(parseDescriptionAmenities('No open fire permitted in this zone.').fireRings).toBeUndefined()
+    expect(parseDescriptionAmenities('Campfire prohibited due to fire restrictions.').fireRings).toBeUndefined()
+  })
+
+  it('does not set fireRings when no fire keywords present', () => {
+    expect(parseDescriptionAmenities('A beautiful campground near the lake.').fireRings).toBeUndefined()
+  })
 })

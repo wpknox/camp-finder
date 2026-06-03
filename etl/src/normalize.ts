@@ -43,6 +43,10 @@ export function parseDescriptionAmenities(
 
   const picnicTables = has("picnic table") && !has("no picnic table");
 
+  const fireRings =
+    has("fire pit", "fire ring", "campfire ring", "fire grate") &&
+    !has("no campfire", "campfire not allowed", "campfire prohibited", "no open fire");
+
   const petsAllowed =
     (has("pets allowed", "dogs allowed", "pets are permitted", "dogs permitted",
          "leash required", "dogs must be leashed", "dogs on leash", "pets on leash",
@@ -54,6 +58,7 @@ export function parseDescriptionAmenities(
     ...(toiletType === undefined ? {} : { toiletType }),
     ...(bearBoxes ? { bearBoxes } : {}),
     ...(picnicTables ? { picnicTables } : {}),
+    ...(fireRings ? { fireRings } : {}),
     ...(petsAllowed ? { petsAllowed } : {}),
   };
 }
