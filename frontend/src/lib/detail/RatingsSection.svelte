@@ -1,173 +1,51 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { isLoggedIn } from "$lib/auth/authStore";
-  import AuthModal from "$lib/auth/AuthModal.svelte";
+  import ReviewsModal from "./ReviewsModal.svelte";
   import type { Rating } from "$lib/types";
 
-  let { facilityId }: { facilityId: string } = $props();
+  let { facilityId, facilityName }: { facilityId: string; facilityName: string } = $props();
 
-  let ratings: Rating[] = $state([]);
-  let showAuth = $state(false);
-  let score = $state(0);
-  let notes = $state("");
-  let visited_at = $state("");
-  let submitting = $state(false);
+  let reviews: Rating[] = $state([]);
+  let showModal = $state(false);
 
-  let avgScore = $derived(
-    ratings.length
-      ? (ratings.reduce((s, r) => s + r.score, 0) / ratings.length).toFixed(1)
-      : null,
+  let avg = $derived(
+    reviews.length ? (reviews.reduce((s, r) => s + r.score, 0) / reviews.length).toFixed(1) : null,
   );
+  let mostRecent = $derived(reviews[0] ?? null);
 
-  onMount(loadRatings);
-
-  async function loadRatings() {
+  onMount(load);
+  async function load() {
     const res = await fetch(`/api/ratings/${facilityId}`);
-    ratings = await res.json();
-  }
-
-  async function submit() {
-    if (!$isLoggedIn) { showAuth = true; return; }
-    if (score < 1 || score > 5) return;
-    submitting = true;
-    await fetch(`/api/ratings/${facilityId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ score, notes, visited_at }),
-    });
-    score = 0;
-    notes = "";
-    visited_at = "";
-    await loadRatings();
-    submitting = false;
+    reviews = await res.json();
   }
 </script>
 
 <section class="ratings">
-  <h3>
-    Community Ratings
-    {#if avgScore}<span class="avg">★ {avgScore} ({ratings.length})</span>{/if}
-  </h3>
-
-  {#each ratings as r}
-    <div class="rating-row">
-      <span class="stars">{"★".repeat(r.score)}{"☆".repeat(5 - r.score)}</span>
-      {#if r.visited_at}<span class="date">{r.visited_at}</span>{/if}
-      {#if r.notes}<p class="notes">{r.notes}</p>{/if}
-    </div>
-  {/each}
-
-  {#if ratings.length === 0}<p class="empty">No reviews yet.</p>{/if}
-
-  <div class="form">
-    <p class="form-label">Leave a review</p>
-    <div class="star-pick">
-      {#each [1, 2, 3, 4, 5] as s}
-        <button class:active={s <= score} onclick={() => (score = s)}
-          >{s <= score ? "★" : "☆"}</button
-        >
-      {/each}
-    </div>
-    <input type="date" bind:value={visited_at} placeholder="Date visited" />
-    <textarea bind:value={notes} placeholder="Notes (optional)" rows="2"
-    ></textarea>
-    <button
-      class="submit-btn"
-      onclick={submit}
-      disabled={submitting || score === 0}
-    >
-      {$isLoggedIn ? (submitting ? "Submitting…" : "Submit review") : "Sign in to review"}
-    </button>
-  </div>
+  <h3>Community Reviews</h3>
+  {#if avg}
+    <p class="summary"><span class="avg">★ {avg}</span> · {reviews.length} review{reviews.length === 1 ? "" : "s"}</p>
+    {#if mostRecent?.notes}<p class="snippet">"{mostRecent.notes}"</p>{/if}
+  {:else}
+    <p class="empty">No reviews yet.</p>
+  {/if}
+  <button class="see-all" onclick={() => (showModal = true)}>
+    {avg ? "See all reviews" : "Write a review"}
+  </button>
 </section>
 
-{#if showAuth}
-  <AuthModal onclose={() => (showAuth = false)} onsuccess={() => { showAuth = false; }} />
+{#if showModal}
+  <ReviewsModal
+    {facilityId}
+    {facilityName}
+    onclose={() => { showModal = false; load(); }} />
 {/if}
 
 <style>
-  .ratings {
-    margin: 1rem 0;
-  }
-  h3 {
-    font-size: 0.95rem;
-    margin: 0 0 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .avg {
-    color: #ca8a04;
-    font-size: 0.85rem;
-  }
-  .rating-row {
-    border-bottom: 1px solid #f3f4f6;
-    padding: 0.5rem 0;
-    font-size: 0.85rem;
-  }
-  .stars {
-    color: #f59e0b;
-  }
-  .date {
-    color: #9ca3af;
-    font-size: 0.8rem;
-    margin-left: 0.5rem;
-  }
-  .notes {
-    margin: 0.25rem 0 0;
-    color: #374151;
-  }
-  .empty {
-    color: #9ca3af;
-    font-size: 0.85rem;
-  }
-  .form {
-    margin-top: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .form-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin: 0;
-  }
-  .star-pick {
-    display: flex;
-    gap: 0.25rem;
-  }
-  .star-pick button {
-    background: none;
-    border: none;
-    font-size: 1.4rem;
-    cursor: pointer;
-    color: #d1d5db;
-    padding: 0;
-  }
-  .star-pick button.active {
-    color: #f59e0b;
-  }
-  textarea,
-  input[type="date"] {
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-    resize: vertical;
-  }
-  .submit-btn {
-    background: #16a34a;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0.55rem;
-    cursor: pointer;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-  .submit-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
+  .ratings { margin: 1rem 0; }
+  h3 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+  .summary { margin: 0; font-size: 0.9rem; }
+  .avg { color: #ca8a04; font-weight: 600; }
+  .snippet { margin: 0.35rem 0 0; color: #6b7280; font-size: 0.85rem; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty { color: #9ca3af; font-size: 0.85rem; margin: 0; }
+  .see-all { margin-top: 0.6rem; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; padding: 0.4rem 0.85rem; cursor: pointer; font-size: 0.85rem; }
 </style>

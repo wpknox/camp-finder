@@ -84,7 +84,7 @@
       <a href={nearbyMapsUrl} target="_blank" rel="noopener">Nearby activities (Google Maps) ↗</a>
     </div>
 
-    <RatingsSection facilityId={facility.id} />
+    <RatingsSection facilityId={facility.id} facilityName={facility.name} />
   </div>
 </aside>
 
