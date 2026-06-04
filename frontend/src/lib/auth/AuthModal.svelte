@@ -152,7 +152,9 @@
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 3000; display: grid; place-items: center; padding: 1rem; }
+  /* Above the reviews modal (3500) so "Sign in to write a review" → AuthModal
+     stacks on top, not behind it. */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 4000; display: grid; place-items: center; padding: 1rem; }
   .modal { background: white; border-radius: 12px; padding: 2rem; width: min(380px, 100%); display: flex; flex-direction: column; gap: 0.75rem; }
   .auth-form { display: flex; flex-direction: column; gap: 0.75rem; }
   h2 { margin: 0; font-size: 1.1rem; }
