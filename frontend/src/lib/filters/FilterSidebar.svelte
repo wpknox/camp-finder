@@ -304,6 +304,13 @@
       order: 1;
       flex: none;
     }
+    /* When expanded, let the filters scroll within the fixed-height
+       sidebar instead of pushing the search button / results off-screen. */
+    .filter-body.open {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+    }
     .search-section {
       order: 2;
       flex: none;
