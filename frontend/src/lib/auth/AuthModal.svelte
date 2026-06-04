@@ -74,6 +74,8 @@
   <div class="modal" role="dialog" aria-modal="true" aria-label={mode === 'login' ? 'Sign in' : 'Create account'}>
     <h2>{mode === "login" ? "Sign in" : "Create account"}</h2>
 
+    <!-- A real form so pressing Enter in any field submits. -->
+    <form class="auth-form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
     <div class="field">
       <input
         type="email"
@@ -136,12 +138,15 @@
 
     {#if error}<p class="error" role="alert">{error}</p>{/if}
 
-    <button class="primary" onclick={submit} disabled={submitting}>
+    <button class="primary" type="submit" disabled={submitting}>
+      {#if submitting}<span class="spinner" aria-hidden="true"></span>{/if}
       {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
     </button>
+    </form>
 
-    <button class="toggle" onclick={switchMode}>
-      {mode === "login" ? "Need an account? Register" : "Already have an account? Sign in"}
+    <button class="toggle" type="button" onclick={switchMode}>
+      {mode === "login" ? "Need an account?" : "Already have an account?"}
+      <span class="toggle-action">{mode === "login" ? "Register" : "Sign in"}</span>
     </button>
   </div>
 </div>
@@ -149,6 +154,7 @@
 <style>
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 3000; display: grid; place-items: center; padding: 1rem; }
   .modal { background: white; border-radius: 12px; padding: 2rem; width: min(380px, 100%); display: flex; flex-direction: column; gap: 0.75rem; }
+  .auth-form { display: flex; flex-direction: column; gap: 0.75rem; }
   h2 { margin: 0; font-size: 1.1rem; }
   .field { display: flex; flex-direction: column; gap: 0.25rem; }
   input { border: 1px solid #d1d5db; border-radius: 8px; padding: 0.6rem 0.85rem; font-size: 0.95rem; width: 100%; box-sizing: border-box; }
@@ -157,8 +163,12 @@
   input.invalid:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15); }
   .field-error { color: #dc2626; font-size: 0.78rem; margin: 0; }
   .field-hint { color: #9ca3af; font-size: 0.78rem; margin: 0; }
-  .primary { background: #16a34a; color: white; border: none; border-radius: 8px; padding: 0.65rem; cursor: pointer; font-size: 0.95rem; font-weight: 600; margin-top: 0.25rem; }
-  .primary:disabled { opacity: 0.6; cursor: default; }
+  .primary { display: flex; align-items: center; justify-content: center; gap: 0.45rem; background: #16a34a; color: white; border: none; border-radius: 8px; padding: 0.65rem; cursor: pointer; font-size: 0.95rem; font-weight: 600; margin-top: 0.25rem; }
+  .primary:disabled { opacity: 0.7; cursor: default; }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255, 255, 255, 0.45); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .toggle { background: none; border: none; color: #6b7280; font-weight: 400; font-size: 0.875rem; padding: 0; cursor: pointer; }
+  .toggle-action { color: #16a34a; font-weight: 600; text-decoration: underline; }
+  .toggle:hover .toggle-action { color: #15803d; }
   .error { color: #dc2626; font-size: 0.85rem; margin: 0; }
 </style>
