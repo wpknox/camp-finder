@@ -11,6 +11,24 @@
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
+  // Desktop-only resizable width (panel is anchored to the right edge).
+  let panelWidth = $state(420)
+  let resizing = false
+  function startResize(e: PointerEvent) {
+    resizing = true
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  function doResize(e: PointerEvent) {
+    if (!resizing) return
+    const w = window.innerWidth - e.clientX
+    panelWidth = Math.min(Math.max(w, 320), Math.min(window.innerWidth, 800))
+  }
+  function endResize(e: PointerEvent) {
+    if (!resizing) return
+    resizing = false
+    ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
+  }
+
   let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
   let reserveUrl    = $derived(`https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`)
   let feeStr = $derived(
@@ -22,7 +40,16 @@
   let isComparing = $derived($compareIds.includes(facility.id))
 </script>
 
-<aside class="panel">
+<aside class="panel" style="--panel-width: {panelWidth}px">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="resize-handle"
+    role="separator"
+    aria-label="Resize panel"
+    onpointerdown={startResize}
+    onpointermove={doResize}
+    onpointerup={endResize}
+  ></div>
   <button class="close-btn" onclick={() => onclose?.()} aria-label="Close">✕</button>
 
   {#if facility.is_closed}
@@ -97,10 +124,20 @@
     z-index: 2000;
     box-shadow: -2px 0 12px rgba(0,0,0,0.15);
     top: 0; right: 0; bottom: 0;
-    width: min(420px, 100vw);
+    width: min(var(--panel-width, 420px), 100vw);
   }
+  .resize-handle {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    z-index: 3;
+    touch-action: none;
+  }
+  .resize-handle:hover { background: rgba(22, 163, 74, 0.25); }
   @media (max-width: 640px) {
     .panel { top: 40%; left: 0; right: 0; bottom: 0; width: 100%; border-radius: 16px 16px 0 0; }
+    .resize-handle { display: none; }
   }
   .close-btn {
     position: sticky; top: 0; float: right;

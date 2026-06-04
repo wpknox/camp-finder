@@ -3,7 +3,7 @@
   import type { Facility } from "$lib/types";
   import { searchPending } from "./mapStore";
 
-  let { onselect }: { onselect?: (f: Facility) => void } = $props();
+  let { onselect, onbackgroundclick }: { onselect?: (f: Facility) => void; onbackgroundclick?: () => void } = $props();
 
   let mapEl: HTMLDivElement = $state(null!);
   let L: any = $state(null);
@@ -33,6 +33,9 @@
       map.addLayer(pinsLayer);
 
       map.on("moveend", () => searchPending.set(true));
+      // Clicking the map background (not a marker — Leaflet fires marker
+      // clicks separately) dismisses the open detail panel.
+      map.on("click", () => onbackgroundclick?.());
     })();
 
     return () => map?.remove();
@@ -60,7 +63,12 @@
       });
       const label = f.is_closed ? `⛔ CLOSED — ${f.name}` : f.name;
       marker.bindTooltip(label, { permanent: false, direction: "top" });
-      marker.on("click", () => onselect?.(f));
+      marker.on("click", (e: any) => {
+        // Stop the event reaching the map so the background-click handler
+        // (which clears the selection) doesn't immediately undo the select.
+        L.DomEvent.stopPropagation(e);
+        onselect?.(f);
+      });
       pinsLayer.addLayer(marker);
     }
   }
