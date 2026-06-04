@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { tbLogin } from '$lib/server/auth/tbAuth'
+import { tbLogin, tbGetName } from '$lib/server/auth/tbAuth'
 import { setSession } from '$lib/server/auth/session'
 import { authLimiter } from '$lib/server/auth/limiters'
 
@@ -13,6 +13,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   const auth = await tbLogin(email ?? '', password ?? '')
   if (!auth) return json({ error: 'Invalid email or password.' }, { status: 401 })
 
-  setSession(cookies, auth.token, auth.refresh_token)
-  return json({ user: { id: auth.record.id, username: auth.record.username, email: auth.record.email } })
+  const name = auth.record.name ?? (await tbGetName(auth.token, auth.record.id))
+  setSession(cookies, auth.token, auth.refresh_token, name ?? undefined)
+  return json({ user: { id: auth.record.id, username: auth.record.username, email: auth.record.email, name: name ?? null } })
 }

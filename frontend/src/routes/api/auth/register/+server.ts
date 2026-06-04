@@ -28,6 +28,6 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
   const auth = await tbLogin(email, password)
   if (!auth) return json({ error: GENERIC }, { status: 400 })
 
-  setSession(cookies, auth.token, auth.refresh_token)
-  return json({ user: { id: auth.record.id, username: auth.record.username, email: auth.record.email } }, { status: 201 })
+  setSession(cookies, auth.token, auth.refresh_token, auth.record.name ?? name.trim())
+  return json({ user: { id: auth.record.id, username: auth.record.username, email: auth.record.email, name: auth.record.name ?? name.trim() } }, { status: 201 })
 }

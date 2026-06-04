@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store'
 
-export interface AuthUser { id: string; username: string; email: string }
+export interface AuthUser { id: string; username: string; email: string; name?: string | null }
 
 function createAuthStore() {
   const { subscribe, set } = writable<AuthUser | null>(null)

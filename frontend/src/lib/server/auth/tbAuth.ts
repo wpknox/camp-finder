@@ -59,6 +59,28 @@ export async function tbRefresh(
   return res.json();
 }
 
+/**
+ * Fetch the user's display name. The auth/login response omits the custom
+ * `name` field, so we read it from the users table (the user can read their
+ * own record). Returns null on any failure — name is cosmetic.
+ */
+export async function tbGetName(
+  accessToken: string,
+  userId: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${PUBLIC_TB_URL}/api/v1/table/users/view/${userId}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { name?: string };
+    return data.name?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function tbLogout(accessToken: string): Promise<void> {
   try {
     await call("logout", {}, accessToken);

@@ -2,6 +2,7 @@ import type { Handle } from "@sveltejs/kit";
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
+  NAME_COOKIE,
   setSession,
   clearSession,
 } from "$lib/server/auth/session";
@@ -22,16 +23,23 @@ export const handle: Handle = async ({ event, resolve }) => {
         id: payload.id,
         username: payload.user,
         email: payload.sub,
+        name: event.cookies.get(NAME_COOKIE) ?? null,
       };
     } else if (refresh) {
       // Access token expired (or unreadable) — try silent refresh.
       const refreshed = await tbRefresh(access, refresh);
       if (refreshed) {
-        setSession(event.cookies, refreshed.token, refreshed.refresh_token);
+        setSession(
+          event.cookies,
+          refreshed.token,
+          refreshed.refresh_token,
+          refreshed.record.name,
+        );
         event.locals.user = {
           id: refreshed.record.id,
           username: refreshed.record.username,
           email: refreshed.record.email,
+          name: refreshed.record.name ?? event.cookies.get(NAME_COOKIE) ?? null,
         };
       } else {
         clearSession(event.cookies);
