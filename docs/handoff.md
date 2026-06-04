@@ -19,7 +19,7 @@ CampFinder is a map-first PWA for discovering Colorado campgrounds. Built on:
 
 **Why NPS was added:** RIDB `state=CO` filter silently drops NPS facilities whose parks span CO/UT — confirmed with Gates of Lodore Campground (RIDB ID `10199750`, `ParentOrgID: 128`, no `FACILITYADDRESS`). NPS API returns `numberOfSitesFirstComeFirstServe` and `numberOfSitesReservable` directly, plus structured amenities (toilet type, potable water, food storage lockers, RV length, electric hookups).
 
-**Current branch:** `feat/fs-campground-discovery` (not yet merged to main)
+**Current branch:** `feat/auth-foundation` (not yet merged to main — **merging is the next step**)
 
 ---
 
@@ -301,19 +301,38 @@ camp-finder/
 
 ## What's next
 
-### Done this session
+### Done this session (2026-06-03 — mobile + auth UX polish)
+- ✅ **Mobile layout overhaul** (spec: `docs/superpowers/specs/2026-06-03-mobile-ui-overhaul-design.md`). On phone widths (≤640px): `.app-shell` stacks column (sidebar above map); the sidebar is a fixed `33vh` region with a **collapsible "Filters" disclosure** (collapsed by default; desktop forces it open and hides the toggle), a **pinned "Search this area" button** that never scrolls away, and a **scrolling results list** below it. The expanded filter body scrolls within the sidebar so Max-fee/Sort stay reachable. Desktop layout unchanged.
+- ✅ **Full-screen mobile detail panel** — `DetailPanel` becomes a `100dvh` takeover on mobile with a grabber bar; **swipe-down past ~120px dismisses** (short drags snap back), X still closes. Desktop keeps the resizable right-side panel.
+- ✅ **Signed-in display-name indicator** — the Account button shows an avatar (first initial) + the registered **display name**. Teenybase's auth/login response omits the custom `name` field, so: register uses the form's name; login fetches it via `tbGetName` (reads `users/view/{id}`); the name is cached in a server-set httpOnly `cf_name` cookie so it survives reloads with no per-request lookup; falls back to the email local-part. Touched: `session.ts` (NAME_COOKIE), `hooks.server.ts`, `app.d.ts`, `authStore.ts`, login/register routes, `AccountMenu.svelte`.
+- ✅ **Auth modal UX** — fields wrapped in a real `<form>` so **Enter submits**; a **spinner + "Please wait…"** shows on the disabled button while a request is in flight; the mode-toggle action word ("Register"/"Sign in") is styled as an underlined green link.
+- ✅ **Reviews bug fix** — reviews now reload when the selected facility changes (`RatingsSection` used `$effect` keyed on `facilityId` + a stale-response guard, replacing onMount-only load). Map-background click closes the detail panel; marker clicks `stopPropagation` so they don't self-dismiss.
+
+### Done previous session
 - ✅ **Account features plan** (`docs/superpowers/plans/2026-06-02-account-features.md`) — reviews modal (public read; auth write/edit/delete; one editable review per user+facility), reusable `ConfirmDialog` on destructive actions, compact review summary in the detail panel, and an `/account` dashboard listing saved campgrounds + my reviews with deep links (`?facility=`, `?reviews=1`) back to the map. DB-level unique `(user_id, facility_id)` index on `ratings` + `createRule: auth.uid == user_id` (migration `0007`). Verified: `pnpm test` 17 passing, `pnpm check` 0/0, logged-out review POST → 401, guest reviews-modal + deep-link confirmed in browser.
 - ✅ **Search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`) — search button moved into sidebar with amber staleness hint; dashed blue viewport bbox overlay shows on the map when a search is pending.
 - ✅ **BLM investigation** — BLM camping data *is* reachable via the BLM ArcGIS REST service (`https://gis.blm.gov/arcgis/rest/services/recreation/BLM_Natl_Recreation_Sites_Facilities/MapServer`, no key). But the camping layers (2, 8) are RIDB-derived, so BLM campgrounds with recreation.gov listings are already pulled by `pnpm sync`. Net-new data lives in the non-RIDB "Recreation Facilities/Sites" layers (0, 1), but those need field-schema work and lack FCFS/amenity richness. **Verdict: low marginal value — deprioritized.**
 
+### Next up (high priority)
+1. **Merge `feat/auth-foundation` → main.** This branch carries the auth foundation, account features, and the mobile + auth-UX polish from this session. Review the diff, then merge.
+
+2. **Verify multi-user data isolation (authorization / row-level security).** Before trusting the app with real users, confirm one user cannot touch another's data:
+   - **Reviews — edit/delete:** User A leaves a review; User B (logged in) must NOT be able to edit or delete it. Enforced two ways today — the `ratings` table `createRule: auth.uid == user_id` (migration `0007`) and server-side `user_id` derived from `locals.user` in `/api/ratings/[facilityId]` — but this needs an explicit adversarial test (e.g. User B POSTing/DELETEing against User A's facility, forging a `user_id`).
+   - **Reviews — visibility:** Currently ratings GET is **public read** (any user sees all reviews on a facility, which is the intended crowdsourced-reviews behavior). The user's longer-term intent: a user's *own* review history (the `/account` "My reviews" list) must stay private to them — `/account/+page.server.ts` already filters by `locals.user.id`, but confirm there's no endpoint that leaks "all reviews by user X".
+   - **Saved campgrounds:** `saved_campgrounds` is private (all ops require `auth.uid == user_id`) — verify User B cannot list/read/delete User A's saves.
+   - Note: a "see other users' saved/shared campgrounds" feature is **explicitly far off** — don't build sharing now; just make sure today's data is properly siloed per-user.
+
 ### Medium priority
-5. **UI/UX polish pass** — Functional but visually rough. Install the `frontend-design` superpowers skill before starting. Key areas: sidebar layout, detail panel polish, mobile, typography.
+3. **UI/UX polish pass (the big one).** Functional but visually rough, and we want a *unique* experience, not generic. **Install the `frontend-design` superpowers skill first**, then do a real design pass: sidebar layout, detail panel, typography, color/identity, empty states, and continued mobile refinement. This session's mobile work was tactical fixes; this is the holistic design pass.
 
 ### Lower priority
-6. **Deployment** (deferred until local testing is solid):
+4. **Deployment** (deferred until local testing is solid):
    - Frontend → Cloudflare Pages
    - Backend → `pnpm deploy` (Teenybase to Cloudflare Workers + D1)
    - Set production env vars
+
+### Housekeeping
+- A throwaway dev account `testview@example.com` (display name "Test Viewer", password `password123`) was created in the **local** D1 while testing the display-name indicator. Harmless; delete from the local DB if you want a clean users table. It's a good second account for the multi-user isolation testing above.
 
 ---
 
