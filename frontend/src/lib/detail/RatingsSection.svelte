@@ -13,13 +13,22 @@
   );
   let mostRecent = $derived(reviews[0] ?? null);
 
-  onMount(async () => {
-    await load();
-    if (autoOpen) showModal = true;
+  // Re-fetch whenever the selected facility changes — the DetailPanel
+  // instance is reused across campgrounds, so onMount alone would leave
+  // stale reviews from the previously viewed facility.
+  $effect(() => {
+    facilityId; // track
+    reviews = [];
+    load();
   });
+
+  onMount(() => { if (autoOpen) showModal = true; });
   async function load() {
-    const res = await fetch(`/api/ratings/${facilityId}`);
-    reviews = await res.json();
+    const id = facilityId;
+    const res = await fetch(`/api/ratings/${id}`);
+    const data = await res.json();
+    // Ignore a response for a facility we've since navigated away from.
+    if (id === facilityId) reviews = data;
   }
 </script>
 
