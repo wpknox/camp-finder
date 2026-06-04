@@ -9,6 +9,7 @@
   let L: any = $state(null);
   let map: any = $state(null);
   let pinsLayer: any = $state(null);
+  let pendingView: [number, number] | null = null;
 
   onMount(() => {
     (async () => {
@@ -19,6 +20,9 @@
       await import("leaflet.markercluster/dist/MarkerCluster.Default.css");
 
       map = L.map(mapEl, { center: [39.55, -105.78], zoom: 8 });
+
+      // Apply a flyTo requested before the map finished loading.
+      if (pendingView) { map.setView(pendingView, 12); pendingView = null; }
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -75,6 +79,11 @@
       east: b.getEast(),
       west: b.getWest(),
     };
+  }
+
+  export function flyTo(lat: number, lng: number) {
+    if (!map) { pendingView = [lat, lng]; return; }
+    map.setView([lat, lng], 12);
   }
 </script>
 

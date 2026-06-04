@@ -7,6 +7,7 @@
   import { compareIds } from '$lib/compare/compareStore'
   import SaveButton from '$lib/saved/SaveButton.svelte'
   import RatingsSection from './RatingsSection.svelte'
+  import { page } from '$app/stores'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -84,7 +85,7 @@
       <a href={nearbyMapsUrl} target="_blank" rel="noopener">Nearby activities (Google Maps) ↗</a>
     </div>
 
-    <RatingsSection facilityId={facility.id} facilityName={facility.name} />
+    <RatingsSection facilityId={facility.id} facilityName={facility.name} autoOpen={$page.url.searchParams.get('reviews') === '1'} />
   </div>
 </aside>
 

@@ -10,11 +10,23 @@
   } from "$lib/map/mapStore";
   import { filteredFacilities } from "$lib/filters/filterStore";
   import type { Facility } from "$lib/types";
+  import { page } from "$app/stores";
+  import { onMount } from "svelte";
 
   let campMap: CampMap = $state(null!);
 
   $effect(() => {
     if (campMap) campMap.renderPins($filteredFacilities);
+  });
+
+  onMount(async () => {
+    const facilityId = $page.url.searchParams.get("facility");
+    if (!facilityId) return;
+    const res = await fetch(`/api/facilities/${facilityId}`);
+    if (!res.ok) return;
+    const f: Facility = await res.json();
+    selectedFacility.set(f);
+    campMap?.flyTo(f.lat, f.lng);
   });
 
   async function searchArea() {

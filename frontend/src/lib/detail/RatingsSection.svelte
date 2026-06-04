@@ -3,7 +3,7 @@
   import ReviewsModal from "./ReviewsModal.svelte";
   import type { Rating } from "$lib/types";
 
-  let { facilityId, facilityName }: { facilityId: string; facilityName: string } = $props();
+  let { facilityId, facilityName, autoOpen = false }: { facilityId: string; facilityName: string; autoOpen?: boolean } = $props();
 
   let reviews: Rating[] = $state([]);
   let showModal = $state(false);
@@ -13,7 +13,10 @@
   );
   let mostRecent = $derived(reviews[0] ?? null);
 
-  onMount(load);
+  onMount(async () => {
+    await load();
+    if (autoOpen) showModal = true;
+  });
   async function load() {
     const res = await fetch(`/api/ratings/${facilityId}`);
     reviews = await res.json();
