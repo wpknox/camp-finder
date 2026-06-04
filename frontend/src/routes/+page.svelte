@@ -38,6 +38,11 @@
     await searchArea();
   });
 
+  function pickFacility(f: Facility) {
+    selectedFacility.set(f);
+    campMap?.flyTo(f.lat, f.lng);
+  }
+
   async function searchArea() {
     const bounds = campMap?.getMapBounds();
     if (!bounds) return;
@@ -61,7 +66,7 @@
   }
 </script>
 
-<FilterSidebar onSearch={searchArea} />
+<FilterSidebar onSearch={searchArea} onpick={pickFacility} />
 
 <div class="map-wrap">
   <CampMap
@@ -90,6 +95,13 @@
     position: relative;
     flex: 1;
     min-width: 0;
+  }
+  @media (max-width: 640px) {
+    /* In the stacked mobile layout, keep the map from collapsing under
+       the sidebar above it. */
+    .map-wrap {
+      min-height: 55vh;
+    }
   }
   .legend {
     position: absolute;

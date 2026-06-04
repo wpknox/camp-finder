@@ -3,7 +3,11 @@
   import type { Facility } from "$lib/types";
   import { searchPending } from "./mapStore";
 
-  let { onselect, onbackgroundclick }: { onselect?: (f: Facility) => void; onbackgroundclick?: () => void } = $props();
+  let {
+    onselect,
+    onbackgroundclick,
+  }: { onselect?: (f: Facility) => void; onbackgroundclick?: () => void } =
+    $props();
 
   let mapEl: HTMLDivElement = $state(null!);
   let L: any = $state(null);
@@ -22,7 +26,10 @@
       map = L.map(mapEl, { center: [39.55, -105.78], zoom: 8 });
 
       // Apply a flyTo requested before the map finished loading.
-      if (pendingView) { map.setView(pendingView, 12); pendingView = null; }
+      if (pendingView) {
+        map.setView(pendingView, 12);
+        pendingView = null;
+      }
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -90,7 +97,10 @@
   }
 
   export function flyTo(lat: number, lng: number) {
-    if (!map) { pendingView = [lat, lng]; return; }
+    if (!map) {
+      pendingView = [lat, lng];
+      return;
+    }
     map.setView([lat, lng], 12);
   }
 </script>
