@@ -100,7 +100,7 @@
     /* In the stacked mobile layout, keep the map from collapsing under
        the sidebar above it. */
     .map-wrap {
-      min-height: 55vh;
+      min-height: 67vh;
     }
   }
   .legend {

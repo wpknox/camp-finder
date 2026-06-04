@@ -284,7 +284,7 @@
       flex-direction: column;
       /* Fixed-height region stacked above the map. Filters + search stay
          pinned; only the results list inside scrolls. */
-      height: 45vh;
+      height: 33vh;
       gap: 0.5rem;
     }
     /* Collapse the filter body on mobile until the user opens it. */
