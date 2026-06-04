@@ -8,6 +8,10 @@
     onpick,
   }: { onSearch: () => void; onpick: (f: Facility) => void } = $props();
 
+  // Mobile-only: filters collapse behind a tappable header so the sidebar
+  // stays short. Desktop CSS forces the body open and hides the toggle.
+  let filtersOpen = $state(false);
+
   function feeLabel(f: Facility) {
     if (f.fee_min === 0) return "Free";
     if (f.fee_min != null) return `$${f.fee_min}`;
@@ -24,48 +28,56 @@
 </script>
 
 <aside class="sidebar">
-  <h3>Filters</h3>
+  <button
+    class="filter-toggle"
+    onclick={() => (filtersOpen = !filtersOpen)}
+    aria-expanded={filtersOpen}
+  >
+    <span class="filter-caret">{filtersOpen ? "▾" : "▸"}</span> Filters
+  </button>
 
-  <label
-    ><input type="checkbox" bind:checked={$filters.fcfsOnly} /> First-Come Only</label
-  >
-  <label
-    ><input type="checkbox" bind:checked={$filters.water} /> Potable Water</label
-  >
-  <label
-    ><input type="checkbox" bind:checked={$filters.toilets} /> Has Toilets</label
-  >
-  <label
-    ><input type="checkbox" bind:checked={$filters.bearBoxes} /> Bear Boxes</label
-  >
-  <label
-    ><input type="checkbox" bind:checked={$filters.petsAllowed} /> Pets Allowed</label
-  >
+  <div class="filter-body" class:open={filtersOpen}>
+    <label
+      ><input type="checkbox" bind:checked={$filters.fcfsOnly} /> First-Come Only</label
+    >
+    <label
+      ><input type="checkbox" bind:checked={$filters.water} /> Potable Water</label
+    >
+    <label
+      ><input type="checkbox" bind:checked={$filters.toilets} /> Has Toilets</label
+    >
+    <label
+      ><input type="checkbox" bind:checked={$filters.bearBoxes} /> Bear Boxes</label
+    >
+    <label
+      ><input type="checkbox" bind:checked={$filters.petsAllowed} /> Pets Allowed</label
+    >
 
-  <div class="field">
-    <label for="filter-max-fee">Max fee/night</label>
-    <input
-      id="filter-max-fee"
-      type="number"
-      min="0"
-      step="5"
-      placeholder="Any"
-      value={$filters.maxFee ?? ""}
-      oninput={(e) =>
-        filters.update((f) => ({
-          ...f,
-          maxFee: e.currentTarget.value ? +e.currentTarget.value : null,
-        }))}
-    />
-  </div>
+    <div class="field">
+      <label for="filter-max-fee">Max fee/night</label>
+      <input
+        id="filter-max-fee"
+        type="number"
+        min="0"
+        step="5"
+        placeholder="Any"
+        value={$filters.maxFee ?? ""}
+        oninput={(e) =>
+          filters.update((f) => ({
+            ...f,
+            maxFee: e.currentTarget.value ? +e.currentTarget.value : null,
+          }))}
+      />
+    </div>
 
-  <div class="field">
-    <label for="filter-sort-by">Sort by</label>
-    <select id="filter-sort-by" bind:value={$filters.sortBy}>
-      <option value="name">Name</option>
-      <option value="fee">Fee (low to high)</option>
-      <option value="fcfs_count">FCFS sites (most first)</option>
-    </select>
+    <div class="field">
+      <label for="filter-sort-by">Sort by</label>
+      <select id="filter-sort-by" bind:value={$filters.sortBy}>
+        <option value="name">Name</option>
+        <option value="fee">Fee (low to high)</option>
+        <option value="fcfs_count">FCFS sites (most first)</option>
+      </select>
+    </div>
   </div>
 
   <div class="results">
@@ -120,9 +132,29 @@
     flex-direction: column;
     gap: 0.65rem;
   }
-  h3 {
-    margin: 0 0 0.5rem;
+  .filter-toggle {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
     font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-align: left;
+    color: inherit;
+  }
+  .filter-caret {
+    font-size: 0.7rem;
+    color: #6b7280;
+  }
+  /* Desktop: filters always visible, toggle is just a static heading. */
+  .filter-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
   }
   label {
     display: flex;
@@ -234,23 +266,55 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+  @media (min-width: 641px) {
+    /* Desktop never collapses filters and the toggle isn't interactive. */
+    .filter-caret {
+      display: none;
+    }
+    .filter-toggle {
+      cursor: default;
+    }
+  }
   @media (max-width: 640px) {
     .sidebar {
       width: 100%;
       box-sizing: border-box;
       border-right: none;
       border-bottom: 1px solid #e5e7eb;
-      flex-direction: row;
-      flex-wrap: wrap;
-      max-height: 42vh;
-      overflow-y: auto;
+      flex-direction: column;
+      /* Fixed-height region stacked above the map. Filters + search stay
+         pinned; only the results list inside scrolls. */
+      height: 45vh;
+      gap: 0.5rem;
     }
-    .results {
-      flex-basis: 100%;
+    /* Collapse the filter body on mobile until the user opens it. */
+    .filter-body {
+      display: none;
+    }
+    .filter-body.open {
+      display: flex;
+    }
+    /* Order so the search button sits directly under the filters and the
+       results list takes the remaining (scrollable) space below it. */
+    .filter-toggle {
+      order: 0;
       flex: none;
     }
-    .result-list {
-      max-height: 22vh;
+    .filter-body {
+      order: 1;
+      flex: none;
+    }
+    .search-section {
+      order: 2;
+      flex: none;
+      padding-top: 0;
+      border-top: none;
+    }
+    .results {
+      order: 3;
+      flex: 1 1 auto;
+      min-height: 0;
+      margin-top: 0;
     }
   }
 </style>

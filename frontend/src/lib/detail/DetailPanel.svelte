@@ -29,6 +29,29 @@
     ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
   }
 
+  // Mobile-only swipe-down-to-dismiss. The grabber bar drives this; on
+  // desktop it's hidden so dragY stays 0 and the transform is a no-op.
+  let dragY = $state(0)
+  let dragging = $state(false)
+  let dragStartY = 0
+  const DISMISS_THRESHOLD = 120
+  function startDrag(e: PointerEvent) {
+    dragging = true
+    dragStartY = e.clientY
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  function moveDrag(e: PointerEvent) {
+    if (!dragging) return
+    dragY = Math.max(0, e.clientY - dragStartY)
+  }
+  function endDrag(e: PointerEvent) {
+    if (!dragging) return
+    dragging = false
+    ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
+    if (dragY > DISMISS_THRESHOLD) onclose?.()
+    else dragY = 0
+  }
+
   let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
   let reserveUrl    = $derived(`https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`)
   let feeStr = $derived(
@@ -40,7 +63,11 @@
   let isComparing = $derived($compareIds.includes(facility.id))
 </script>
 
-<aside class="panel" style="--panel-width: {panelWidth}px">
+<aside
+  class="panel"
+  class:dragging
+  style="--panel-width: {panelWidth}px; transform: translateY({dragY}px)"
+>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="resize-handle"
@@ -50,6 +77,16 @@
     onpointermove={doResize}
     onpointerup={endResize}
   ></div>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="drag-handle"
+    aria-label="Swipe down to close"
+    onpointerdown={startDrag}
+    onpointermove={moveDrag}
+    onpointerup={endDrag}
+  >
+    <span class="grabber"></span>
+  </div>
   <button class="close-btn" onclick={() => onclose?.()} aria-label="Close">✕</button>
 
   {#if facility.is_closed}
@@ -125,7 +162,9 @@
     box-shadow: -2px 0 12px rgba(0,0,0,0.15);
     top: 0; right: 0; bottom: 0;
     width: min(var(--panel-width, 420px), 100vw);
+    transition: transform 0.2s ease;
   }
+  .panel.dragging { transition: none; }
   .resize-handle {
     position: absolute;
     top: 0; left: 0; bottom: 0;
@@ -135,9 +174,31 @@
     touch-action: none;
   }
   .resize-handle:hover { background: rgba(22, 163, 74, 0.25); }
+  /* Grabber bar for swipe-down dismiss; mobile only. */
+  .drag-handle { display: none; }
   @media (max-width: 640px) {
-    .panel { top: 40%; left: 0; right: 0; bottom: 0; width: 100%; border-radius: 16px 16px 0 0; }
+    /* Full-screen takeover. */
+    .panel { top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100dvh; border-radius: 0; }
     .resize-handle { display: none; }
+    .drag-handle {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 26px;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 4;
+      cursor: grab;
+      touch-action: none;
+    }
+    .grabber {
+      width: 40px;
+      height: 5px;
+      border-radius: 3px;
+      background: #d1d5db;
+    }
+    .close-btn { position: absolute; top: 2px; right: 4px; padding: 0.5rem; }
   }
   .close-btn {
     position: sticky; top: 0; float: right;
