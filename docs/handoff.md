@@ -302,14 +302,11 @@ camp-finder/
 ## What's next
 
 ### Done this session
+- ✅ **Account features plan** (`docs/superpowers/plans/2026-06-02-account-features.md`) — reviews modal (public read; auth write/edit/delete; one editable review per user+facility), reusable `ConfirmDialog` on destructive actions, compact review summary in the detail panel, and an `/account` dashboard listing saved campgrounds + my reviews with deep links (`?facility=`, `?reviews=1`) back to the map. DB-level unique `(user_id, facility_id)` index on `ratings` + `createRule: auth.uid == user_id` (migration `0007`). Verified: `pnpm test` 17 passing, `pnpm check` 0/0, logged-out review POST → 401, guest reviews-modal + deep-link confirmed in browser.
 - ✅ **Search UX plan** (`docs/superpowers/plans/2026-05-26-search-ux.md`) — search button moved into sidebar with amber staleness hint; dashed blue viewport bbox overlay shows on the map when a search is pending.
 - ✅ **BLM investigation** — BLM camping data *is* reachable via the BLM ArcGIS REST service (`https://gis.blm.gov/arcgis/rest/services/recreation/BLM_Natl_Recreation_Sites_Facilities/MapServer`, no key). But the camping layers (2, 8) are RIDB-derived, so BLM campgrounds with recreation.gov listings are already pulled by `pnpm sync`. Net-new data lives in the non-RIDB "Recreation Facilities/Sites" layers (0, 1), but those need field-schema work and lack FCFS/amenity richness. **Verdict: low marginal value — deprioritized.**
 
 ### Medium priority
-3. **Auth UI** — `AuthModal.svelte` exists but a proper `/login` or `/account` page would complete the auth flow.
-
-4. **Ratings & reviews UI** — Backend and API route exist. Need a UI for submitting ratings (requires auth).
-
 5. **UI/UX polish pass** — Functional but visually rough. Install the `frontend-design` superpowers skill before starting. Key areas: sidebar layout, detail panel polish, mobile, typography.
 
 ### Lower priority
