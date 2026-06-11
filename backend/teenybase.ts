@@ -141,12 +141,19 @@ export default {
         { name: "visited_at", type: "date", sqlType: "timestamp" },
       ],
       triggers: [createdTrigger, updatedTrigger],
+      indexes: [
+        {
+          name: "ratings_user_facility_unique",
+          unique: true,
+          fields: ["user_id", "facility_id"],
+        },
+      ],
       extensions: [
         {
           name: "rules",
           listRule: "true",
           viewRule: "true",
-          createRule: "auth.uid != null",
+          createRule: "auth.uid == user_id",
           updateRule: "auth.uid == user_id",
           deleteRule: "auth.uid == user_id",
         } satisfies TableRulesExtensionData,

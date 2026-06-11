@@ -10,12 +10,38 @@
   } from "$lib/map/mapStore";
   import { filteredFacilities } from "$lib/filters/filterStore";
   import type { Facility } from "$lib/types";
+  import { page } from "$app/stores";
+  import { onMount } from "svelte";
 
   let campMap: CampMap = $state(null!);
 
   $effect(() => {
     if (campMap) campMap.renderPins($filteredFacilities);
   });
+
+  onMount(async () => {
+    const facilityId = $page.url.searchParams.get("facility");
+    if (!facilityId) return;
+    const res = await fetch(`/api/facilities/${facilityId}`);
+    if (!res.ok) return;
+    const f: Facility = await res.json();
+    selectedFacility.set(f);
+
+    // Wait for the map to finish loading (Leaflet imports async), then
+    // center on the facility and silently run an area search so it — and
+    // its nearby campgrounds — actually get markers.
+    for (let i = 0; i < 50; i++) {
+      if (campMap?.getMapBounds()) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    campMap?.flyTo(f.lat, f.lng);
+    await searchArea();
+  });
+
+  function pickFacility(f: Facility) {
+    selectedFacility.set(f);
+    campMap?.flyTo(f.lat, f.lng);
+  }
 
   async function searchArea() {
     const bounds = campMap?.getMapBounds();
@@ -40,10 +66,14 @@
   }
 </script>
 
-<FilterSidebar onSearch={searchArea} />
+<FilterSidebar onSearch={searchArea} onpick={pickFacility} />
 
 <div class="map-wrap">
-  <CampMap bind:this={campMap} onselect={(f) => selectedFacility.set(f)} />
+  <CampMap
+    bind:this={campMap}
+    onselect={(f) => selectedFacility.set(f)}
+    onbackgroundclick={() => selectedFacility.set(null)}
+  />
 
   <div class="legend">
     <span class="dot green"></span> Fully FCFS
@@ -65,6 +95,13 @@
     position: relative;
     flex: 1;
     min-width: 0;
+  }
+  @media (max-width: 640px) {
+    /* In the stacked mobile layout, keep the map from collapsing under
+       the sidebar above it. */
+    .map-wrap {
+      min-height: 67vh;
+    }
   }
   .legend {
     position: absolute;
