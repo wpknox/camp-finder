@@ -12,6 +12,19 @@ See `campfinder-spec.md` for the full brainstorm spec including data models, UI/
 
 pnpm with workspaces. Root `pnpm-workspace.yaml` covers `frontend/`, `backend/`, `etl/`. Run `pnpm install` from the repo root to install all packages at once.
 
+## Commands
+
+| Where | Command | Purpose |
+|---|---|---|
+| `frontend/` | `pnpm dev` | SvelteKit app on :5173 |
+| `frontend/` | `pnpm check` / `pnpm test` | svelte-check (0/0 expected) / Vitest |
+| `backend/` | `pnpm dev` | Teenybase (Workers+D1) on :8787 |
+| `backend/` | `pnpm generate && pnpm migrate` | Regenerate + apply SQL migrations after schema changes |
+| `etl/` | `pnpm sync` / `pnpm discover` / `pnpm sync-nps` | RIDB sync / fs.usda.gov scrape / NPS API sync |
+| `etl/` | `pnpm test` | Vitest (ETL normalize/scrape tests) |
+
+See `docs/handoff.md` for current project status, env-file setup, and session history.
+
 ## Planned Stack
 
 | Layer | Technology |
@@ -49,8 +62,12 @@ RIDB stores reservability per-campsite. The ETL must call `GET /facilities/{id}/
 ### Amenities are normalized at ETL time
 RIDB amenity field names are inconsistent across forests. The ETL normalizes everything into a fixed JSON schema (see `campfinder-spec.md` → Amenities JSON Schema). Unknown fields default to `null`/`"unknown"` rather than being omitted.
 
+### Teenybase quirks (do not deviate)
+- **JSON fields must be stringified on write** (`JSON.stringify(amenities)`) and parsed on read. Sending a plain object 400s.
+- **No compound WHERE** — `&&`/`AND` both fail with parse errors. Fetch with a high `limit` and filter in the SvelteKit server route (fine at ~592 records). See `frontend/src/routes/api/facilities/+server.ts`.
+
 ### Alerts are on-demand scraped, not synced
-`fs.usda.gov` alerts (road closures, fire restrictions) are scraped only when a user opens a campground detail panel — via a SvelteKit server route. Results are cached in PocketBase `alerts` collection; refresh if `scraped_at` is older than 24 hours. Fail gracefully: if the scrape errors, show a message rather than blocking the panel.
+`fs.usda.gov` alerts (road closures, fire restrictions) are scraped only when a user opens a campground detail panel — via a SvelteKit server route. Results are cached in the Teenybase `alerts` table; refresh if `scraped_at` is older than 24 hours. Fail gracefully: if the scrape errors, show a message rather than blocking the panel.
 
 ### Map search is explicit, not reactive
 The "Search this area" button is a deliberate user trigger — the map does not auto-query on pan/zoom. This reduces API load and matches intentional use.
@@ -70,13 +87,13 @@ Defined in `backend/teenybase.ts` — the single source of truth for the entire 
 
 ## Auth Pattern
 
-Teenybase auth returns a JWT. The frontend stores it in localStorage. Privileged API calls (save, rate) send `Authorization: Bearer <token>`. The `TB_SERVICE_TOKEN` (from `.dev.vars` / `.prod.vars`) is used server-side only (ETL writes, alert cache writes) and never exposed to the client.
+Auth is **httpOnly-cookie based — no token is ever exposed to client JS**. SvelteKit server routes (`/api/auth/{register,login,logout,me}`) proxy Teenybase and set httpOnly `cf_access` + `cf_refresh` cookies; `hooks.server.ts` decodes `cf_access`, silently refreshes when expired, and populates `event.locals.user`. Privileged writes (save, rate) are proxied through server routes (`/api/saved`, `/api/ratings/[facilityId]`) that derive `user_id` from `locals.user` — never trusted from the client. The `TB_SERVICE_TOKEN` (from `.dev.vars` / `.prod.vars`) is used server-side only (ETL writes, alert cache writes) and never exposed to the client.
 
 ## Build Order
 
 Development follows the phases in `campfinder-spec.md`:
 
-1. **Phase 1** — ETL script: RIDB → normalize → PocketBase
+1. **Phase 1** — ETL script: RIDB → normalize → Teenybase
 2. **Phase 2** — SvelteKit scaffold, Leaflet map, "Search this area" → pins
 3. **Phase 3** — Detail panel (FCFS, amenities, alerts scrape, links)
 4. **Phase 4** — Filter/sort sidebar
@@ -88,6 +105,6 @@ Development follows the phases in `campfinder-spec.md`:
 
 - Which National Forests to seed first (Colorado focus?)
 - ETL language: Node/TypeScript vs C# console app
-- Hosting: VPS (DigitalOcean/Hetzner) vs Cloudflare Pages + PocketBase on VPS
+- Hosting: VPS (DigitalOcean/Hetzner) vs Cloudflare Pages + Workers
 - Anonymous ratings in v1 or auth-required from the start?
 - Mobile-first vs desktop-first initial design pass

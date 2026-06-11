@@ -19,7 +19,7 @@ CampFinder is a map-first PWA for discovering Colorado campgrounds. Built on:
 
 **Why NPS was added:** RIDB `state=CO` filter silently drops NPS facilities whose parks span CO/UT — confirmed with Gates of Lodore Campground (RIDB ID `10199750`, `ParentOrgID: 128`, no `FACILITYADDRESS`). NPS API returns `numberOfSitesFirstComeFirstServe` and `numberOfSitesReservable` directly, plus structured amenities (toilet type, potable water, food storage lockers, RV length, electric hookups).
 
-**Current branch:** `feat/auth-foundation` (not yet merged to main — **merging is the next step**)
+**Current branch:** `main` — `feat/auth-foundation` was **merged** on 2026-06-11 (`--no-ff`, commit `656ac82`), after multi-user data isolation was verified (see below). The `feat/auth-foundation` branch still exists locally and can be deleted (`git branch -d feat/auth-foundation`).
 
 ---
 
@@ -301,7 +301,16 @@ camp-finder/
 
 ## What's next
 
-### Done this session (2026-06-03 — mobile + auth UX polish)
+### Done this session (2026-06-11 — isolation verification + merge)
+- ✅ **Verified multi-user data isolation (adversarial, both directions).** Ran tests directly against Teenybase (`:8787`) — the real trust boundary — with two distinct authenticated users:
+  - **Reviews (`ratings`):** cross-user edit → `404` (attacker can't resolve the row); cross-user delete → `200` but 0 rows affected (row survives); forged insert (attacker token + victim `user_id`) → 0 rows inserted (Teenybase injects `WHERE (<auth.uid> IS new.user_id)` into the INSERT); forged `user_id` in edit body → still `404`. Confirmed **symmetric** (A→B and B→A both blocked).
+  - **Saved campgrounds (`saved_campgrounds`):** cross-user list (even with forged `where user_id == victim`) → empty; view-by-id → `404`; delete → 0 rows (survives); unauthenticated list → empty; owner still sees own (sanity).
+  - **Frontend boundary:** `PUBLIC_TB_URL` is referenced **only** in server-side files — no client component talks to Teenybase directly. All writes go through SvelteKit routes that derive `user_id` from the session cookie.
+  - **Note / deployment caveat:** at the raw Teenybase layer `ratings.listRule = 'true'` (public), so anyone who could reach the Teenybase Worker directly could enumerate reviews by `user_id`. That's the intended public-crowdsourced-reviews model and is not exposed to clients today, but in production the Teenybase Worker must not be openly internet-reachable (or tighten that rule) if review *authorship* should ever be private. `saved_campgrounds` and `users` are siloed even at the raw layer.
+- ✅ **Merged `feat/auth-foundation` → main** (`--no-ff`, `656ac82`). Pre-merge: `pnpm check` 0/0, `pnpm test` 17/17.
+- ✅ **Refreshed `CLAUDE.md`** — fixed stale auth description (was "stores JWT in localStorage" → now httpOnly-cookie session, no client token), corrected three lingering PocketBase→Teenybase references, added a Commands section, and documented two Teenybase quirks (stringify JSON fields; no compound `AND` in WHERE).
+
+### Done previous session (2026-06-03 — mobile + auth UX polish)
 - ✅ **Mobile layout overhaul** (spec: `docs/superpowers/specs/2026-06-03-mobile-ui-overhaul-design.md`). On phone widths (≤640px): `.app-shell` stacks column (sidebar above map); the sidebar is a fixed `33vh` region with a **collapsible "Filters" disclosure** (collapsed by default; desktop forces it open and hides the toggle), a **pinned "Search this area" button** that never scrolls away, and a **scrolling results list** below it. The expanded filter body scrolls within the sidebar so Max-fee/Sort stay reachable. Desktop layout unchanged.
 - ✅ **Full-screen mobile detail panel** — `DetailPanel` becomes a `100dvh` takeover on mobile with a grabber bar; **swipe-down past ~120px dismisses** (short drags snap back), X still closes. Desktop keeps the resizable right-side panel.
 - ✅ **Signed-in display-name indicator** — the Account button shows an avatar (first initial) + the registered **display name**. Teenybase's auth/login response omits the custom `name` field, so: register uses the form's name; login fetches it via `tbGetName` (reads `users/view/{id}`); the name is cached in a server-set httpOnly `cf_name` cookie so it survives reloads with no per-request lookup; falls back to the email local-part. Touched: `session.ts` (NAME_COOKIE), `hooks.server.ts`, `app.d.ts`, `authStore.ts`, login/register routes, `AccountMenu.svelte`.
@@ -314,13 +323,8 @@ camp-finder/
 - ✅ **BLM investigation** — BLM camping data *is* reachable via the BLM ArcGIS REST service (`https://gis.blm.gov/arcgis/rest/services/recreation/BLM_Natl_Recreation_Sites_Facilities/MapServer`, no key). But the camping layers (2, 8) are RIDB-derived, so BLM campgrounds with recreation.gov listings are already pulled by `pnpm sync`. Net-new data lives in the non-RIDB "Recreation Facilities/Sites" layers (0, 1), but those need field-schema work and lack FCFS/amenity richness. **Verdict: low marginal value — deprioritized.**
 
 ### Next up (high priority)
-1. **Merge `feat/auth-foundation` → main.** This branch carries the auth foundation, account features, and the mobile + auth-UX polish from this session. Review the diff, then merge.
-
-2. **Verify multi-user data isolation (authorization / row-level security).** Before trusting the app with real users, confirm one user cannot touch another's data:
-   - **Reviews — edit/delete:** User A leaves a review; User B (logged in) must NOT be able to edit or delete it. Enforced two ways today — the `ratings` table `createRule: auth.uid == user_id` (migration `0007`) and server-side `user_id` derived from `locals.user` in `/api/ratings/[facilityId]` — but this needs an explicit adversarial test (e.g. User B POSTing/DELETEing against User A's facility, forging a `user_id`).
-   - **Reviews — visibility:** Currently ratings GET is **public read** (any user sees all reviews on a facility, which is the intended crowdsourced-reviews behavior). The user's longer-term intent: a user's *own* review history (the `/account` "My reviews" list) must stay private to them — `/account/+page.server.ts` already filters by `locals.user.id`, but confirm there's no endpoint that leaks "all reviews by user X".
-   - **Saved campgrounds:** `saved_campgrounds` is private (all ops require `auth.uid == user_id`) — verify User B cannot list/read/delete User A's saves.
-   - Note: a "see other users' saved/shared campgrounds" feature is **explicitly far off** — don't build sharing now; just make sure today's data is properly siloed per-user.
+1. **~~Merge `feat/auth-foundation` → main.~~** ✅ Done 2026-06-11 (`656ac82`). See "Done this session" above.
+2. **~~Verify multi-user data isolation.~~** ✅ Done 2026-06-11 — adversarial tests confirm `ratings` + `saved_campgrounds` are siloed per-user, both directions. See "Done this session" above. The one open follow-up is the **deployment caveat**: don't leave the Teenybase Worker openly internet-reachable in prod (or tighten `ratings.listRule`) if review authorship should ever be private.
 
 ### Medium priority
 3. **UI/UX polish pass (the big one).** Functional but visually rough, and we want a *unique* experience, not generic. **Install the `frontend-design` superpowers skill first**, then do a real design pass: sidebar layout, detail panel, typography, color/identity, empty states, and continued mobile refinement. This session's mobile work was tactical fixes; this is the holistic design pass.
