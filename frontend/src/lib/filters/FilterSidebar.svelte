@@ -8,9 +8,11 @@
     onpick,
   }: { onSearch: () => void; onpick: (f: Facility) => void } = $props();
 
-  // Mobile-only: filters collapse behind a tappable header so the sidebar
-  // stays short. Desktop CSS forces the body open and hides the toggle.
+  // Mobile-only: filters and the results list each collapse behind a tappable
+  // header so the sidebar stays short and the map keeps the room. Desktop CSS
+  // forces both open and hides the toggles.
   let filtersOpen = $state(false);
+  let resultsOpen = $state(false);
 
   function feeLabel(f: Facility) {
     if (f.fee_min === 0) return "Free";
@@ -27,7 +29,11 @@
   }
 </script>
 
-<aside class="sidebar">
+<aside
+  class="sidebar"
+  class:filters-open={filtersOpen}
+  class:results-open={resultsOpen}
+>
   <button
     class="filter-toggle"
     onclick={() => (filtersOpen = !filtersOpen)}
@@ -72,7 +78,7 @@
       />
     </div>
 
-    <div class="field">
+    <div class="field sort-field">
       <label for="filter-sort-by">Sort by</label>
       <select id="filter-sort-by" bind:value={$filters.sortBy}>
         <option value="name">Name</option>
@@ -83,13 +89,19 @@
   </div>
 
   <div class="results">
-    <div class="results-head">
+    <button
+      class="results-head"
+      onclick={() => (resultsOpen = !resultsOpen)}
+      aria-expanded={resultsOpen}
+    >
+      <span class="results-caret">{resultsOpen ? "▾" : "▸"}</span>
       <span class="eyebrow">Found</span>
       {#if $filteredFacilities.length}
         <span class="count mono">{$filteredFacilities.length}</span>
         <span class="count-label">campgrounds</span>
       {/if}
-    </div>
+      <span class="results-hint">tap to browse</span>
+    </button>
     <ul class="result-list">
       {#each $filteredFacilities as f, i (f.id)}
         <li style="--i: {i}">
@@ -210,6 +222,30 @@
     align-items: baseline;
     gap: 0.4rem;
     margin-bottom: 0.5rem;
+    /* It's a <button> for the mobile disclosure; strip the chrome. Desktop
+       leaves it as a static-looking heading (see min-width:641px below). */
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+  }
+  /* Caret + "tap to browse" hint are mobile-only affordances. */
+  .results-caret,
+  .results-hint {
+    display: none;
+  }
+  .results-caret {
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+  }
+  .results-hint {
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-style: italic;
+    color: var(--ink-faint);
   }
   .results-head .count {
     font-size: 1.1rem;
@@ -320,11 +356,13 @@
     cursor: not-allowed;
   }
   @media (min-width: 641px) {
-    /* Desktop never collapses filters and the toggle isn't interactive. */
+    /* Desktop never collapses filters or results; the toggles aren't
+       interactive and the list is always shown. */
     .filter-caret {
       display: none;
     }
-    .filter-toggle {
+    .filter-toggle,
+    .results-head {
       cursor: default;
     }
   }
@@ -335,20 +373,30 @@
       border-right: none;
       border-bottom: 1px solid var(--line-strong);
       flex-direction: column;
-      /* Fixed-height region stacked above the map. Filters + search stay
-         pinned; only the results list inside scrolls. */
-      height: 33vh;
+      /* Content-sized and compact by default (toggle + search + count), so the
+         map gets the room. flex:none so the map's min-height (67vh) can't
+         shrink it. Opening filters or the results list switches to a bounded
+         height whose inner region scrolls. */
+      flex: none;
+      height: auto;
       gap: 0.5rem;
+      transition: height 0.2s var(--ease);
     }
-    /* Collapse the filter body on mobile until the user opens it. */
-    .filter-body {
-      display: none;
+    /* Bounded heights when a disclosure is open; the map below may clip while
+       the user refines/browses. Both-open gets a little extra. */
+    /* The list is opened on purpose to browse, so let it dominate the screen
+       (the map below clips while browsing). */
+    .sidebar.results-open {
+      height: 78vh;
     }
-    .filter-body.open {
-      display: flex;
+    .sidebar.filters-open {
+      height: 62vh;
     }
-    /* Order so the search button sits directly under the filters and the
-       results list takes the remaining (scrollable) space below it. */
+    .sidebar.filters-open.results-open {
+      height: 82vh;
+    }
+
+    /* Order: filter toggle, filter body, search, results. */
     .filter-toggle {
       order: 0;
       flex: none;
@@ -356,13 +404,19 @@
     .filter-body {
       order: 1;
       flex: none;
+      display: none;
     }
-    /* When expanded, let the filters scroll within the fixed-height
-       sidebar instead of pushing the search button / results off-screen. */
+    /* When expanded, the filter body scrolls within the bounded sidebar.
+       flex-basis:0 so it shares space by weight instead of by content height. */
     .filter-body.open {
-      flex: 1 1 auto;
+      display: flex;
+      flex: 3 1 0;
       min-height: 0;
       overflow-y: auto;
+    }
+    /* Sort only reorders the (now secondary) list — drop it on mobile. */
+    .sort-field {
+      display: none;
     }
     .search-section {
       order: 2;
@@ -370,11 +424,40 @@
       padding-top: 0;
       border-top: none;
     }
+    /* Search button is more compact on mobile so it doesn't dominate. */
+    .search-btn {
+      padding: 0.42rem;
+      font-size: 0.82rem;
+    }
     .results {
       order: 3;
-      flex: 1 1 auto;
+      flex: none;
       min-height: 0;
       margin-top: 0;
+    }
+    .results-head {
+      margin-bottom: 0;
+    }
+    .results-caret,
+    .results-hint {
+      display: inline;
+    }
+    /* List is collapsed by default; the count stays visible in the header. */
+    .result-list {
+      display: none;
+    }
+    .sidebar.results-open .results {
+      flex: 1 1 0;
+    }
+    .sidebar.results-open .results-head {
+      margin-bottom: 0.5rem;
+    }
+    .sidebar.results-open .result-list {
+      display: block;
+    }
+    /* Hide the "tap to browse" hint once the list is open. */
+    .sidebar.results-open .results-hint {
+      display: none;
     }
   }
 </style>
