@@ -27,7 +27,7 @@
       { icon: "⚡", label: "Electric", show: amenities.electricHookups },
       { icon: "🐕", label: "Pets OK", show: amenities.petsAllowed },
       { icon: "🔥", label: "Fire Rings", show: amenities.fireRings },
-      { icon: "🪑", label: "Picnic Tables", show: amenities.picnicTables },
+      { icon: "🧺", label: "Picnic Tables", show: amenities.picnicTables },
       { icon: "♿", label: "Accessible", show: amenities.accessible },
     ].filter((i) => i.show && i.label),
   );
