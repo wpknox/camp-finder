@@ -1,30 +1,31 @@
 // frontend/src/lib/compare/compareStore.ts
 import { writable } from "svelte/store";
-import { browser } from "$app/environment";
 
-const MAX = 4;
+export const MAX_COMPARE = 4;
+
+/** The minimum we need to show a campground in the compare tray and build the
+ *  /compare?ids= link. */
+export type CompareItem = { id: string; name: string };
 
 function createCompareStore() {
-  const { subscribe, set, update } = writable<string[]>([]);
+  const { subscribe, set, update } = writable<CompareItem[]>([]);
 
   return {
     subscribe,
-    add(id: string) {
-      update((ids) =>
-        ids.includes(id) || ids.length >= MAX ? ids : [...ids, id],
+    add(item: CompareItem) {
+      update((list) =>
+        list.some((c) => c.id === item.id) || list.length >= MAX_COMPARE
+          ? list
+          : [...list, item],
       );
     },
     remove(id: string) {
-      update((ids) => ids.filter((i) => i !== id));
+      update((list) => list.filter((c) => c.id !== id));
     },
     clear() {
       set([]);
     },
-    getShareUrl(ids: string[]) {
-      if (!browser) return "";
-      return `${globalThis.location.origin}/compare?ids=${ids.join(",")}`;
-    },
   };
 }
 
-export const compareIds = createCompareStore();
+export const compareList = createCompareStore();

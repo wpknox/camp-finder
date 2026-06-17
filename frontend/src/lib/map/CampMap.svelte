@@ -31,12 +31,40 @@
         pendingView = null;
       }
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map);
+      // USGS Topo basemap (no API key) — renders as a folded paper quad map
+      // with contours, shaded relief, and forest boundaries. This is the core
+      // "handheld map, not a computer map" choice. The warm CSS filter on
+      // .leaflet-tile-pane (app.css) ages it toward paper. Fall back to
+      // OpenTopoMap if USGS is unreachable.
+      const usgsTopo = L.tileLayer(
+        "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
+        {
+          attribution:
+            'Map: <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map">USGS The National Map</a>',
+          maxZoom: 16,
+          maxNativeZoom: 16,
+        },
+      );
+      usgsTopo.on("tileerror", function fallback() {
+        usgsTopo.off("tileerror", fallback);
+        usgsTopo.remove();
+        L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+          attribution:
+            'Map: © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+          maxZoom: 17,
+        }).addTo(map);
+      });
+      usgsTopo.addTo(map);
 
-      pinsLayer = L.markerClusterGroup({ maxClusterRadius: 40 });
+      pinsLayer = L.markerClusterGroup({
+        maxClusterRadius: 46,
+        iconCreateFunction: (cluster: any) =>
+          L.divIcon({
+            html: `<div>${cluster.getChildCount()}</div>`,
+            className: "camp-cluster",
+            iconSize: L.point(40, 40),
+          }),
+      });
       map.addLayer(pinsLayer);
 
       map.on("moveend", () => searchPending.set(true));
@@ -53,23 +81,33 @@
     pinsLayer.clearLayers();
 
     for (const f of facilityList) {
+      // Earthy pigments — mirror docs/design-language.md status colors and the
+      // sidebar statusColor(). Cream stroke so pins read on the topo paper.
       const fillColor = f.is_closed
-        ? "#ef4444"
+        ? "#a23a17" // rust
         : f.is_fully_fcfs
-          ? "#22c55e"
+          ? "#5f7d34" // moss
           : f.is_partial_fcfs
-            ? "#eab308"
-            : "#3b82f6";
+            ? "#c8932f" // ochre
+            : "#356b7d"; // lake
 
       const marker = L.circleMarker([f.lat, f.lng], {
-        radius: 9,
+        radius: 8,
         fillColor,
-        color: "#fff",
-        weight: 2,
-        fillOpacity: 0.9,
+        color: "#f4ecd6",
+        weight: 2.5,
+        fillOpacity: 1,
+        opacity: 1,
       });
       const label = f.is_closed ? `⛔ CLOSED — ${f.name}` : f.name;
-      marker.bindTooltip(label, { permanent: false, direction: "top" });
+      marker.bindTooltip(label, {
+        permanent: false,
+        direction: "top",
+        className: f.is_closed ? "closed-tip" : "",
+      });
+      // Gentle grow on hover for a tactile, hand-placed feel.
+      marker.on("mouseover", () => marker.setRadius(11));
+      marker.on("mouseout", () => marker.setRadius(8));
       marker.on("click", (e: any) => {
         // Stop the event reaching the map so the background-click handler
         // (which clears the selection) doesn't immediately undo the select.

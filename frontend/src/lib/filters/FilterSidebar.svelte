@@ -18,12 +18,12 @@
     return "—";
   }
 
-  // Mirrors the map marker colors (see CampMap.renderPins).
+  // Mirrors the map marker colors (see CampMap.renderPins) — earthy pigments.
   function statusColor(f: Facility) {
-    if (f.is_closed) return "#ef4444";
-    if (f.is_fully_fcfs) return "#22c55e";
-    if (f.is_partial_fcfs) return "#eab308";
-    return "#3b82f6";
+    if (f.is_closed) return "var(--rust)";
+    if (f.is_fully_fcfs) return "var(--moss)";
+    if (f.is_partial_fcfs) return "var(--ochre)";
+    return "var(--lake)";
   }
 </script>
 
@@ -33,7 +33,9 @@
     onclick={() => (filtersOpen = !filtersOpen)}
     aria-expanded={filtersOpen}
   >
-    <span class="filter-caret">{filtersOpen ? "▾" : "▸"}</span> Filters
+    <span class="filter-caret">{filtersOpen ? "▾" : "▸"}</span>
+    <span class="eyebrow">Refine</span>
+    <span class="filter-title">Filters</span>
   </button>
 
   <div class="filter-body" class:open={filtersOpen}>
@@ -82,13 +84,15 @@
 
   <div class="results">
     <div class="results-head">
-      Results{$filteredFacilities.length
-        ? ` (${$filteredFacilities.length})`
-        : ""}
+      <span class="eyebrow">Found</span>
+      {#if $filteredFacilities.length}
+        <span class="count mono">{$filteredFacilities.length}</span>
+        <span class="count-label">campgrounds</span>
+      {/if}
     </div>
     <ul class="result-list">
-      {#each $filteredFacilities as f (f.id)}
-        <li>
+      {#each $filteredFacilities as f, i (f.id)}
+        <li style="--i: {i}">
           <button
             class="result-item"
             class:active={$selectedFacility?.id === f.id}
@@ -117,116 +121,149 @@
 
   <div class="search-section">
     <button class="search-btn" onclick={onSearch} disabled={$isLoading}>
-      {$isLoading ? "Searching…" : "Search this area"}
+      {#if $isLoading}
+        Surveying area…
+      {:else}
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2" />
+          <path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        Search this area
+      {/if}
     </button>
   </div>
 </aside>
 
 <style>
   .sidebar {
-    width: 220px;
-    padding: 1rem;
-    background: #fafafa;
-    border-right: 1px solid #e5e7eb;
+    width: 256px;
+    padding: 1.1rem 1rem;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--paper-2) 70%, transparent),
+        color-mix(in srgb, var(--paper-2) 40%, transparent)
+      );
+    border-right: 1px solid var(--line-strong);
+    box-shadow: inset -10px 0 18px -16px rgba(46, 39, 25, 0.35);
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.7rem;
   }
   .filter-toggle {
     margin: 0;
     padding: 0;
     background: none;
     border: none;
-    font-size: 0.95rem;
-    font-weight: 700;
     cursor: pointer;
     display: flex;
-    align-items: center;
-    gap: 0.4rem;
+    align-items: baseline;
+    gap: 0.5rem;
     text-align: left;
     color: inherit;
   }
+  .filter-title {
+    font-family: var(--font-display);
+    font-size: 1.18rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
   .filter-caret {
     font-size: 0.7rem;
-    color: #6b7280;
+    color: var(--ink-faint);
   }
   /* Desktop: filters always visible, toggle is just a static heading. */
   .filter-body {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.55rem;
   }
   label {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.55rem;
     font-size: 0.875rem;
+    color: var(--ink-soft);
     cursor: pointer;
   }
   .field {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.875rem;
+    gap: 0.3rem;
+    font-size: 0.8rem;
   }
-  input[type="number"],
-  select {
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 0.35rem 0.5rem;
-    font-size: 0.875rem;
+  .field label {
+    font-weight: 600;
+    color: var(--ink-soft);
   }
   .results {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    margin-top: 0.25rem;
-    border-top: 1px solid #e5e7eb;
-    padding-top: 0.5rem;
+    margin-top: 0.1rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.7rem;
   }
   .results-head {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: #6b7280;
-    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+  }
+  .results-head .count {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--pine);
+  }
+  .count-label {
+    font-size: 0.72rem;
+    color: var(--ink-faint);
   }
   .result-list {
     list-style: none;
-    margin: 0;
-    padding: 0;
+    margin: 0 -0.25rem;
+    padding: 0 0.25rem;
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+  }
+  .result-list li {
+    animation: fade-up 0.4s var(--ease) backwards;
+    animation-delay: calc(var(--i) * 22ms);
   }
   .result-item {
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.55rem;
     background: none;
-    border: none;
-    border-radius: 6px;
-    padding: 0.4rem 0.45rem;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 0.45rem 0.5rem;
     cursor: pointer;
     text-align: left;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
+    color: var(--ink);
+    transition:
+      background 0.13s var(--ease),
+      border-color 0.13s var(--ease);
   }
   .result-item:hover {
-    background: #eef2ff;
+    background: color-mix(in srgb, var(--paper-deep) 70%, transparent);
   }
   .result-item.active {
-    background: #dbeafe;
+    background: var(--paper-deep);
+    border-color: var(--line-strong);
     font-weight: 600;
+    box-shadow: var(--shadow-sm);
   }
   .r-dot {
-    width: 9px;
-    height: 9px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 0 1.5px #f4ecd6;
   }
   .r-name {
     flex: 1;
@@ -235,32 +272,48 @@
     white-space: nowrap;
   }
   .r-meta {
-    color: #6b7280;
-    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--ink-soft);
+    font-size: 0.72rem;
     flex-shrink: 0;
   }
   .result-empty {
-    color: #9ca3af;
-    font-size: 0.8rem;
-    padding: 0.4rem 0;
+    color: var(--ink-faint);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    padding: 0.6rem 0.3rem;
   }
   .search-section {
-    padding-top: 0.75rem;
-    border-top: 1px solid #e5e7eb;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--line);
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
   }
   .search-btn {
     width: 100%;
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    background: var(--pine);
+    color: #f4ecd6;
+    border: 1px solid var(--pine-deep);
+    border-radius: var(--radius);
+    padding: 0.6rem;
     font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition:
+      background 0.15s var(--ease),
+      transform 0.08s var(--ease);
+  }
+  .search-btn:hover:not(:disabled) {
+    background: var(--pine-deep);
+  }
+  .search-btn:active:not(:disabled) {
+    transform: translateY(1px);
   }
   .search-btn:disabled {
     opacity: 0.6;
@@ -280,7 +333,7 @@
       width: 100%;
       box-sizing: border-box;
       border-right: none;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--line-strong);
       flex-direction: column;
       /* Fixed-height region stacked above the map. Filters + search stay
          pinned; only the results list inside scrolls. */

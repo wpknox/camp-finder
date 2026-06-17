@@ -15,14 +15,18 @@
 
 <style>
   .warning {
-    background: #fef3c7;
-    border: 1px solid #fbbf24;
+    background: color-mix(in srgb, var(--clay) 13%, var(--paper-2));
+    border: 1px solid color-mix(in srgb, var(--clay) 42%, transparent);
+    border-left: 3px solid var(--clay);
     border-radius: 8px;
-    padding: 0.6rem 0.85rem;
+    padding: 0.65rem 0.85rem;
     font-size: 0.85rem;
-    margin: 0.75rem 0;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0.9rem 0;
   }
   a {
-    color: #92400e;
+    color: var(--clay);
+    font-weight: 600;
   }
 </style>

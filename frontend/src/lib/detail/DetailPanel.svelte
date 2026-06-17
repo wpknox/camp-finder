@@ -4,7 +4,7 @@
   import AmenityGrid from './AmenityGrid.svelte'
   import AlertsSection from './AlertsSection.svelte'
   import DataQualityWarning from './DataQualityWarning.svelte'
-  import { compareIds } from '$lib/compare/compareStore'
+  import { compareList } from '$lib/compare/compareStore'
   import SaveButton from '$lib/saved/SaveButton.svelte'
   import RatingsSection from './RatingsSection.svelte'
   import { page } from '$app/stores'
@@ -60,7 +60,7 @@
     : facility.fee_min != null ? `$${facility.fee_min}–$${facility.fee_max}/night`
     : null
   )
-  let isComparing = $derived($compareIds.includes(facility.id))
+  let isComparing = $derived($compareList.some((c) => c.id === facility.id))
 </script>
 
 <aside
@@ -110,7 +110,7 @@
           </a>
         </p>
       {/if}
-      <SaveButton facilityId={facility.id} />
+      <SaveButton facilityId={facility.id} facilityName={facility.name} />
     </header>
 
     <FCFSBadge fcfs_total={facility.fcfs_total} reservable_total={facility.reservable_total}
@@ -118,16 +118,13 @@
 
     <button
       class="compare-btn"
-      onclick={() => isComparing ? compareIds.remove(facility.id) : compareIds.add(facility.id)}
+      class:active={isComparing}
+      onclick={() => isComparing
+        ? compareList.remove(facility.id)
+        : compareList.add({ id: facility.id, name: facility.name })}
     >
       {isComparing ? '✓ In Compare' : '+ Compare'}
     </button>
-
-    {#if $compareIds.length >= 2}
-      <a class="compare-link" href="/compare?ids={$compareIds.join(',')}">
-        View comparison ({$compareIds.length} campgrounds) →
-      </a>
-    {/if}
 
     <AmenityGrid amenities={facility.amenities} />
 
@@ -156,13 +153,16 @@
 <style>
   .panel {
     position: fixed;
-    background: white;
+    background:
+      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 88%, var(--paper)));
+    color: var(--ink);
     overflow-y: auto;
     z-index: 2000;
-    box-shadow: -2px 0 12px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-lg);
+    border-left: 1px solid var(--line-strong);
     top: 0; right: 0; bottom: 0;
     width: min(var(--panel-width, 420px), 100vw);
-    transition: transform 0.2s ease;
+    transition: transform 0.2s var(--ease);
   }
   .panel.dragging { transition: none; }
   .resize-handle {
@@ -173,12 +173,12 @@
     z-index: 3;
     touch-action: none;
   }
-  .resize-handle:hover { background: rgba(22, 163, 74, 0.25); }
+  .resize-handle:hover { background: color-mix(in srgb, var(--moss) 30%, transparent); }
   /* Grabber bar for swipe-down dismiss; mobile only. */
   .drag-handle { display: none; }
   @media (max-width: 640px) {
     /* Full-screen takeover. */
-    .panel { top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100dvh; border-radius: 0; }
+    .panel { top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100dvh; border-radius: 0; border-left: none; }
     .resize-handle { display: none; }
     .drag-handle {
       display: flex;
@@ -187,7 +187,7 @@
       height: 26px;
       position: sticky;
       top: 0;
-      background: white;
+      background: var(--paper-2);
       z-index: 4;
       cursor: grab;
       touch-action: none;
@@ -196,40 +196,51 @@
       width: 40px;
       height: 5px;
       border-radius: 3px;
-      background: #d1d5db;
+      background: var(--line-strong);
     }
     .close-btn { position: absolute; top: 2px; right: 4px; padding: 0.5rem; }
   }
   .close-btn {
     position: sticky; top: 0; float: right;
-    background: none; border: none; font-size: 1.2rem; cursor: pointer;
+    background: none; border: none; font-size: 1.1rem; color: var(--ink-soft); cursor: pointer;
     padding: 1rem; z-index: 1;
+    transition: color 0.13s var(--ease);
   }
-  .panel-content { padding: 1rem 1.25rem 2rem; }
-  h2 { margin: 0 0 .25rem; font-size: 1.2rem; }
-  .meta { margin: 0; color: #666; font-size: .9rem; }
-  .fee { margin: .5rem 0 .5rem; font-weight: 600; }
-  .fee-unknown { color: #6b7280; }
-  .fee-unknown a { color: #6b7280; text-decoration: underline; }
-  .description { font-size: .85rem; color: #374151; line-height: 1.55; margin: .75rem 0; }
-  .description :global(h2) { font-size: .95rem; margin: .75rem 0 .25rem; }
-  .description :global(p)  { margin: 0 0 .5rem; }
-  .links { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; font-size: .9rem; }
-  .links a { color: #16a34a; }
-  .compare-btn { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; padding: .4rem .85rem; cursor: pointer; font-size: .85rem; }
-  .compare-link { display: block; color: #16a34a; font-size: .875rem; margin: .5rem 0; }
+  .close-btn:hover { color: var(--ink); }
+  .panel-content { padding: 1rem 1.4rem 2.4rem; }
+  header {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+  h2 { margin: 0 0 .3rem; font-family: var(--font-display); font-size: 1.55rem; font-weight: 600; line-height: 1.08; }
+  .meta { margin: 0; font-family: var(--font-mono); color: var(--ink-soft); font-size: .76rem; letter-spacing: 0.01em; }
+  .fee { margin: .7rem 0 .6rem; font-family: var(--font-mono); font-weight: 600; font-size: 1.05rem; color: var(--pine); }
+  .fee-unknown { color: var(--ink-faint); font-size: .85rem; font-weight: 500; }
+  .fee-unknown a { color: var(--clay); text-decoration: underline; }
+  .description { font-size: .86rem; color: var(--ink-soft); line-height: 1.6; margin: .9rem 0; }
+  .description :global(h2) { font-family: var(--font-display); font-size: 1rem; color: var(--ink); margin: .9rem 0 .25rem; }
+  .description :global(p)  { margin: 0 0 .55rem; }
+  .description :global(a) { color: var(--pine); }
+  .links { display: flex; flex-direction: column; gap: .55rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: .88rem; }
+  .links a { color: var(--pine); display: inline-flex; align-items: center; gap: 0.35rem; width: fit-content; }
+  .compare-btn { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: .45rem .9rem; cursor: pointer; font-size: .85rem; font-weight: 600; transition: background 0.13s var(--ease); }
+  .compare-btn:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
+  .compare-btn.active { background: color-mix(in srgb, var(--moss) 20%, var(--paper-2)); border-color: color-mix(in srgb, var(--moss) 50%, transparent); color: var(--pine-deep); }
   .closed-banner {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: #dc2626;
-    color: white;
+    background: var(--rust);
+    color: #f4ecd6;
     display: flex;
     align-items: center;
     gap: .5rem;
-    padding: .75rem 1.25rem;
-    font-size: .95rem;
+    padding: .75rem 1.4rem;
+    font-size: .92rem;
     font-weight: 500;
+    box-shadow: var(--shadow-sm);
   }
+  .closed-banner strong { letter-spacing: 0.03em; }
   .closed-icon { font-size: 1.1rem; }
 </style>

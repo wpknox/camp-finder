@@ -44,10 +44,45 @@
 </div>
 
 <style>
-  .compare-wrap { overflow-x: auto; padding: 1rem; }
+  .compare-wrap {
+    overflow-x: auto;
+    padding: 0.5rem 0 1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--paper-2);
+    box-shadow: var(--shadow-sm);
+  }
   table { border-collapse: collapse; width: 100%; font-size: .875rem; }
-  th, td { padding: .6rem .85rem; border: 1px solid #e5e7eb; text-align: left; }
-  th { background: #f9fafb; font-weight: 600; }
-  .row-label { color: #6b7280; font-weight: 500; white-space: nowrap; }
-  tr.highlight td { background: #fefce8; }
+  th, td { padding: .65rem .9rem; border-bottom: 1px solid var(--line); text-align: left; }
+  td:not(.row-label), th:not(:first-child) {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Column dividers between campgrounds, drawn light like pencil. */
+  th + th, td + td { border-left: 1px solid var(--line); }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--paper-deep);
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  thead th a { color: var(--pine); text-decoration: none; }
+  thead th a:hover { color: var(--pine-deep); text-decoration: underline; text-underline-offset: 2px; }
+  tbody tr:last-child td { border-bottom: none; }
+  .row-label {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  /* Rows where the campgrounds differ get a soft ochre wash to draw the eye. */
+  tr.highlight td { background: color-mix(in srgb, var(--ochre) 12%, transparent); }
+  tr.highlight .row-label { color: #876213; }
 </style>

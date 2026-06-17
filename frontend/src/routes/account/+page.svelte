@@ -131,51 +131,84 @@
 
 <style>
   .account-page {
-    max-width: 720px;
+    max-width: 760px;
     margin: 0 auto;
-    padding: 1.5rem 1rem 3rem;
+    padding: 2rem 1.25rem 3.5rem;
     width: 100%;
     overflow-y: auto;
   }
   header {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
   }
   h1 {
-    font-size: 1.4rem;
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 600;
     margin: 0;
   }
   h2 {
-    font-size: 1rem;
-    margin: 1.75rem 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
   }
   .signout {
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 0.4rem 0.85rem;
+    background: var(--paper-deep);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 0.45rem 0.9rem;
     cursor: pointer;
     font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.13s var(--ease);
   }
+  .signout:hover {
+    background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
+  }
+  /* Profile reads as a stamped record card. */
   .profile {
-    margin: 1.25rem 0 0.5rem;
+    margin: 1.5rem 0 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.6rem;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--pine);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
   }
   .profile > div {
     display: flex;
     gap: 1rem;
+    align-items: baseline;
   }
   .label {
-    width: 120px;
-    color: #6b7280;
-    font-size: 0.875rem;
+    width: 130px;
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .profile > div > span:last-child {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+  section {
+    margin-top: 2rem;
   }
   .muted {
-    color: #9ca3af;
+    color: var(--ink-faint);
     font-size: 0.9rem;
+    font-style: italic;
     margin: 0;
   }
   .rows {
@@ -184,15 +217,22 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
   .rows li {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    border-bottom: 1px solid #f3f4f6;
-    padding: 0.5rem 0;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.7rem 0.85rem;
     font-size: 0.9rem;
+    transition: border-color 0.13s var(--ease), box-shadow 0.13s var(--ease);
+  }
+  .rows li:hover {
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-sm);
   }
   .review-row {
     align-items: flex-start;
@@ -200,18 +240,21 @@
   .rev-main {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.2rem;
     flex: 1;
   }
   .stars {
-    color: #f59e0b;
+    font-family: var(--font-mono);
+    color: #a8731a;
+    letter-spacing: 0.05em;
   }
   .name {
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--ink);
   }
   .notes {
     margin: 0;
-    color: #6b7280;
+    color: var(--ink-soft);
     font-size: 0.85rem;
     font-style: italic;
   }
@@ -223,11 +266,21 @@
     border: none;
     cursor: pointer;
     font-size: 0.825rem;
-    color: #2563eb;
+    font-weight: 600;
+    color: var(--pine);
     text-decoration: none;
     padding: 0;
+    transition: color 0.13s var(--ease);
+  }
+  .link:hover {
+    color: var(--pine-deep);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .link.danger {
-    color: #dc2626;
+    color: var(--rust);
+  }
+  .link.danger:hover {
+    color: #832e12;
   }
 </style>

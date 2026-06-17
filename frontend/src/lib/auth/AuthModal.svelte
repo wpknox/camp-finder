@@ -72,6 +72,7 @@
   onkeydown={(e) => { if (e.key === 'Escape') onclose?.(); }}
 >
   <div class="modal" role="dialog" aria-modal="true" aria-label={mode === 'login' ? 'Sign in' : 'Create account'}>
+    <span class="eyebrow">{mode === "login" ? "Welcome back" : "Join the trail"}</span>
     <h2>{mode === "login" ? "Sign in" : "Create account"}</h2>
 
     <!-- A real form so pressing Enter in any field submits. -->
@@ -154,23 +155,53 @@
 <style>
   /* Above the reviews modal (3500) so "Sign in to write a review" → AuthModal
      stacks on top, not behind it. */
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 4000; display: grid; place-items: center; padding: 1rem; }
-  .modal { background: white; border-radius: 12px; padding: 2rem; width: min(380px, 100%); display: flex; flex-direction: column; gap: 0.75rem; }
+  .overlay { position: fixed; inset: 0; background: rgba(35, 28, 14, 0.5); backdrop-filter: blur(2px); z-index: 4000; display: grid; place-items: center; padding: 1rem; }
+  .modal {
+    position: relative;
+    background:
+      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 86%, var(--paper)));
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    padding: 1.9rem;
+    width: min(390px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: var(--shadow-lg);
+    animation: modal-in 0.32s var(--ease);
+  }
+  /* A pine spine down the left edge — like a field-notebook binding. */
+  .modal::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 14px; bottom: 14px;
+    width: 4px;
+    border-radius: 4px;
+    background: var(--pine);
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
   .auth-form { display: flex; flex-direction: column; gap: 0.75rem; }
-  h2 { margin: 0; font-size: 1.1rem; }
+  .eyebrow { margin-top: 0.1rem; }
+  h2 { margin: 0 0 0.4rem; font-family: var(--font-display); font-size: 1.55rem; font-weight: 600; }
   .field { display: flex; flex-direction: column; gap: 0.25rem; }
-  input { border: 1px solid #d1d5db; border-radius: 8px; padding: 0.6rem 0.85rem; font-size: 0.95rem; width: 100%; box-sizing: border-box; }
-  input:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15); }
-  input.invalid { border-color: #dc2626; }
-  input.invalid:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15); }
-  .field-error { color: #dc2626; font-size: 0.78rem; margin: 0; }
-  .field-hint { color: #9ca3af; font-size: 0.78rem; margin: 0; }
-  .primary { display: flex; align-items: center; justify-content: center; gap: 0.45rem; background: #16a34a; color: white; border: none; border-radius: 8px; padding: 0.65rem; cursor: pointer; font-size: 0.95rem; font-weight: 600; margin-top: 0.25rem; }
+  input { background: var(--paper-deep); border: 1px solid var(--line-strong); border-radius: 9px; padding: 0.62rem 0.85rem; font-size: 0.95rem; width: 100%; box-sizing: border-box; color: var(--ink); transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease); }
+  input::placeholder { color: var(--ink-faint); }
+  input:focus { outline: none; border-color: var(--moss); box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent); }
+  input.invalid { border-color: var(--rust); }
+  input.invalid:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--rust) 22%, transparent); }
+  .field-error { color: var(--rust); font-size: 0.78rem; margin: 0; }
+  .field-hint { color: var(--ink-faint); font-size: 0.78rem; margin: 0; }
+  .primary { display: flex; align-items: center; justify-content: center; gap: 0.45rem; background: var(--pine); color: #f4ecd6; border: 1px solid var(--pine-deep); border-radius: 9px; padding: 0.68rem; cursor: pointer; font-size: 0.95rem; font-weight: 600; margin-top: 0.35rem; box-shadow: var(--shadow-sm); transition: background 0.15s var(--ease), transform 0.08s var(--ease); }
+  .primary:hover:not(:disabled) { background: var(--pine-deep); }
+  .primary:active:not(:disabled) { transform: translateY(1px); }
   .primary:disabled { opacity: 0.7; cursor: default; }
-  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255, 255, 255, 0.45); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(244, 236, 214, 0.4); border-top-color: #f4ecd6; border-radius: 50%; animation: spin 0.6s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .toggle { background: none; border: none; color: #6b7280; font-weight: 400; font-size: 0.875rem; padding: 0; cursor: pointer; }
-  .toggle-action { color: #16a34a; font-weight: 600; text-decoration: underline; }
-  .toggle:hover .toggle-action { color: #15803d; }
-  .error { color: #dc2626; font-size: 0.85rem; margin: 0; }
+  .toggle { background: none; border: none; color: var(--ink-soft); font-weight: 400; font-size: 0.875rem; padding: 0; cursor: pointer; align-self: flex-start; }
+  .toggle-action { color: var(--pine); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+  .toggle:hover .toggle-action { color: var(--pine-deep); }
+  .error { color: var(--rust); font-size: 0.85rem; margin: 0; }
 </style>

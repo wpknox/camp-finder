@@ -49,26 +49,31 @@
 
 <style>
   .alerts {
-    margin: 1rem 0;
+    margin: 1.2rem 0;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
   }
   h3 {
-    font-size: 0.95rem;
-    margin: 0 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.55rem;
   }
   .status {
-    color: #666;
+    color: var(--ink-soft);
     font-size: 0.85rem;
   }
   .error {
-    color: #dc2626;
+    color: var(--rust);
   }
   .content {
-    background: #fef2f2;
-    border-left: 3px solid #ef4444;
-    padding: 0.6rem 0.85rem;
+    background: color-mix(in srgb, var(--rust) 10%, var(--paper-2));
+    border-left: 3px solid var(--rust);
     border-radius: 0 8px 8px 0;
+    padding: 0.65rem 0.85rem;
     font-size: 0.85rem;
-    color: #1a1a1a;
+    line-height: 1.55;
+    color: var(--ink);
   }
   .content p {
     margin: 0 0 0.5rem;
@@ -77,8 +82,9 @@
     margin-bottom: 0;
   }
   .timestamp {
-    color: #999;
-    font-size: 0.75rem;
-    margin: 0.25rem 0 0;
+    font-family: var(--font-mono);
+    color: var(--ink-faint);
+    font-size: 0.7rem;
+    margin: 0.4rem 0 0;
   }
 </style>

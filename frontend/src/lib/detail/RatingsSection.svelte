@@ -53,11 +53,12 @@
 {/if}
 
 <style>
-  .ratings { margin: 1rem 0; }
-  h3 { font-size: 0.95rem; margin: 0 0 0.5rem; }
-  .summary { margin: 0; font-size: 0.9rem; }
-  .avg { color: #ca8a04; font-weight: 600; }
-  .snippet { margin: 0.35rem 0 0; color: #6b7280; font-size: 0.85rem; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .empty { color: #9ca3af; font-size: 0.85rem; margin: 0; }
-  .see-all { margin-top: 0.6rem; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; padding: 0.4rem 0.85rem; cursor: pointer; font-size: 0.85rem; }
+  .ratings { margin: 1.2rem 0 0; padding-top: 1rem; border-top: 1px solid var(--line); }
+  h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin: 0 0 0.55rem; }
+  .summary { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+  .avg { font-family: var(--font-mono); color: #a8731a; font-weight: 600; }
+  .snippet { margin: 0.4rem 0 0; color: var(--ink-soft); font-size: 0.85rem; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty { color: var(--ink-faint); font-size: 0.85rem; margin: 0; }
+  .see-all { margin-top: 0.7rem; background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 0.45rem 0.9rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.13s var(--ease); }
+  .see-all:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
 </style>
