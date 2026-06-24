@@ -183,6 +183,13 @@ export default {
         { name: "personal_notes", type: "text", sqlType: "text" },
       ],
       triggers: [createdTrigger, updatedTrigger],
+      indexes: [
+        {
+          name: "saved_user_facility_unique",
+          unique: true,
+          fields: ["user_id", "facility_id"],
+        },
+      ],
       extensions: [
         {
           name: "rules",

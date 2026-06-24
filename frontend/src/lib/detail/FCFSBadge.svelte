@@ -28,23 +28,38 @@
 
 <style>
   .badge {
-    display: inline-block;
-    padding: 0.35rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
     margin: 0.75rem 0;
   }
+  .badge::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
   .badge-green {
-    background: #dcfce7;
-    color: #15803d;
+    background: color-mix(in srgb, var(--moss) 16%, var(--paper-2));
+    border-color: color-mix(in srgb, var(--moss) 45%, transparent);
+    color: var(--pine-deep);
   }
   .badge-yellow {
-    background: #fef9c3;
-    color: #a16207;
+    background: color-mix(in srgb, var(--ochre) 18%, var(--paper-2));
+    border-color: color-mix(in srgb, var(--ochre) 50%, transparent);
+    color: #876213;
   }
   .badge-blue {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: color-mix(in srgb, var(--lake) 14%, var(--paper-2));
+    border-color: color-mix(in srgb, var(--lake) 45%, transparent);
+    color: var(--lake);
   }
 </style>

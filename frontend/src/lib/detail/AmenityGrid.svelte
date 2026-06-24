@@ -27,7 +27,7 @@
       { icon: "⚡", label: "Electric", show: amenities.electricHookups },
       { icon: "🐕", label: "Pets OK", show: amenities.petsAllowed },
       { icon: "🔥", label: "Fire Rings", show: amenities.fireRings },
-      { icon: "🪑", label: "Picnic Tables", show: amenities.picnicTables },
+      { icon: "🧺", label: "Picnic Tables", show: amenities.picnicTables },
       { icon: "♿", label: "Accessible", show: amenities.accessible },
     ].filter((i) => i.show && i.label),
   );
@@ -49,24 +49,28 @@
 <style>
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 0.5rem;
-    margin: 0.75rem 0;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 0.45rem;
+    margin: 0.9rem 0;
   }
   .item {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 0.82rem;
-    background: #f8f8f8;
-    padding: 0.4rem 0.6rem;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    background: color-mix(in srgb, var(--paper-deep) 55%, transparent);
+    border: 1px solid var(--line);
+    padding: 0.45rem 0.6rem;
     border-radius: 8px;
   }
   .icon {
     font-size: 1rem;
+    line-height: 1;
   }
   .empty {
-    color: #999;
+    color: var(--ink-faint);
     font-size: 0.85rem;
+    font-style: italic;
   }
 </style>

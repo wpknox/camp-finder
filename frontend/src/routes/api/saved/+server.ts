@@ -46,6 +46,25 @@ export const POST: RequestHandler = async ({ locals, cookies, request }) => {
   >;
   if (!facility_id)
     return json({ error: "facility_id required" }, { status: 400 });
+
+  // Idempotent save: a campground can only be saved once per user. Check for an
+  // existing row first and return it rather than inserting a duplicate. The DB
+  // also enforces this with a unique (user_id, facility_id) index, but this
+  // guard keeps the API well-behaved and hands the client back a stable id.
+  const existingRes = await fetch(`${TB}/list`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      where: `user_id == '${locals.user.id}'`,
+      limit: 1000,
+    }),
+  });
+  const existing = (await existingRes.json()) as {
+    items?: Array<{ id: string; facility_id: string }>;
+  };
+  const dupe = existing.items?.find((i) => i.facility_id === facility_id);
+  if (dupe) return json(dupe, { status: 200 });
+
   const res = await fetch(`${TB}/insert`, {
     method: "POST",
     headers: authHeaders(token),

@@ -2,6 +2,7 @@
   import CampMap from "$lib/map/CampMap.svelte";
   import DetailPanel from "$lib/detail/DetailPanel.svelte";
   import FilterSidebar from "$lib/filters/FilterSidebar.svelte";
+  import CompareTray from "$lib/compare/CompareTray.svelte";
   import {
     selectedFacility,
     searchPending,
@@ -76,11 +77,14 @@
   />
 
   <div class="legend">
-    <span class="dot green"></span> Fully FCFS
-    <span class="dot yellow"></span> Partial FCFS
-    <span class="dot blue"></span> Reservable only
-    <span class="dot red"></span> Closed
+    <span class="legend-title eyebrow">Map key</span>
+    <span class="row"><span class="dot moss"></span> Fully first-come</span>
+    <span class="row"><span class="dot ochre"></span> Partial first-come</span>
+    <span class="row"><span class="dot lake"></span> Reservable only</span>
+    <span class="row"><span class="dot rust"></span> Closed</span>
   </div>
+
+  <CompareTray />
 </div>
 
 {#if $selectedFacility}
@@ -105,34 +109,58 @@
   }
   .legend {
     position: absolute;
-    bottom: 1rem;
-    left: 1rem;
+    bottom: 1.1rem;
+    left: 1.1rem;
     z-index: 1000;
-    background: white;
-    border-radius: 8px;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
+    background: color-mix(in srgb, var(--paper-2) 94%, transparent);
+    backdrop-filter: blur(2px);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 0.6rem 0.8rem;
+    font-size: 0.78rem;
+    color: var(--ink);
     display: flex;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.32rem;
+    align-items: flex-start;
+    box-shadow: var(--shadow-md);
+  }
+  .legend-title {
+    margin-bottom: 0.15rem;
+  }
+  .legend .row {
+    display: flex;
     align-items: center;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    gap: 0.5rem;
   }
   .dot {
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
+    box-shadow: 0 0 0 1.5px #f4ecd6;
   }
-  .dot.green {
-    background: #22c55e;
+  .dot.moss {
+    background: var(--moss);
   }
-  .dot.yellow {
-    background: #eab308;
+  .dot.ochre {
+    background: var(--ochre);
   }
-  .dot.blue {
-    background: #3b82f6;
+  .dot.lake {
+    background: var(--lake);
   }
-  .dot.red {
-    background: #ef4444;
+  .dot.rust {
+    background: var(--rust);
+  }
+  @media (max-width: 640px) {
+    /* On phones the legend competes with the pinned search UI — make it
+       compact and tuck it to the corner. */
+    .legend {
+      bottom: 0.6rem;
+      left: 0.6rem;
+      padding: 0.45rem 0.6rem;
+      font-size: 0.7rem;
+      gap: 0.22rem;
+    }
   }
 </style>

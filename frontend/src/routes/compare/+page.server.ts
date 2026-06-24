@@ -7,14 +7,24 @@ export const load: PageServerLoad = async ({ url }) => {
   const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean).slice(0, 4)
   if (ids.length === 0) return { facilities: [] }
 
-  const where = ids.map(id => `id == '${id}'`).join(' || ')
-
+  // Teenybase rejects compound WHERE expressions (`||` and `&&` both fail to
+  // parse), so we can't query several ids at once. Fetch the full set and
+  // filter in-process — the same workaround used by /api/facilities. Fine at
+  // ~592 records. Preserve the requested id order so columns match selection.
   const res = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/list`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ where, limit: 4 }),
+    body: JSON.stringify({ limit: 10000 }),
   })
 
   const data = await res.json() as { items?: Facility[] }
-  return { facilities: data.items ?? [] }
+  // Teenybase stores `amenities` as a JSON string; CompareView reads it as an
+  // object, so parse on the way out.
+  const parsed = (data.items ?? []).map(f => ({
+    ...f,
+    amenities: typeof f.amenities === 'string' ? JSON.parse(f.amenities) : f.amenities,
+  }))
+  const byId = new Map(parsed.map(f => [f.id, f]))
+  const facilities = ids.map(id => byId.get(id)).filter((f): f is Facility => f != null)
+  return { facilities }
 }

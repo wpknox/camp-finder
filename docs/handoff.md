@@ -9,7 +9,9 @@ CampFinder is a map-first PWA for discovering Colorado campgrounds. Built on:
 
 ## Current status: ~592 campgrounds (RIDB + FS + NPS all synced)
 
-**~592 Colorado campgrounds seeded** (270 from RIDB + ~300 discovered from fs.usda.gov + 22 from NPS API). Map, search, detail panel, filters, compare, auth, save, and ratings all wired up. Closed campgrounds show a red marker and a sticky red banner. UI/UX needs a polish pass before deployment.
+**~592 Colorado campgrounds seeded** (270 from RIDB + ~300 discovered from fs.usda.gov + 22 from NPS API). Map, search, detail panel, filters, compare, auth, save, and ratings all wired up. Closed campgrounds show a red marker and a sticky red banner.
+
+**UI/UX design pass is done** (2026-06-16): the whole app now wears the **"Folded Field Map"** identity — an earthy, paper-topographic look (USGS Topo basemap, muted pigment palette, Fraunces/Hanken/JetBrains Mono type, paper textures). The design language is the source of truth in **`docs/design-language.md`** — read it before any further UI work. See "Done this session" below for the full scope.
 
 **NPS API pipeline is built, tested, and run.** `pnpm sync-nps` added 22 NPS campgrounds across all 8 CO parks (5 ROMO + 17 from the rest), including Gates of Lodore Campground (the original motivation). Park codes: romo, dino, meve, blca, cure, grsa, colm, flfo (flfo has no campgrounds). Re-run anytime — it's idempotent and dedupes against all existing records.
 
@@ -19,7 +21,7 @@ CampFinder is a map-first PWA for discovering Colorado campgrounds. Built on:
 
 **Why NPS was added:** RIDB `state=CO` filter silently drops NPS facilities whose parks span CO/UT — confirmed with Gates of Lodore Campground (RIDB ID `10199750`, `ParentOrgID: 128`, no `FACILITYADDRESS`). NPS API returns `numberOfSitesFirstComeFirstServe` and `numberOfSitesReservable` directly, plus structured amenities (toilet type, potable water, food storage lockers, RV length, electric hookups).
 
-**Current branch:** `main` — `feat/auth-foundation` was **merged** on 2026-06-11 (`--no-ff`, commit `656ac82`), after multi-user data isolation was verified (see below). The `feat/auth-foundation` branch still exists locally and can be deleted (`git branch -d feat/auth-foundation`).
+**Current branch:** `feat/folded-field-map-design` — holds the 2026-06-16 design pass + fixes (commits `958419f`, `cb1ead0`, `ed200b8`). **Not yet merged to `main`.** Merge when ready (`--no-ff`); `pnpm check` is 0/0. (`feat/auth-foundation` was merged 2026-06-11, `656ac82`.)
 
 ---
 
@@ -253,8 +255,9 @@ camp-finder/
         detail/RatingsSection.svelte
         detail/DataQualityWarning.svelte
         saved/SaveButton.svelte
-        compare/compareStore.ts
+        compare/compareStore.ts     # holds {id, name}[] for compared campgrounds
         compare/CompareView.svelte
+        compare/CompareTray.svelte  # bottom-center compare "clipboard" on the map
       routes/
         +layout.svelte
         +page.svelte
@@ -266,6 +269,7 @@ camp-finder/
 
   docs/
     handoff.md                      # This file
+    design-language.md              # "Folded Field Map" visual identity — read before UI work
     campfinder-spec.md              # Original brainstorm spec
     superpowers/
       specs/2026-05-26-search-ux-design.md
@@ -296,12 +300,32 @@ camp-finder/
 | `is_closed` field not recognized by Teenybase | **Fixed** — migration `0005_add_is_closed_to_facilities.sql` (run `pnpm generate && pnpm migrate`) |
 | NPS campgrounds missing despite being in RIDB | **Fixed** — RIDB `state=CO` silently drops cross-border NPS parks (confirmed: Gates of Lodore, `ParentOrgID: 128`, no `FACILITYADDRESS`). New `nps.ts` + `pnpm sync-nps` fetches directly from NPS API by park code. |
 | `parseDescriptionAmenities` missing fireRings detection | **Fixed** — added `fireRings` via fire pit/ring/grate keywords with negation guard; "grill" excluded (too broad) |
+| Compare page returned nothing for 2+ campgrounds | **Fixed** — used `||` in Teenybase WHERE (rejected like `&&`); now fetches all + filters in-process in `compare/+page.server.ts`, and parses `amenities` |
+| Campground could be saved multiple times | **Fixed** — unique `(user_id, facility_id)` index (migration `0008`, local D1 only), idempotent `POST /api/saved`, confirm-to-remove on the Save button |
+| Account dropdown unclickable (behind map) | **Fixed** — nav's new stacking context trapped it; raised nav `z-index` above the map |
+| Mobile: expanding Filters showed nothing | **Fixed** — results list's `flex-basis:auto` collapsed the filter body; sidebar now `flex:none` with state-driven heights, scroll regions use `flex-basis:0` |
 
 ---
 
 ## What's next
 
-### Done this session (2026-06-11 — isolation verification + merge)
+### Done this session (2026-06-16 — "Folded Field Map" design pass + fixes)
+Branch `feat/folded-field-map-design` (commits `958419f`, `cb1ead0`, `ed200b8`). `pnpm check` 0/0 throughout. Not yet merged to `main`.
+
+- ✅ **Full UI/UX design pass — the "Folded Field Map" identity.** Earthy, paper-topographic look so it reads like a handheld map, not a computer map. Source of truth: **`docs/design-language.md`** (palette tokens, type, textures, motion, marker colors — read before any further UI work).
+  - **Basemap → USGS Topo** (`basemap.nationalmap.gov`, no API key) with a warm CSS tile filter; OpenTopoMap fallback on tile error. This is the single biggest lever for the paper-map feel.
+  - **Palette**: muted earth pigments (paper/ink/pine/moss/ochre/lake/rust) replacing the bright green/blue/red. Marker, sidebar-dot, and badge colors kept in lockstep (single source: `CampMap.renderPins`).
+  - **Type**: Fraunces (display) + Hanken Grotesk (UI) + JetBrains Mono (data/coords). Loaded in `app.html`; tokens + base styles + Leaflet skin in `app.css`.
+  - **Texture/atmosphere**: paper grain + contour motifs, layered-paper shadows, pencil hairlines, staggered result reveals.
+  - **Every surface converted**: top nav + account menu, map + legend (map-key card), filter sidebar, detail panel + children (FCFS badge, amenity grid, alerts, ratings, data-quality), auth modal (notebook-spine card), account page, reviews modal, confirm dialog, compare view + page.
+- ✅ **Compare tray** (new — `CompareTray.svelte`): bottom-center paper "clipboard" on the map listing compared campgrounds as named chips with per-item remove + clear-all, and a "Compare N →" button (active at 2+). `compareStore` now holds `{id, name}` (was `string[]`).
+- ✅ **Save dedupe + confirm-to-remove.** `saved_campgrounds` had no uniqueness guard, so a campground could be saved repeatedly. Fixed at three layers: unique `(user_id, facility_id)` index (**migration `0008`**, applied to local D1 only), idempotent `POST /api/saved` (returns the existing row instead of inserting), and the Save button now opens a `ConfirmDialog` before removing an already-saved campground.
+- ✅ **Compare page bug fixed.** It used `||` in the Teenybase WHERE, which Teenybase rejects (same as `&&`), so it silently returned **nothing** for 2+ ids. Now fetches all + filters in-process (the documented workaround) and parses `amenities`.
+- ✅ **Account dropdown z-index fix.** The nav's new stacking context trapped the dropdown under the map; nav `z-index` raised above the map (below detail panel/modals).
+- ✅ **Mobile sidebar rework.** Fixed a bug where expanding Filters showed nothing (the long results list's `flex-basis:auto` collapsed the filter body to ~0). Sidebar is now `flex:none` with state-driven heights; scroll regions use `flex-basis:0`. **Results list is now a tap-to-expand disclosure** (count always visible; collapsed by default → compact, map-first; expanded → ~78vh for browsing). **"Sort by" hidden on mobile**; more compact mobile search button. Desktop unchanged.
+- ✅ **Picnic-table emoji** 🪑→🧺 (no true picnic-table glyph exists).
+
+### Done previous session (2026-06-11 — isolation verification + merge)
 - ✅ **Verified multi-user data isolation (adversarial, both directions).** Ran tests directly against Teenybase (`:8787`) — the real trust boundary — with two distinct authenticated users:
   - **Reviews (`ratings`):** cross-user edit → `404` (attacker can't resolve the row); cross-user delete → `200` but 0 rows affected (row survives); forged insert (attacker token + victim `user_id`) → 0 rows inserted (Teenybase injects `WHERE (<auth.uid> IS new.user_id)` into the INSERT); forged `user_id` in edit body → still `404`. Confirmed **symmetric** (A→B and B→A both blocked).
   - **Saved campgrounds (`saved_campgrounds`):** cross-user list (even with forged `where user_id == victim`) → empty; view-by-id → `404`; delete → 0 rows (survives); unauthenticated list → empty; owner still sees own (sanity).
@@ -323,20 +347,24 @@ camp-finder/
 - ✅ **BLM investigation** — BLM camping data *is* reachable via the BLM ArcGIS REST service (`https://gis.blm.gov/arcgis/rest/services/recreation/BLM_Natl_Recreation_Sites_Facilities/MapServer`, no key). But the camping layers (2, 8) are RIDB-derived, so BLM campgrounds with recreation.gov listings are already pulled by `pnpm sync`. Net-new data lives in the non-RIDB "Recreation Facilities/Sites" layers (0, 1), but those need field-schema work and lack FCFS/amenity richness. **Verdict: low marginal value — deprioritized.**
 
 ### Next up (high priority)
-1. **~~Merge `feat/auth-foundation` → main.~~** ✅ Done 2026-06-11 (`656ac82`). See "Done this session" above.
-2. **~~Verify multi-user data isolation.~~** ✅ Done 2026-06-11 — adversarial tests confirm `ratings` + `saved_campgrounds` are siloed per-user, both directions. See "Done this session" above. The one open follow-up is the **deployment caveat**: don't leave the Teenybase Worker openly internet-reachable in prod (or tighten `ratings.listRule`) if review authorship should ever be private.
+1. **Merge `feat/folded-field-map-design` → `main`** when you're happy with the design pass (`--no-ff`). `pnpm check` 0/0. Then optionally delete the branch.
 
-### Medium priority
-3. **UI/UX polish pass (the big one).** Functional but visually rough, and we want a *unique* experience, not generic. **Install the `frontend-design` superpowers skill first**, then do a real design pass: sidebar layout, detail panel, typography, color/identity, empty states, and continued mobile refinement. This session's mobile work was tactical fixes; this is the holistic design pass.
+### Medium priority — new feature direction (both need an admin/moderation concept that doesn't exist yet; that's the first design question)
+2. **Crowdsourced campground edits with admin review.** Let signed-in users submit corrections/additions — especially **actual amenities** and **price when unknown** (lots of records have empty fees + sparse amenities). Submissions go to a review queue; an admin vets and, if valid, the edit is applied to the facility. Today facility rows are ETL/service-token only; only ratings + saves are user-writable.
+3. **User-suggested duplicate merge.** Some campgrounds appear as two pins for the same place (one from RIDB/NPS, one from the fs.usda.gov scrape; dedup by name + ~1km missed them). Known example: "East Portal Campground" under both `cure` and `blca`. Let users flag "these two are the same"; admin confirms; a **merge process** combines the records (keep richer data, preserve saves/reviews pointing at either id).
 
 ### Lower priority
 4. **Deployment** (deferred until local testing is solid):
    - Frontend → Cloudflare Pages
    - Backend → `pnpm deploy` (Teenybase to Cloudflare Workers + D1)
    - Set production env vars
+   - **Run `pnpm generate && pnpm migrate` against prod D1** so the unique indexes exist there — notably the new `saved_campgrounds` unique `(user_id, facility_id)` index (migration `0008`), which is currently applied to **local D1 only**. Without it, dedupe relies on the app-layer guard alone.
+
+### Done earlier (kept for context)
+- ✅ Merged `feat/auth-foundation` → main (2026-06-11, `656ac82`). Multi-user data isolation verified adversarially (`ratings` + `saved_campgrounds` siloed both directions). **Open caveat:** don't leave the Teenybase Worker openly internet-reachable in prod (or tighten `ratings.listRule`) if review authorship should ever be private.
 
 ### Housekeeping
-- A throwaway dev account `testview@example.com` (display name "Test Viewer", password `password123`) was created in the **local** D1 while testing the display-name indicator. Harmless; delete from the local DB if you want a clean users table. It's a good second account for the multi-user isolation testing above.
+- A throwaway dev account `testview@example.com` (display name "Test Viewer", password `password123`) exists in the **local** D1. Harmless; handy as a second account for isolation/save testing. Delete if you want a clean users table.
 
 ---
 
