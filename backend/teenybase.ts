@@ -11,6 +11,17 @@ import {
   updatedTrigger,
 } from "teenybase/scaffolds/fields";
 
+// Shared moderation-review fields for edit_suggestions / merge_suggestions.
+const moderationFields = [
+  { name: "note", type: "text", sqlType: "text" },
+  { name: "status", type: "select", sqlType: "text", notNull: true }, // pending | approved | rejected
+  // reviewed_by is deliberately loose text (not a relation) so review
+  // audit info survives if an admin account is deleted.
+  { name: "reviewed_by", type: "text", sqlType: "text" },
+  { name: "reviewed_at", type: "date", sqlType: "timestamp" },
+  { name: "admin_note", type: "text", sqlType: "text" },
+] as const;
+
 export default {
   appUrl: "$APP_URL",
   jwtSecret: "$JWT_SECRET",
@@ -238,11 +249,7 @@ export default {
         },
         // Partial facility patch: { fee_min?, fee_max?, season_start?, season_end?, amenities?: Partial<Amenities> }
         { name: "changes", type: "json", sqlType: "json", notNull: true },
-        { name: "note", type: "text", sqlType: "text" },
-        { name: "status", type: "text", sqlType: "text", notNull: true }, // pending | approved | rejected
-        { name: "reviewed_by", type: "text", sqlType: "text" },
-        { name: "reviewed_at", type: "date", sqlType: "timestamp" },
-        { name: "admin_note", type: "text", sqlType: "text" },
+        ...moderationFields,
       ],
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
@@ -261,6 +268,9 @@ export default {
       autoSetUid: true,
       fields: [
         ...baseFields,
+        // facility_a / facility_b are deliberately UNORDERED — the
+        // winner/survivor is chosen by the admin at review time, so the
+        // names carry no direction.
         {
           name: "facility_a",
           type: "relation",
@@ -287,11 +297,7 @@ export default {
           sqlType: "text",
           foreignKey: { table: "users", column: "id", onDelete: "CASCADE" },
         },
-        { name: "note", type: "text", sqlType: "text" },
-        { name: "status", type: "text", sqlType: "text", notNull: true }, // pending | approved | rejected
-        { name: "reviewed_by", type: "text", sqlType: "text" },
-        { name: "reviewed_at", type: "date", sqlType: "timestamp" },
-        { name: "admin_note", type: "text", sqlType: "text" },
+        ...moderationFields,
       ],
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
