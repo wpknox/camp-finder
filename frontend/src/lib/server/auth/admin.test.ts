@@ -33,14 +33,19 @@ describe("requireAdmin", () => {
   });
 
   it("returns the record for an admin", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(adminRecord), { status: 200 }),
-      ),
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(adminRecord), { status: 200 }),
     );
+    vi.stubGlobal("fetch", fetchMock);
     await expect(
       requireAdmin({ user: { id: "u1" } } as never),
     ).resolves.toMatchObject({ role: "admin" });
+
+    // Verify the lookup hits users/view with the service token.
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/v1/table/users/view/u1");
+    expect((init.headers as Record<string, string>).Authorization).toMatch(
+      /^Bearer /,
+    );
   });
 });
