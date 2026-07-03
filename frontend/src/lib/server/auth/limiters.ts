@@ -5,3 +5,9 @@ export const authLimiter = createRateLimiter({
   max: 10,
   windowMs: 15 * 60 * 1000,
 });
+
+// 10 suggestion submissions / 15 min per IP.
+export const suggestionLimiter = createRateLimiter({
+  max: 10,
+  windowMs: 15 * 60 * 1000,
+});
