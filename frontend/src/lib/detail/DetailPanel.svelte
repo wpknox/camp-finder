@@ -7,9 +7,19 @@
   import { compareList } from '$lib/compare/compareStore'
   import SaveButton from '$lib/saved/SaveButton.svelte'
   import RatingsSection from './RatingsSection.svelte'
+  import SuggestEditModal from './SuggestEditModal.svelte'
+  import AuthModal from '$lib/auth/AuthModal.svelte'
+  import { isLoggedIn } from '$lib/auth/authStore'
   import { page } from '$app/stores'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
+
+  let suggestOpen = $state(false)
+  let showAuth = $state(false)
+  function onSuggestClick() {
+    if (!$isLoggedIn) { showAuth = true; return; }
+    suggestOpen = true
+  }
 
   // Desktop-only resizable width (panel is anchored to the right edge).
   let panelWidth = $state(420)
@@ -126,6 +136,10 @@
       {isComparing ? '✓ In Compare' : '+ Compare'}
     </button>
 
+    <button class="suggest-btn" onclick={onSuggestClick}>
+      ✎ Suggest an edit
+    </button>
+
     <AmenityGrid amenities={facility.amenities} />
 
     {#if facility.description}
@@ -149,6 +163,14 @@
     <RatingsSection facilityId={facility.id} facilityName={facility.name} autoOpen={$page.url.searchParams.get('reviews') === '1'} />
   </div>
 </aside>
+
+{#if suggestOpen}
+  <SuggestEditModal {facility} onclose={() => (suggestOpen = false)} />
+{/if}
+
+{#if showAuth}
+  <AuthModal onclose={() => (showAuth = false)} onsuccess={() => { showAuth = false; suggestOpen = true }} />
+{/if}
 
 <style>
   .panel {
@@ -227,6 +249,8 @@
   .compare-btn { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: .45rem .9rem; cursor: pointer; font-size: .85rem; font-weight: 600; transition: background 0.13s var(--ease); }
   .compare-btn:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
   .compare-btn.active { background: color-mix(in srgb, var(--moss) 20%, var(--paper-2)); border-color: color-mix(in srgb, var(--moss) 50%, transparent); color: var(--pine-deep); }
+  .suggest-btn { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: .45rem .9rem; cursor: pointer; font-size: .85rem; font-weight: 600; margin-left: .5rem; transition: background 0.13s var(--ease); }
+  .suggest-btn:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
   .closed-banner {
     position: sticky;
     top: 0;
