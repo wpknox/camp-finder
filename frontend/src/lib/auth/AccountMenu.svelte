@@ -29,6 +29,9 @@
     <div class="menu" role="menu">
       <div class="who">{$currentUser?.email}</div>
       <a href="/account" role="menuitem" onclick={() => (open = false)}>My account</a>
+      {#if $currentUser?.role === 'admin'}
+        <a href="/admin" role="menuitem" onclick={() => (open = false)}>Admin</a>
+      {/if}
       <button role="menuitem" onclick={signOut}>Sign out</button>
     </div>
   {/if}
