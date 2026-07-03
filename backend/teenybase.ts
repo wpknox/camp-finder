@@ -19,6 +19,18 @@ export default {
     {
       name: "users",
       autoSetUid: true,
+      // Note: `authFields` already includes a `role` text column (usage:
+      // auth_audience) — reused here as our 'admin' | null moderation
+      // role rather than adding a duplicate field (teenybase rejects
+      // duplicate field names). WARNING: the Teenybase sign-up endpoint
+      // (POST /api/v1/table/users/auth/sign-up) mass-assigns this field
+      // AND embeds it as the JWT `aud` claim if the client passes
+      // `"role"` in the request body — verified via manual curl test.
+      // The SvelteKit register route (/api/auth/register) does NOT
+      // forward a `role` field today, which mitigates this, but the
+      // Teenybase Worker itself is directly reachable and unprotected.
+      // role must only ever be set directly in sqlite by an operator;
+      // never trust or forward client-supplied `role` in any server route.
       fields: [...baseFields, ...authFields],
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
@@ -72,6 +84,8 @@ export default {
         { name: "fs_url", type: "url", sqlType: "text" },
         { name: "is_closed", type: "bool", sqlType: "boolean" },
         { name: "last_synced", type: "date", sqlType: "timestamp" },
+        // JSON array of ridb_ids absorbed by merges — ETL must not re-create these.
+        { name: "merged_ridb_ids", type: "json", sqlType: "json" },
       ],
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
@@ -198,6 +212,96 @@ export default {
           createRule: "auth.uid != null",
           updateRule: "auth.uid == user_id",
           deleteRule: "auth.uid == user_id",
+        } satisfies TableRulesExtensionData,
+      ],
+    },
+    {
+      name: "edit_suggestions",
+      autoSetUid: true,
+      fields: [
+        ...baseFields,
+        {
+          name: "facility_id",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: {
+            table: "facilities",
+            column: "id",
+            onDelete: "CASCADE",
+          },
+        },
+        {
+          name: "user_id",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: { table: "users", column: "id", onDelete: "CASCADE" },
+        },
+        // Partial facility patch: { fee_min?, fee_max?, season_start?, season_end?, amenities?: Partial<Amenities> }
+        { name: "changes", type: "json", sqlType: "json", notNull: true },
+        { name: "note", type: "text", sqlType: "text" },
+        { name: "status", type: "text", sqlType: "text", notNull: true }, // pending | approved | rejected
+        { name: "reviewed_by", type: "text", sqlType: "text" },
+        { name: "reviewed_at", type: "date", sqlType: "timestamp" },
+        { name: "admin_note", type: "text", sqlType: "text" },
+      ],
+      triggers: [createdTrigger, updatedTrigger],
+      extensions: [
+        {
+          name: "rules",
+          listRule: "false",
+          viewRule: "false",
+          createRule: "false",
+          updateRule: "false",
+          deleteRule: "false",
+        } satisfies TableRulesExtensionData,
+      ],
+    },
+    {
+      name: "merge_suggestions",
+      autoSetUid: true,
+      fields: [
+        ...baseFields,
+        {
+          name: "facility_a",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: {
+            table: "facilities",
+            column: "id",
+            onDelete: "CASCADE",
+          },
+        },
+        {
+          name: "facility_b",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: {
+            table: "facilities",
+            column: "id",
+            onDelete: "CASCADE",
+          },
+        },
+        {
+          name: "user_id",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: { table: "users", column: "id", onDelete: "CASCADE" },
+        },
+        { name: "note", type: "text", sqlType: "text" },
+        { name: "status", type: "text", sqlType: "text", notNull: true }, // pending | approved | rejected
+        { name: "reviewed_by", type: "text", sqlType: "text" },
+        { name: "reviewed_at", type: "date", sqlType: "timestamp" },
+        { name: "admin_note", type: "text", sqlType: "text" },
+      ],
+      triggers: [createdTrigger, updatedTrigger],
+      extensions: [
+        {
+          name: "rules",
+          listRule: "false",
+          viewRule: "false",
+          createRule: "false",
+          updateRule: "false",
+          deleteRule: "false",
         } satisfies TableRulesExtensionData,
       ],
     },
