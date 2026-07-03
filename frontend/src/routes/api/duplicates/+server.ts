@@ -5,6 +5,10 @@ import { TB_SERVICE_TOKEN } from '$env/static/private'
 import { suggestionLimiter } from '$lib/server/auth/limiters'
 
 const TB = `${PUBLIC_TB_URL}/api/v1/table/merge_suggestions`
+// Deliberately uses TB_SERVICE_TOKEN: merge_suggestions has ALL Teenybase rules set to
+// 'false', so the service token is the only way in. Unlike sibling routes (api/saved,
+// api/ratings) which use the user's own JWT — don't "fix" this to the per-request
+// user-token pattern.
 const headers = {
   'Content-Type': 'application/json',
   Authorization: `Bearer ${TB_SERVICE_TOKEN}`,
@@ -22,6 +26,7 @@ export const POST: RequestHandler = async ({ locals, request, getClientAddress }
     return json({ error: "A campground can't be a duplicate of itself" }, { status: 400 })
 
   // Dedupe on the unordered pair (no compound WHERE — fetch pending and filter in JS).
+  // 1000-row pending ceiling: fine at current scale, revisit if the queue ever grows.
   const existingRes = await fetch(`${TB}/list`, {
     method: 'POST',
     headers,
@@ -30,6 +35,7 @@ export const POST: RequestHandler = async ({ locals, request, getClientAddress }
   const existing = (await existingRes.json()) as {
     items?: Array<{ facility_a: string; facility_b: string }>
   }
+  // Set pair-check is safe because self-pairs (a === b) are rejected above.
   const pair = new Set([facility_a, facility_b])
   if (existing.items?.some((s) => pair.has(s.facility_a) && pair.has(s.facility_b)))
     return json({ duplicate: true }, { status: 200 })

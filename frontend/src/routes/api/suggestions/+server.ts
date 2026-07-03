@@ -6,11 +6,17 @@ import { suggestionLimiter } from '$lib/server/auth/limiters'
 import type { EditChanges } from '$lib/types'
 
 const TB = `${PUBLIC_TB_URL}/api/v1/table/edit_suggestions`
+// Deliberately uses TB_SERVICE_TOKEN: edit_suggestions has ALL Teenybase rules set to
+// 'false', so the service token is the only way in. Unlike sibling routes (api/saved,
+// api/ratings) which use the user's own JWT — don't "fix" this to the per-request
+// user-token pattern.
 const headers = {
   'Content-Type': 'application/json',
   Authorization: `Bearer ${TB_SERVICE_TOKEN}`,
 }
 
+// Top-level keys only; inner `amenities` keys are deliberately not validated here —
+// admin review is the gate, and malformed submissions get rejected there.
 const ALLOWED_KEYS = new Set(['fee_min', 'fee_max', 'season_start', 'season_end', 'amenities'])
 
 export const POST: RequestHandler = async ({ locals, request, getClientAddress }) => {
