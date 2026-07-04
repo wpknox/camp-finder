@@ -36,7 +36,7 @@ export async function requireAdmin(locals: App.Locals): Promise<AdminUser> {
 
   const record = await fetchUserRecord(locals.user.id);
   // Deliberate: not-found, backend-unreachable, and not-admin all collapse to 403 to avoid leaking distinctions to callers.
-  if (!record || record.role !== "admin") throw error(403, "Forbidden");
+  if (record?.role !== "admin") throw error(403, "Forbidden");
 
   return record;
 }

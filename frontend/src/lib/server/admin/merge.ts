@@ -32,7 +32,7 @@ export function mergeFacilityFields(winner: Facility, loser: Facility): Facility
 
   for (const f of SCALAR_FIELDS) {
     if (isEmpty(merged[f]) && !isEmpty(loser[f])) {
-      (merged as Record<string, unknown>)[f] = loser[f];
+      (merged as unknown as Record<string, unknown>)[f] = loser[f];
     }
   }
 
@@ -45,8 +45,8 @@ export function mergeFacilityFields(winner: Facility, loser: Facility): Facility
     merged.is_partial_fcfs = loser.is_partial_fcfs;
   }
 
-  const wa = (winner.amenities ?? {}) as Record<string, unknown>;
-  const la = (loser.amenities ?? {}) as Record<string, unknown>;
+  const wa = (winner.amenities ?? {}) as unknown as Record<string, unknown>;
+  const la = (loser.amenities ?? {}) as unknown as Record<string, unknown>;
   const amenities: Record<string, unknown> = { ...wa };
   for (const key of new Set([...Object.keys(wa), ...Object.keys(la)])) {
     if (isEmpty(amenities[key]) && !isEmpty(la[key])) amenities[key] = la[key];
