@@ -25,7 +25,7 @@ pnpm with workspaces. Root `pnpm-workspace.yaml` covers `frontend/`, `backend/`,
 
 See `docs/handoff.md` for current project status, env-file setup, and session history.
 
-## Planned Stack
+## Stack
 
 | Layer | Technology |
 |---|---|
@@ -38,15 +38,18 @@ See `docs/handoff.md` for current project status, env-file setup, and session hi
 
 Teenybase was chosen over PocketBase because this is a side project with no production pressure. Everything runs on Cloudflare (Pages + Workers + D1), the free tier is generous, and no VPS is required. The tradeoff is that Teenybase is pre-alpha (v0.0.x) — API instability is acceptable for an experimental project.
 
-## Repository Structure (Planned)
+## Repository Structure
 
 ```
 camp-finder/
   frontend/          # SvelteKit app (Cloudflare Pages)
   backend/           # Teenybase project (Cloudflare Workers + D1)
   etl/               # RIDB sync script (Node/TypeScript)
-  campfinder-spec.md
+  docs/              # handoff.md (status), design-language.md, campfinder-spec.md
 ```
+
+### Design language — read before any UI work
+`docs/design-language.md` defines the "Folded Field Map" identity (palette, Fraunces/Hanken/JetBrains Mono type, paper textures). All new UI must match it.
 
 ## Key Architectural Decisions
 
@@ -110,22 +113,6 @@ Auth is **httpOnly-cookie based — no token is ever exposed to client JS**. Sve
 ### Admin gate — `requireAdmin` (server-side only)
 `frontend/src/lib/server/auth/admin.ts` exports `requireAdmin(locals)`, the single trusted way to answer "is this an admin request?". It re-fetches `users/view/{id}` with `TB_SERVICE_TOKEN` and checks `role === 'admin'` on **every** call — the role is never carried in the JWT/cookie (Teenybase register mass-assigns fields, so a client-supplied role can't be trusted). Returns the admin record or throws `error(401)`/`error(403)`. All `/api/admin/*` routes and the `/admin` page `load` call it first. `/api/auth/me` surfaces `role` display-only so `AccountMenu` can show an Admin link — that is convenience, not a gate.
 
-## Build Order
+## Build Status
 
-Development follows the phases in `campfinder-spec.md`:
-
-1. **Phase 1** — ETL script: RIDB → normalize → Teenybase
-2. **Phase 2** — SvelteKit scaffold, Leaflet map, "Search this area" → pins
-3. **Phase 3** — Detail panel (FCFS, amenities, alerts scrape, links)
-4. **Phase 4** — Filter/sort sidebar
-5. **Phase 5** — Compare view (`/compare?ids=...`)
-6. **Phase 6** — Auth + saved campgrounds
-7. **Phase 7** — Crowdsourced ratings/reviews
-
-## Open Questions (Unresolved at Project Start)
-
-- Which National Forests to seed first (Colorado focus?)
-- ETL language: Node/TypeScript vs C# console app
-- Hosting: VPS (DigitalOcean/Hetzner) vs Cloudflare Pages + Workers
-- Anonymous ratings in v1 or auth-required from the start?
-- Mobile-first vs desktop-first initial design pass
+All 7 phases from `campfinder-spec.md` are built (ETL → map → detail panel → filters → compare → auth + saved → ratings/reviews), plus admin moderation with crowdsourced edits and duplicate merges. Deployment is the remaining milestone — see `docs/handoff.md` for current status and deployment blockers.
