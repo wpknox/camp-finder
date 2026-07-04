@@ -26,18 +26,31 @@ Implemented the full `2026-07-03-admin-moderation-and-crowdsourced-edits.md` pla
 Teenybase's `users` register endpoint **mass-assigns arbitrary fields** — a `role: "admin"` in the register payload would set it directly, and the Worker is directly reachable on :8787. **Mitigation in place:** the role is never trusted from the client/JWT — `requireAdmin` always re-reads it server-side via the service token, and our own `/api/auth/register` proxy controls its outbound body. **Deployment blocker:** the Teenybase Worker must NOT be publicly reachable in prod until this is fixed upstream (or add a WAF rule / strip `role` via a trigger). See "Deployment blockers" below.
 
 ### Admin account
-`role='admin'` was set on one local account via sqlite (plan target: `campfinder-admin@example.com`; verify with the query below). Admin is promoted manually — there is no API path to it by design.
+`willis+admin@email.com` is the current admin (promoted via sqlite this session). The old `campfinder-admin@example.com` was demoted (its password was set in an earlier session and is unrecoverable). Admin is promoted manually — there is no API path to it by design. The Admin link reads `role` from the login session, so after promotion you must **sign out/in** for the link to appear (the server gate works immediately regardless).
 ```bash
 sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/*.sqlite \
-  "SELECT email, role FROM users WHERE role IS NOT NULL"
+  "UPDATE users SET role='admin' WHERE email='<you>'"   # promote
+sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/*.sqlite \
+  "SELECT email, role FROM users WHERE role IS NOT NULL" # verify
 ```
+Note: the sqlite glob matches two files — use the long-hash `.sqlite`, not `metadata.sqlite`.
 
-### Still unverified (needs manual run with dev servers up)
-The dev servers (backend :8787, frontend :5173) were not running during this session, so these code-complete flows were NOT exercised end-to-end:
-- **East Portal e2e merge** (plan Task 4 Step 6): save+rate one of the two "East Portal" records, flag the pair via `/api/duplicates`, approve via `/api/admin/merges`, confirm one facility remains with the loser's ridb_id in `merged_ridb_ids` and the save/rating repointed to the survivor. Then `cd etl && pnpm sync` (and `sync-nps`) → facility count unchanged, no second East Portal pin.
-- **Suggest-an-edit browser flow**: change fee → 20 → submit → `edit_suggestions` row with exactly `{"fee_min":20}`.
-- **Report-duplicate browser flow**: flag the East Portal pair → `merge_suggestions` row with correct ids.
-- **/admin page**: admin sees queues + approve applies to facility; a normal user hitting `/admin` gets the 403 error page.
+### Live-testing results (2026-07-04, servers up)
+Exercised the flows end-to-end. Findings:
+- **Suggest-an-edit: WORKS.** Approving an edit applies the patch to the facility (verified `picnicTables:true` and `{"fee_min":15}` landed in the DB). The `facilities/edit/{id}` endpoint is the same one the ETL uses.
+- **Merge: WORKS** (data-wise) but surfaced one bug (now fixed):
+  - **FIXED — cascade false-failure.** `merge_suggestions.facility_a`/`facility_b` were `onDelete: CASCADE`. A merge deletes the loser facility as its last step, which cascade-deleted the suggestion row mid-merge; the subsequent "mark approved" then 404'd and the UI showed "failed to update" even though the merge succeeded — and no approval audit record survived. Changed both FKs to `SET NULL` (migration `0012`, commit `dbba674`). **Restart the backend** after pulling — the migration recreated the table.
+- **Known stale-cache UX gotcha (not a bug, by design):** the map store holds facilities from the last "Search this area" and never auto-refreshes (CLAUDE.md: "Map search is explicit, not reactive"). So after an admin approves an edit/merge, the map pins + a cached detail panel are stale until you re-search or reload. This is why an approved edit "looks like it didn't apply." See pending work item #2 for the intended fix.
+
+### Pending work — moderation polish (next session)
+Discussed with the user; decisions recorded:
+1. **Field-level merge chooser** (the substantial piece). Today `mergeFacilityFields` always keeps the winner's `lat`/`lng`/`name` and only fills the winner's *empty* fields from the loser — so an admin can't keep record A's data but record B's better map marker (the real case hit: "PIKE COMMUNITY" had richer data, its duplicate had a better location). **Desired:** rework the merge engine to apply an explicit per-field A/B selection (INCLUDING `lat`/`lng` and `name`); extend `POST /api/admin/merges` to accept the selection map; rebuild the admin merge UI as side-by-side A|B with a master "use all of A / use all of B" toggle that sets every field's default, then per-field overrides the admin can flip. **Admin makes all choices** — the submitter just flags "same." TDD the engine (`lib/server/admin/merge.ts` + test).
+2. **Detail-panel fresh fetch on open** (small). Fetch the single facility fresh when the detail panel opens so approved edits/merges show without a manual "Search this area." Fixes the stale-cache gotcha above.
+3. Suggested execution: same as this session — write a short plan, run the fable orchestrator + subagents with the strict `pnpm check` 0/0-before-commit rule.
+
+### Still unverified (optional)
+- **ETL non-resurrection after a real merge**: after a live merge, `cd etl && pnpm sync` (+ `sync-nps`) → facility count unchanged, no resurrected pin. (Engine + `buildRidbIndex` unit-tested 108/108; the live post-merge sync wasn't run.)
+- The "East Portal" pair from the original plan **no longer exists** as a natural duplicate (only the `nps-cure` record remains; the `blca` counterpart isn't in the DB). Use any real pair to exercise merges instead.
 
 ## Done in previous session (2026-06-16 — "Folded Field Map" design pass + fixes)
 
