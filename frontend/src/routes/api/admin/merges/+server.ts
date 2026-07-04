@@ -178,6 +178,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     return json({ error: "Suggestion already resolved" }, { status: 409 });
   }
 
+  let mergedWinner: { id: string; name: string } | null = null;
+
   if (action === "approve") {
     // The merge is deliberately NON-transactional: Teenybase has no multi-op
     // transaction. Every step (child repoint, winner edit, loser delete) is
@@ -243,6 +245,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       headers: tbHeaders,
       body: JSON.stringify({ where: `id == '${loser.id}'` }),
     });
+
+    mergedWinner = { id: winner.id, name: merged.name };
   }
 
   const resolveRes = await fetch(tb(`merge_suggestions/edit/${id}`), {
@@ -262,5 +266,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     );
   }
 
-  return json({ ok: true });
+  return json(
+    mergedWinner
+      ? { ok: true, winner_id: mergedWinner.id, winner_name: mergedWinner.name }
+      : { ok: true },
+  );
 };

@@ -162,6 +162,19 @@
   // be treated as explicit choices and silently skip filling from the loser.
   let touched = $state<Record<string, boolean>>({});
 
+  // Dismissible success notices shown above the merge queue after an approve,
+  // keyed by the resolved suggestion id.
+  interface MergeSuccess {
+    id: string;
+    winner_id: string;
+    winner_name: string;
+  }
+  let mergeSuccesses = $state<MergeSuccess[]>([]);
+
+  function dismissSuccess(id: string) {
+    mergeSuccesses = mergeSuccesses.filter((s) => s.id !== id);
+  }
+
   function useAllOfSide(rowId: string, side: Side) {
     touched = { ...touched, [rowId]: true };
     winnerSide = { ...winnerSide, [rowId]: side };
@@ -247,6 +260,20 @@
       });
       if (res.ok) {
         merges = merges.filter((m) => m.id !== row.id);
+        if (action === "approve") {
+          const body = (await res.json().catch(() => ({}))) as {
+            winner_id?: string;
+            winner_name?: string;
+          };
+          mergeSuccesses = [
+            ...mergeSuccesses,
+            {
+              id: row.id,
+              winner_id: body.winner_id ?? "",
+              winner_name: body.winner_name ?? "the surviving campground",
+            },
+          ];
+        }
       } else {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         errors = { ...errors, [row.id]: body.error ?? "Something went wrong" };
@@ -374,6 +401,23 @@
 
   <section class="queue">
     <h2>Duplicate reports <span class="count">{merges.length}</span></h2>
+
+    {#each mergeSuccesses as success (success.id)}
+      <div class="success-notice" role="status">
+        <span class="success-text">Merged into <strong>{success.winner_name}</strong> ✓</span>
+        {#if success.winner_id}
+          <a class="success-link" href={`/?facility=${success.winner_id}`}>View campground →</a>
+        {/if}
+        <button
+          type="button"
+          class="success-dismiss"
+          aria-label="Dismiss"
+          onclick={() => dismissSuccess(success.id)}
+        >
+          ✕
+        </button>
+      </div>
+    {/each}
 
     {#if merges.length === 0}
       <p class="empty">No pending duplicate reports — the queue is clear.</p>
@@ -814,6 +858,52 @@
     color: var(--rust);
     font-size: 0.85rem;
     margin: 0;
+  }
+
+  .success-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: color-mix(in srgb, var(--moss) 10%, var(--paper-2));
+    border: 1px solid color-mix(in srgb, var(--moss) 45%, var(--line));
+    border-radius: 12px;
+    padding: 0.65rem 0.9rem;
+    box-shadow: var(--shadow-sm);
+    font-size: 0.88rem;
+    color: var(--ink);
+  }
+  .success-text {
+    flex: 1;
+  }
+  .success-text strong {
+    font-weight: 600;
+    color: var(--pine-deep);
+  }
+  .success-link {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--pine-deep);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--pine-deep) 45%, transparent);
+    transition: border-color 0.13s var(--ease);
+  }
+  .success-link:hover {
+    border-bottom-color: var(--pine-deep);
+  }
+  .success-dismiss {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 0.2rem 0.3rem;
+    cursor: pointer;
+    transition: color 0.13s var(--ease);
+  }
+  .success-dismiss:hover {
+    color: var(--ink);
   }
 
   .reject-form {
