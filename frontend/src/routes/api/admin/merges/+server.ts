@@ -2,8 +2,24 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
 import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
-import { pickWinner, mergeFacilityFields } from "$lib/server/admin/merge";
+import { pickWinner, mergeFacilityFields, CHOICE_FIELDS } from "$lib/server/admin/merge";
+import type { ChoiceField, FieldChoices } from "$lib/server/admin/merge";
 import type { Facility } from "$lib/types";
+
+const CHOICE_FIELD_SET = new Set<string>(CHOICE_FIELDS);
+
+/** Validate an untrusted field_choices payload; returns null if invalid. */
+function parseFieldChoices(raw: unknown): FieldChoices | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: FieldChoices = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!CHOICE_FIELD_SET.has(key)) return null;
+    if (value !== "winner" && value !== "loser") return null;
+    out[key as ChoiceField] = value;
+  }
+  return out;
+}
 
 interface RawMerge {
   id: string;
@@ -88,6 +104,12 @@ export const GET: RequestHandler = async ({ locals }) => {
       facility_a_ridb_id: a?.ridb_id ?? "(deleted)",
       facility_b_name: b?.name ?? "(deleted)",
       facility_b_ridb_id: b?.ridb_id ?? "(deleted)",
+      facility_a_data: a
+        ? { ...a, amenities: parseJson(a.amenities, {}) }
+        : null,
+      facility_b_data: b
+        ? { ...b, amenities: parseJson(b.amenities, {}) }
+        : null,
       user_email: userById.get(s.user_id)?.email ?? "(deleted)",
     };
   });
@@ -135,10 +157,16 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     action?: string;
     admin_note?: string;
     winner_id?: string;
+    field_choices?: unknown;
   };
   const { id, action, winner_id } = body;
   if (!id || (action !== "approve" && action !== "reject")) {
     return json({ error: "id and action (approve|reject) required" }, { status: 400 });
+  }
+
+  const fieldChoices = parseFieldChoices(body.field_choices);
+  if (fieldChoices === null) {
+    return json({ error: "field_choices contains unknown keys or invalid values" }, { status: 400 });
   }
 
   const viewRes = await fetch(tb(`merge_suggestions/view/${id}`), {
@@ -165,7 +193,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     if (winner_id === b.id) winner = b;
     const loser = winner.id === a.id ? b : a;
 
-    const merged = mergeFacilityFields(winner, loser);
+    const merged = mergeFacilityFields(winner, loser, fieldChoices);
 
     // Repoint children before touching the winner facility (idempotent either order).
     await repointChildren("ratings", loser.id, winner.id);
@@ -183,6 +211,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       method: "POST",
       headers: tbHeaders,
       body: JSON.stringify({
+        name: merged.name,
+        lat: merged.lat,
+        lng: merged.lng,
         forest: merged.forest,
         district: merged.district,
         description: merged.description,

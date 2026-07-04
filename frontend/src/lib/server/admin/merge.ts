@@ -26,19 +26,82 @@ const SCALAR_FIELDS = [
   "fs_url",
 ] as const;
 
-/** Winner's data wins; loser fills gaps. Never touches id/ridb_id/name/lat/lng. */
-export function mergeFacilityFields(winner: Facility, loser: Facility): Facility {
+/** Fields the admin can explicitly choose winner/loser for during a merge. */
+export type ChoiceField =
+  | "name"
+  | "location"
+  | "forest"
+  | "district"
+  | "description"
+  | "fee_min"
+  | "fee_max"
+  | "season_start"
+  | "season_end"
+  | "fcfs"
+  | "fs_url";
+
+export const CHOICE_FIELDS: readonly ChoiceField[] = [
+  "name",
+  "location",
+  "forest",
+  "district",
+  "description",
+  "fee_min",
+  "fee_max",
+  "season_start",
+  "season_end",
+  "fcfs",
+  "fs_url",
+];
+
+export type FieldChoices = Partial<Record<ChoiceField, "winner" | "loser">>;
+
+/** Winner's data wins; loser fills gaps. `choices` lets the admin explicitly
+ * pick a side per field — that choice applies even for empty values, overriding
+ * gap-fill. Fields absent from `choices` keep the default gap-fill behavior. */
+export function mergeFacilityFields(
+  winner: Facility,
+  loser: Facility,
+  choices?: FieldChoices,
+): Facility {
   const merged: Facility = { ...winner };
 
+  if (choices?.name === "loser") merged.name = loser.name;
+  else if (choices?.name === "winner") merged.name = winner.name;
+
+  if (choices?.location === "loser") {
+    merged.lat = loser.lat;
+    merged.lng = loser.lng;
+  } else if (choices?.location === "winner") {
+    merged.lat = winner.lat;
+    merged.lng = winner.lng;
+  }
+
   for (const f of SCALAR_FIELDS) {
-    if (isEmpty(merged[f]) && !isEmpty(loser[f])) {
+    const choice = choices?.[f as ChoiceField];
+    if (choice === "loser") {
+      (merged as unknown as Record<string, unknown>)[f] = loser[f];
+    } else if (choice === "winner") {
+      (merged as unknown as Record<string, unknown>)[f] = winner[f];
+    } else if (isEmpty(merged[f]) && !isEmpty(loser[f])) {
       (merged as unknown as Record<string, unknown>)[f] = loser[f];
     }
   }
 
-  // FCFS counts travel as a unit; only fill if winner has none at all
-  // (scraped records often lack counts entirely).
-  if (merged.fcfs_total == null && merged.reservable_total == null) {
+  // FCFS counts travel as a unit.
+  if (choices?.fcfs === "loser") {
+    merged.fcfs_total = loser.fcfs_total;
+    merged.reservable_total = loser.reservable_total;
+    merged.is_fully_fcfs = loser.is_fully_fcfs;
+    merged.is_partial_fcfs = loser.is_partial_fcfs;
+  } else if (choices?.fcfs === "winner") {
+    merged.fcfs_total = winner.fcfs_total;
+    merged.reservable_total = winner.reservable_total;
+    merged.is_fully_fcfs = winner.is_fully_fcfs;
+    merged.is_partial_fcfs = winner.is_partial_fcfs;
+  } else if (merged.fcfs_total == null && merged.reservable_total == null) {
+    // Default gap-fill: only fill if winner has none at all
+    // (scraped records often lack counts entirely).
     merged.fcfs_total = loser.fcfs_total;
     merged.reservable_total = loser.reservable_total;
     merged.is_fully_fcfs = loser.is_fully_fcfs;
