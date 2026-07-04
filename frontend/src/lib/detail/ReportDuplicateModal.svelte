@@ -19,8 +19,8 @@
   let alreadyReported = $state(false)
   let errorMsg = $state('')
 
-  function distKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-    const R = 6371,
+  function distMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+    const R = 3958.8,
       dLat = ((b.lat - a.lat) * Math.PI) / 180,
       dLng = ((b.lng - a.lng) * Math.PI) / 180
     const h =
@@ -59,8 +59,8 @@
     return candidates
       .filter((f) => f.id !== initial.id)
       .filter((f) => (q === '' ? true : f.name.toLowerCase().includes(q)))
-      .map((f) => ({ f, km: distKm(initial, f) }))
-      .sort((a, b) => a.km - b.km)
+      .map((f) => ({ f, mi: distMiles(initial, f) }))
+      .sort((a, b) => a.mi - b.mi)
       .slice(0, 20)
   })
 
@@ -132,7 +132,7 @@
           <p class="error" role="alert">{loadError}</p>
         {:else}
           <ul class="candidates">
-            {#each filtered as { f, km } (f.id)}
+            {#each filtered as { f, mi } (f.id)}
               <li>
                 <button
                   type="button"
@@ -143,7 +143,7 @@
                   <span class="candidate-name">{f.name}</span>
                   <span class="candidate-meta">
                     <span class="badge">{sourceBadge(f.ridb_id)}</span>
-                    <span class="dist">{km.toFixed(1)} km</span>
+                    <span class="dist">{mi.toFixed(1)} mi</span>
                   </span>
                 </button>
               </li>
