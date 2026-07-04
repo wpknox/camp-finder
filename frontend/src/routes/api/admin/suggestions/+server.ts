@@ -90,6 +90,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     return json({ error: "Suggestion already resolved" }, { status: 409 });
   }
 
+  let editedFacility: { id: string; name: string } | null = null;
+
   if (action === "approve") {
     const changes = parseJson<Record<string, unknown>>(suggestion.changes, {});
 
@@ -120,6 +122,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
         { status: 502 },
       );
     }
+
+    editedFacility = { id: facility.id, name: facility.name };
   }
 
   const resolveRes = await fetch(tb(`edit_suggestions/edit/${id}`), {
@@ -139,5 +143,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     );
   }
 
-  return json({ ok: true });
+  return json(
+    editedFacility
+      ? { ok: true, facility_id: editedFacility.id, facility_name: editedFacility.name }
+      : { ok: true },
+  );
 };

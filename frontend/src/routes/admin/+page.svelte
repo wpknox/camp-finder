@@ -162,17 +162,19 @@
   // be treated as explicit choices and silently skip filling from the loser.
   let touched = $state<Record<string, boolean>>({});
 
-  // Dismissible success notices shown above the merge queue after an approve,
+  // Dismissible success notices shown above each queue after an approve,
   // keyed by the resolved suggestion id.
-  interface MergeSuccess {
+  interface SuccessNotice {
     id: string;
-    winner_id: string;
-    winner_name: string;
+    facility_id: string;
+    facility_name: string;
   }
-  let mergeSuccesses = $state<MergeSuccess[]>([]);
+  let mergeSuccesses = $state<SuccessNotice[]>([]);
+  let editSuccesses = $state<SuccessNotice[]>([]);
 
   function dismissSuccess(id: string) {
     mergeSuccesses = mergeSuccesses.filter((s) => s.id !== id);
+    editSuccesses = editSuccesses.filter((s) => s.id !== id);
   }
 
   function useAllOfSide(rowId: string, side: Side) {
@@ -220,6 +222,20 @@
       });
       if (res.ok) {
         edits = edits.filter((e) => e.id !== row.id);
+        if (action === "approve") {
+          const body = (await res.json().catch(() => ({}))) as {
+            facility_id?: string;
+            facility_name?: string;
+          };
+          editSuccesses = [
+            ...editSuccesses,
+            {
+              id: row.id,
+              facility_id: body.facility_id ?? "",
+              facility_name: body.facility_name ?? row.facility_name,
+            },
+          ];
+        }
       } else {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         errors = { ...errors, [row.id]: body.error ?? "Something went wrong" };
@@ -269,8 +285,8 @@
             ...mergeSuccesses,
             {
               id: row.id,
-              winner_id: body.winner_id ?? "",
-              winner_name: body.winner_name ?? "the surviving campground",
+              facility_id: body.winner_id ?? "",
+              facility_name: body.winner_name ?? "the surviving campground",
             },
           ];
         }
@@ -290,6 +306,23 @@
   <title>Admin Review — CampFinder</title>
 </svelte:head>
 
+{#snippet successBanner(success: SuccessNotice, prefix: string)}
+  <div class="success-notice" role="status">
+    <span class="success-text">{prefix} <strong>{success.facility_name}</strong> ✓</span>
+    {#if success.facility_id}
+      <a class="success-link" href={`/?facility=${success.facility_id}`}>View campground →</a>
+    {/if}
+    <button
+      type="button"
+      class="success-dismiss"
+      aria-label="Dismiss"
+      onclick={() => dismissSuccess(success.id)}
+    >
+      ✕
+    </button>
+  </div>
+{/snippet}
+
 <main class="admin">
   <header class="page-header">
     <span class="eyebrow">Ranger's desk</span>
@@ -299,6 +332,10 @@
 
   <section class="queue">
     <h2>Edit suggestions <span class="count">{edits.length}</span></h2>
+
+    {#each editSuccesses as success (success.id)}
+      {@render successBanner(success, "Edit applied to")}
+    {/each}
 
     {#if edits.length === 0}
       <p class="empty">No pending suggestions — the queue is clear.</p>
@@ -403,20 +440,7 @@
     <h2>Duplicate reports <span class="count">{merges.length}</span></h2>
 
     {#each mergeSuccesses as success (success.id)}
-      <div class="success-notice" role="status">
-        <span class="success-text">Merged into <strong>{success.winner_name}</strong> ✓</span>
-        {#if success.winner_id}
-          <a class="success-link" href={`/?facility=${success.winner_id}`}>View campground →</a>
-        {/if}
-        <button
-          type="button"
-          class="success-dismiss"
-          aria-label="Dismiss"
-          onclick={() => dismissSuccess(success.id)}
-        >
-          ✕
-        </button>
-      </div>
+      {@render successBanner(success, "Merged into")}
     {/each}
 
     {#if merges.length === 0}
