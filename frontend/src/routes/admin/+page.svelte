@@ -18,12 +18,66 @@
     facility_a: string;
     facility_a_name: string;
     facility_a_ridb_id: string;
+    facility_a_data: Facility | null;
     facility_b: string;
     facility_b_name: string;
     facility_b_ridb_id: string;
+    facility_b_data: Facility | null;
     user_email: string;
     note: string;
     created: string;
+  }
+
+  /** Fields the admin can pick a side for during a merge. Mirrors the
+   * server-only `ChoiceField` union in `$lib/server/admin/merge.ts` — kept as
+   * a local const list here because that module is server-only. */
+  const CHOICE_FIELDS = [
+    "name",
+    "location",
+    "forest",
+    "district",
+    "description",
+    "fee_min",
+    "fee_max",
+    "season_start",
+    "season_end",
+    "fcfs",
+    "fs_url",
+  ] as const;
+  type ChoiceField = (typeof CHOICE_FIELDS)[number];
+  type Side = "a" | "b";
+
+  const CHOICE_FIELD_LABELS: Record<ChoiceField, string> = {
+    name: "Name",
+    location: "Location",
+    forest: "Forest",
+    district: "District",
+    description: "Description",
+    fee_min: "Fee min ($/night)",
+    fee_max: "Fee max ($/night)",
+    season_start: "Season start",
+    season_end: "Season end",
+    fcfs: "FCFS counts",
+    fs_url: "FS URL",
+  };
+
+  /** Render a facility's value for a given choice field, for the comparison grid. */
+  function fieldDisplay(facility: Facility | null, field: ChoiceField): string {
+    if (!facility) return "(deleted)";
+    if (field === "location") {
+      return `${facility.lat.toFixed(5)}, ${facility.lng.toFixed(5)}`;
+    }
+    if (field === "fcfs") {
+      return `${facility.fcfs_total ?? 0} fcfs / ${facility.reservable_total ?? 0} reservable`;
+    }
+    if (field === "description") {
+      const d = facility.description;
+      if (!d) return "—";
+      return d.length > 140 ? `${d.slice(0, 140)}…` : d;
+    }
+    const v = (facility as unknown as Record<string, unknown>)[field];
+    if (v === null || v === undefined || v === "") return "—";
+    return String(v);
   }
 
   let { data }: { data: { edits: EditRow[]; merges: MergeRow[] } } = $props();
@@ -84,15 +138,49 @@
   let notes = $state<Record<string, string>>({});
   let errors = $state<Record<string, string>>({});
   let busy = $state<Record<string, boolean>>({});
-  let winnerOverride = $state<Record<string, string>>({});
 
-  function heuristicWinner(m: MergeRow): string {
-    // Mirrors pickWinner()'s sourceRank: numeric RIDB > NPS > fs.usda.gov scrape.
-    const rank = (ridbId: string) =>
-      ridbId.startsWith("fs-") ? 0 : ridbId.startsWith("nps-") ? 1 : 2;
-    return rank(m.facility_b_ridb_id) > rank(m.facility_a_ridb_id)
-      ? m.facility_b
-      : m.facility_a;
+  // Per-merge master side ('a' | 'b') and per-field side overrides. Default:
+  // "all A", per the plan. Initialized once from the `merges` snapshot.
+  let winnerSide = $state<Record<string, Side>>(
+    Object.fromEntries(untrack(() => merges).map((m) => [m.id, "a" as Side])),
+  );
+  let fieldSide = $state<Record<string, Record<ChoiceField, Side>>>(
+    Object.fromEntries(
+      untrack(() => merges).map((m) => [
+        m.id,
+        Object.fromEntries(CHOICE_FIELDS.map((f) => [f, "a" as Side])) as Record<
+          ChoiceField,
+          Side
+        >,
+      ]),
+    ),
+  );
+  let expanded = $state<Record<string, boolean>>({});
+
+  function useAllOfSide(rowId: string, side: Side) {
+    winnerSide = { ...winnerSide, [rowId]: side };
+    fieldSide = {
+      ...fieldSide,
+      [rowId]: Object.fromEntries(CHOICE_FIELDS.map((f) => [f, side])) as Record<
+        ChoiceField,
+        Side
+      >,
+    };
+  }
+
+  function setFieldSide(rowId: string, field: ChoiceField, side: Side) {
+    fieldSide = {
+      ...fieldSide,
+      [rowId]: { ...fieldSide[rowId], [field]: side },
+    };
+  }
+
+  function canApproveMerge(row: MergeRow): boolean {
+    return row.facility_a_data !== null && row.facility_b_data !== null;
+  }
+
+  function toggleExpand(rowId: string) {
+    expanded = { ...expanded, [rowId]: !expanded[rowId] };
   }
 
   async function resolveEdit(row: EditRow, action: "approve" | "reject") {
@@ -124,9 +212,20 @@
 
   async function resolveMerge(row: MergeRow, action: "approve" | "reject") {
     if (busy[row.id]) return;
+    if (action === "approve" && !canApproveMerge(row)) return;
     busy = { ...busy, [row.id]: true };
     errors = { ...errors, [row.id]: "" };
     try {
+      const winner = winnerSide[row.id];
+      const winnerId = winner === "a" ? row.facility_a : row.facility_b;
+      const fieldChoices = fieldSide[row.id];
+      const field_choices =
+        action === "approve"
+          ? Object.fromEntries(
+              CHOICE_FIELDS.map((f) => [f, fieldChoices[f] === winner ? "winner" : "loser"]),
+            )
+          : undefined;
+
       const res = await fetch("/api/admin/merges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,10 +233,8 @@
           id: row.id,
           action,
           admin_note: notes[row.id] ?? "",
-          winner_id:
-            action === "approve"
-              ? (winnerOverride[row.id] ?? heuristicWinner(row))
-              : undefined,
+          winner_id: action === "approve" ? winnerId : undefined,
+          field_choices,
         }),
       });
       if (res.ok) {
@@ -275,7 +372,8 @@
     {:else}
       <div class="cards">
         {#each merges as row (row.id)}
-          {@const winner = winnerOverride[row.id] ?? heuristicWinner(row)}
+          {@const winner = winnerSide[row.id]}
+          {@const deleted = !canApproveMerge(row)}
           <article class="card">
             <div class="card-head">
               <h3>{row.facility_a_name} <span class="vs">vs</span> {row.facility_b_name}</h3>
@@ -283,32 +381,81 @@
             </div>
 
             <div class="merge-pair">
-              <label class="merge-side" class:selected={winner === row.facility_a}>
-                <input
-                  type="radio"
-                  name={`winner-${row.id}`}
-                  checked={winner === row.facility_a}
-                  onchange={() =>
-                    (winnerOverride = { ...winnerOverride, [row.id]: row.facility_a })}
-                />
+              <button
+                type="button"
+                class="merge-side"
+                class:selected={winner === "a"}
+                onclick={() => useAllOfSide(row.id, "a")}
+              >
                 <span class="side-name">{row.facility_a_name}</span>
                 <span class="badge">{ridbSourceBadge(row.facility_a_ridb_id)}</span>
                 <span class="ridb-id">{row.facility_a_ridb_id}</span>
-              </label>
-              <label class="merge-side" class:selected={winner === row.facility_b}>
-                <input
-                  type="radio"
-                  name={`winner-${row.id}`}
-                  checked={winner === row.facility_b}
-                  onchange={() =>
-                    (winnerOverride = { ...winnerOverride, [row.id]: row.facility_b })}
-                />
+                {#if !row.facility_a_data}<span class="deleted-tag">deleted</span>{/if}
+              </button>
+              <button
+                type="button"
+                class="use-all-hint"
+                onclick={() => toggleExpand(row.id)}
+              >
+                {expanded[row.id] ? "Hide field comparison ▾" : "Compare fields ▸"}
+              </button>
+              <button
+                type="button"
+                class="merge-side"
+                class:selected={winner === "b"}
+                onclick={() => useAllOfSide(row.id, "b")}
+              >
                 <span class="side-name">{row.facility_b_name}</span>
                 <span class="badge">{ridbSourceBadge(row.facility_b_ridb_id)}</span>
                 <span class="ridb-id">{row.facility_b_ridb_id}</span>
-              </label>
+                {#if !row.facility_b_data}<span class="deleted-tag">deleted</span>{/if}
+              </button>
             </div>
-            <p class="winner-hint">Winner keeps its record; the loser's data fills gaps, then is deleted.</p>
+
+            {#if deleted}
+              <p class="winner-hint error-hint">
+                One of these facilities was deleted since the report was filed — this merge
+                can't be approved.
+              </p>
+            {:else if expanded[row.id]}
+              <div class="field-grid">
+                <div class="field-grid-head">
+                  <span></span>
+                  <span>A · {row.facility_a_name}</span>
+                  <span>B · {row.facility_b_name}</span>
+                </div>
+                {#each CHOICE_FIELDS as field (field)}
+                  <div class="field-grid-row">
+                    <span class="field-name">{CHOICE_FIELD_LABELS[field]}</span>
+                    <button
+                      type="button"
+                      class="field-value"
+                      class:selected={fieldSide[row.id][field] === "a"}
+                      onclick={() => setFieldSide(row.id, field, "a")}
+                    >
+                      {fieldDisplay(row.facility_a_data, field)}
+                    </button>
+                    <button
+                      type="button"
+                      class="field-value"
+                      class:selected={fieldSide[row.id][field] === "b"}
+                      onclick={() => setFieldSide(row.id, field, "b")}
+                    >
+                      {fieldDisplay(row.facility_b_data, field)}
+                    </button>
+                  </div>
+                {/each}
+              </div>
+              <p class="winner-hint">
+                Winner ({winner === "a" ? "A" : "B"}) keeps its record with the field choices
+                above; amenities deep-merge automatically; the loser is deleted.
+              </p>
+            {:else}
+              <p class="winner-hint">
+                Winner ({winner === "a" ? "A" : "B"}) keeps its record; the loser's data fills
+                gaps for unpicked fields, then is deleted.
+              </p>
+            {/if}
 
             {#if row.note}
               <p class="note">"{row.note}"</p>
@@ -357,7 +504,7 @@
                 <button
                   class="primary"
                   type="button"
-                  disabled={busy[row.id]}
+                  disabled={busy[row.id] || !canApproveMerge(row)}
                   onclick={() => resolveMerge(row, "approve")}
                 >
                   Approve merge
@@ -519,7 +666,8 @@
 
   .merge-pair {
     display: flex;
-    gap: 0.75rem;
+    align-items: stretch;
+    gap: 0.6rem;
     border-top: 1px solid var(--line);
     padding-top: 0.7rem;
   }
@@ -534,14 +682,29 @@
     border-radius: 10px;
     padding: 0.7rem 0.8rem;
     cursor: pointer;
+    font-family: inherit;
+    text-align: left;
     transition: border-color 0.13s var(--ease), background 0.13s var(--ease);
   }
   .merge-side.selected {
     border-color: var(--moss);
     background: color-mix(in srgb, var(--moss) 12%, var(--paper-deep));
   }
-  .merge-side input {
-    margin: 0;
+  .use-all-hint {
+    align-self: center;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    cursor: pointer;
+    padding: 0.3rem 0.4rem;
+    white-space: nowrap;
+    transition: color 0.13s var(--ease);
+  }
+  .use-all-hint:hover {
+    color: var(--pine-deep);
   }
   .side-name {
     font-weight: 600;
@@ -564,10 +727,79 @@
     font-size: 0.76rem;
     color: var(--ink-faint);
   }
+  .deleted-tag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--rust);
+  }
   .winner-hint {
     margin: 0;
     font-size: 0.78rem;
     color: var(--ink-faint);
+  }
+  .winner-hint.error-hint {
+    color: var(--rust);
+    font-style: italic;
+  }
+
+  .field-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.6rem;
+  }
+  .field-grid-head {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.9fr) 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0 0.1rem 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--line);
+  }
+  .field-grid-row {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.9fr) 1fr 1fr;
+    gap: 0.5rem;
+    align-items: stretch;
+    padding: 0.15rem 0;
+  }
+  .field-name {
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .field-value {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 0.35rem 0.5rem;
+    cursor: pointer;
+    line-height: 1.3;
+    transition: border-color 0.13s var(--ease), background 0.13s var(--ease);
+  }
+  .field-value.selected {
+    border-color: var(--moss);
+    background: color-mix(in srgb, var(--moss) 14%, var(--paper));
+    color: var(--pine-deep);
+    font-weight: 600;
+  }
+  .field-value:hover:not(.selected) {
+    border-color: var(--line-strong);
   }
 
   .error {
@@ -645,6 +877,14 @@
     }
     .merge-pair {
       flex-direction: column;
+    }
+    .field-grid-head,
+    .field-grid-row {
+      grid-template-columns: 1fr;
+      gap: 0.2rem;
+    }
+    .field-grid-head span:first-child {
+      display: none;
     }
   }
 </style>
