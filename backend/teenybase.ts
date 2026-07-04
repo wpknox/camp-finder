@@ -271,6 +271,10 @@ export default {
         // facility_a / facility_b are deliberately UNORDERED — the
         // winner/survivor is chosen by the admin at review time, so the
         // names carry no direction.
+        // SET NULL (not CASCADE): a merge deletes the loser facility, and we
+        // want the merge_suggestion to SURVIVE as an approved audit record.
+        // CASCADE here would delete the suggestion mid-merge, which then makes
+        // the "mark approved" step 404 and falsely report the merge as failed.
         {
           name: "facility_a",
           type: "relation",
@@ -278,7 +282,7 @@ export default {
           foreignKey: {
             table: "facilities",
             column: "id",
-            onDelete: "CASCADE",
+            onDelete: "SET NULL",
           },
         },
         {
@@ -288,7 +292,7 @@ export default {
           foreignKey: {
             table: "facilities",
             column: "id",
-            onDelete: "CASCADE",
+            onDelete: "SET NULL",
           },
         },
         {
