@@ -8,6 +8,7 @@
   import SaveButton from '$lib/saved/SaveButton.svelte'
   import RatingsSection from './RatingsSection.svelte'
   import SuggestEditModal from './SuggestEditModal.svelte'
+  import ReportDuplicateModal from './ReportDuplicateModal.svelte'
   import AuthModal from '$lib/auth/AuthModal.svelte'
   import { isLoggedIn } from '$lib/auth/authStore'
   import { page } from '$app/stores'
@@ -15,10 +16,22 @@
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
   let suggestOpen = $state(false)
+  let duplicateOpen = $state(false)
   let showAuth = $state(false)
+  let pendingAction: 'suggest' | 'duplicate' | null = $state(null)
   function onSuggestClick() {
-    if (!$isLoggedIn) { showAuth = true; return; }
+    if (!$isLoggedIn) { pendingAction = 'suggest'; showAuth = true; return; }
     suggestOpen = true
+  }
+  function onReportDuplicateClick() {
+    if (!$isLoggedIn) { pendingAction = 'duplicate'; showAuth = true; return; }
+    duplicateOpen = true
+  }
+  function onAuthSuccess() {
+    showAuth = false
+    if (pendingAction === 'suggest') suggestOpen = true
+    else if (pendingAction === 'duplicate') duplicateOpen = true
+    pendingAction = null
   }
 
   // Desktop-only resizable width (panel is anchored to the right edge).
@@ -121,6 +134,9 @@
         </p>
       {/if}
       <SaveButton facilityId={facility.id} facilityName={facility.name} />
+      <button class="report-duplicate-link" type="button" onclick={onReportDuplicateClick}>
+        Seeing this campground twice? Report a duplicate
+      </button>
     </header>
 
     <FCFSBadge fcfs_total={facility.fcfs_total} reservable_total={facility.reservable_total}
@@ -168,8 +184,12 @@
   <SuggestEditModal {facility} onclose={() => (suggestOpen = false)} />
 {/if}
 
+{#if duplicateOpen}
+  <ReportDuplicateModal {facility} onclose={() => (duplicateOpen = false)} />
+{/if}
+
 {#if showAuth}
-  <AuthModal onclose={() => (showAuth = false)} onsuccess={() => { showAuth = false; suggestOpen = true }} />
+  <AuthModal onclose={() => { showAuth = false; pendingAction = null }} onsuccess={onAuthSuccess} />
 {/if}
 
 <style>
@@ -251,6 +271,8 @@
   .compare-btn.active { background: color-mix(in srgb, var(--moss) 20%, var(--paper-2)); border-color: color-mix(in srgb, var(--moss) 50%, transparent); color: var(--pine-deep); }
   .suggest-btn { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: .45rem .9rem; cursor: pointer; font-size: .85rem; font-weight: 600; margin-left: .5rem; transition: background 0.13s var(--ease); }
   .suggest-btn:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
+  .report-duplicate-link { display: block; background: none; border: none; padding: 0; margin-top: 0.5rem; font-size: 0.78rem; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: inherit; }
+  .report-duplicate-link:hover { color: var(--ink-soft); }
   .closed-banner {
     position: sticky;
     top: 0;
