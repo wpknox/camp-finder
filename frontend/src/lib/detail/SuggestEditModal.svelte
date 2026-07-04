@@ -194,7 +194,7 @@
     border-radius: 14px;
     padding: 1.9rem;
     width: min(460px, 100%);
-    max-height: min(86vh, 720px);
+    max-height: 92vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
