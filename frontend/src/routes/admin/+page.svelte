@@ -156,8 +156,14 @@
     ),
   );
   let expanded = $state<Record<string, boolean>>({});
+  // True once the admin engages with the field chooser (expands the grid or
+  // clicks a side). Until then approve omits field_choices entirely, so the
+  // engine keeps its default gap-fill — an untouched all-'winner' map would
+  // be treated as explicit choices and silently skip filling from the loser.
+  let touched = $state<Record<string, boolean>>({});
 
   function useAllOfSide(rowId: string, side: Side) {
+    touched = { ...touched, [rowId]: true };
     winnerSide = { ...winnerSide, [rowId]: side };
     fieldSide = {
       ...fieldSide,
@@ -169,6 +175,7 @@
   }
 
   function setFieldSide(rowId: string, field: ChoiceField, side: Side) {
+    touched = { ...touched, [rowId]: true };
     fieldSide = {
       ...fieldSide,
       [rowId]: { ...fieldSide[rowId], [field]: side },
@@ -180,6 +187,7 @@
   }
 
   function toggleExpand(rowId: string) {
+    if (!expanded[rowId]) touched = { ...touched, [rowId]: true };
     expanded = { ...expanded, [rowId]: !expanded[rowId] };
   }
 
@@ -220,7 +228,7 @@
       const winnerId = winner === "a" ? row.facility_a : row.facility_b;
       const fieldChoices = fieldSide[row.id];
       const field_choices =
-        action === "approve"
+        action === "approve" && touched[row.id]
           ? Object.fromEntries(
               CHOICE_FIELDS.map((f) => [f, fieldChoices[f] === winner ? "winner" : "loser"]),
             )
