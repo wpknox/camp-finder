@@ -81,7 +81,7 @@
     {
       "id": 10,
       "subject": "Task 9: Docs + handoff update",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         6,
         7,
@@ -91,5 +91,5 @@
       "description": "**Goal:** Update CLAUDE.md (new tables, role, merged_ridb_ids, service-token pattern, requireAdmin) and docs/handoff.md (session block, admin email, security-check outcome, alerts fix, migration numbers). **Verify:** review diffs, commit.\n\n```json:metadata\n{\"files\": [\"CLAUDE.md\", \"docs/handoff.md\"], \"verifyCommand\": \"review diffs\", \"acceptanceCriteria\": [\"docs match reality\", \"security-check outcome recorded\"], \"modelTier\": \"mechanical\"}\n```"
     }
   ],
-  "lastUpdated": "2026-07-04T13:52:09.045062+00:00"
+  "lastUpdated": "2026-07-04T13:54:10.968539+00:00"
 }
