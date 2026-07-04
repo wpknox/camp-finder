@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import type { Facility, EditChanges, Amenities } from '$lib/types'
 
   let { facility, onclose }: { facility: Facility; onclose: () => void } = $props()
@@ -17,12 +18,14 @@
     return v === true ? 'yes' : v === false ? 'no' : 'unknown'
   }
 
-  let feeMin = $state(facility.fee_min?.toString() ?? '')
-  let feeMax = $state(facility.fee_max?.toString() ?? '')
-  let seasonStart = $state(facility.season_start ?? '')
-  let seasonEnd = $state(facility.season_end ?? '')
+  // Snapshot the facility once at open — the form edits a copy, not live props.
+  const initial = untrack(() => facility)
+  let feeMin = $state(initial.fee_min?.toString() ?? '')
+  let feeMax = $state(initial.fee_max?.toString() ?? '')
+  let seasonStart = $state(initial.season_start ?? '')
+  let seasonEnd = $state(initial.season_end ?? '')
   let amenityValues = $state(Object.fromEntries(
-    EDITABLE_AMENITIES.map(({ key }) => [key, triState(facility.amenities?.[key] as boolean | null)]),
+    EDITABLE_AMENITIES.map(({ key }) => [key, triState(initial.amenities?.[key] as boolean | null)]),
   ) as Record<string, 'yes' | 'no' | 'unknown'>)
   let note = $state('')
   let submitting = $state(false)
