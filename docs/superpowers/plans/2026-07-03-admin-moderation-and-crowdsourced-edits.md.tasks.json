@@ -1,0 +1,95 @@
+{
+  "planPath": "docs/superpowers/plans/2026-07-03-admin-moderation-and-crowdsourced-edits.md",
+  "tasks": [
+    {
+      "id": 1,
+      "subject": "Task 0: Fix alerts cache compound-WHERE bug",
+      "status": "completed",
+      "description": "**Goal:** Alerts cache lookup uses && in Teenybase WHERE (rejected) so 24h cache never hits; filter freshness in JS. **Files:** frontend/src/routes/api/alerts/[id]/+server.ts **Verify:** curl the route twice \u2192 second response cached:true. Full code: plan doc Task 0.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/api/alerts/[id]/+server.ts\"], \"verifyCommand\": \"curl /api/alerts/<id> twice \u2192 cached:true\", \"acceptanceCriteria\": [\"single-condition WHERE + JS freshness filter\", \"second fetch within 24h cached:true\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 1: Schema \u2014 role, merged_ridb_ids, suggestion tables + admin account",
+      "status": "completed",
+      "description": "**Goal:** Add users.role, facilities.merged_ridb_ids, edit_suggestions + merge_suggestions (all rules 'false'); migrate; register mass-assignment security check; promote one admin via sqlite; add frontend types. **Files:** backend/teenybase.ts, frontend/src/lib/types.ts **Verify:** sqlite SELECT email, role FROM users \u2192 exactly one admin. Full code: plan doc Task 1.\n\n```json:metadata\n{\"files\": [\"backend/teenybase.ts\", \"frontend/src/lib/types.ts\"], \"verifyCommand\": \"cd backend && pnpm generate && pnpm migrate; sqlite users role check\", \"acceptanceCriteria\": [\"migration clean\", \"four schema additions\", \"role not mass-assignable or blocker documented\", \"one admin\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 2: requireAdmin server gate + admin link in AccountMenu",
+      "status": "completed",
+      "blockedBy": [
+        2
+      ],
+      "description": "**Goal:** requireAdmin(locals) verifies users.role via TB_SERVICE_TOKEN users/view fetch (401/403/record); /api/auth/me exposes role; AccountMenu shows /admin link (display-only). **Files:** frontend/src/lib/server/auth/admin.ts + admin.test.ts, api/auth/me, authStore.ts, AccountMenu.svelte **Verify:** cd frontend && pnpm test -- admin && pnpm check. Full code: plan doc Task 2.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/server/auth/admin.ts\", \"frontend/src/lib/server/auth/admin.test.ts\"], \"verifyCommand\": \"cd frontend && pnpm test -- admin && pnpm check\", \"acceptanceCriteria\": [\"401/403/success tested\", \"service-token role fetch\", \"display-only link\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 3: Submission APIs \u2014 /api/suggestions + /api/duplicates",
+      "status": "completed",
+      "blockedBy": [
+        2
+      ],
+      "description": "**Goal:** Rate-limited authenticated submission routes writing pending rows via service token; user_id from locals only; changes key allowlist; unordered-pair dedupe for duplicates (no compound WHERE). **Files:** api/suggestions/+server.ts, api/duplicates/+server.ts, limiters.ts **Verify:** curl 401/201/400 paths + sqlite row check. Full code: plan doc Task 3 (adapt suggestionLimiter call to real rateLimit.ts API).\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/api/suggestions/+server.ts\", \"frontend/src/routes/api/duplicates/+server.ts\", \"frontend/src/lib/server/auth/limiters.ts\"], \"verifyCommand\": \"curl tests + pnpm check\", \"acceptanceCriteria\": [\"401/400/429/201 correct\", \"pair dedupe\", \"user_id from locals\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 4: Admin review API \u2014 approve/reject edits + merge engine",
+      "status": "completed",
+      "blockedBy": [
+        2,
+        3
+      ],
+      "description": "**Goal:** Admin GET queues (JS joins) + POST resolve. Approve edit: per-key amenity merge, patch facility, 409 if resolved. Approve merge: pickWinner (RIDB>nps>fs, winner_id override), repoint ratings/saves with unique-index dedupe, delete loser alerts, accumulate merged_ridb_ids, delete loser LAST. TDD on merge.ts. **Files:** lib/server/admin/merge.ts(+test), api/admin/suggestions, api/admin/merges **Verify:** pnpm test -- merge && pnpm check; East Portal e2e merge. Full code: plan doc Task 4.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/server/admin/merge.ts\", \"frontend/src/routes/api/admin/suggestions/+server.ts\", \"frontend/src/routes/api/admin/merges/+server.ts\"], \"verifyCommand\": \"cd frontend && pnpm test -- merge && pnpm check; East Portal e2e\", \"acceptanceCriteria\": [\"requireAdmin everywhere\", \"per-key amenity merge\", \"repoint+dedupe\", \"merged_ridb_ids accumulation\", \"loser deleted last\"], \"modelTier\": \"complex\"}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 5: ETL respects merged_ridb_ids",
+      "status": "completed",
+      "blockedBy": [
+        2,
+        5
+      ],
+      "description": "**Goal:** buildRidbIndex maps primary+absorbed ridb_ids \u2192 surviving row; upsertFacilities resolves through it (never overwrite survivor ridb_id); discover/sync-nps dedupe consults index. TDD. **Files:** etl/src/teenybase.ts, discover.ts, sync-nps.ts, etl/tests/mergedIds.test.ts **Verify:** cd etl && pnpm test; post-merge sync leaves facility count unchanged. Full code: plan doc Task 5.\n\n```json:metadata\n{\"files\": [\"etl/src/teenybase.ts\", \"etl/tests/mergedIds.test.ts\"], \"verifyCommand\": \"cd etl && pnpm test; pnpm sync count unchanged\", \"acceptanceCriteria\": [\"redirect index tested\", \"absorbed ids patch survivor\", \"no regressions\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 6: Suggest-an-edit modal in DetailPanel",
+      "status": "completed",
+      "blockedBy": [
+        4
+      ],
+      "description": "**Goal:** Modal (fee/season/tri-state amenities/note) submitting only the diff to POST /api/suggestions; AuthModal-consistent validation + styling; SaveButton-consistent signed-out handling; Svelte 5 runes. **Files:** lib/detail/SuggestEditModal.svelte, DetailPanel.svelte **Verify:** browser: fee\u219220 submit \u2192 changes exactly {\"fee_min\":20}; pnpm check. Script skeleton complete in plan doc Task 6.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/detail/SuggestEditModal.svelte\", \"frontend/src/lib/detail/DetailPanel.svelte\"], \"verifyCommand\": \"browser flow + pnpm check\", \"acceptanceCriteria\": [\"diff-only submission\", \"tri-state inputs\", \"AuthModal-consistent\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 7: Report-duplicate flow",
+      "status": "completed",
+      "blockedBy": [
+        4
+      ],
+      "description": "**Goal:** DetailPanel link \u2192 modal with name search sorted by haversine distance (cap 20, source badges), posts {facility_a, facility_b, note} to /api/duplicates; handles duplicate:true no-op. Read mapStore/+page/api-facilities first for data source. **Files:** lib/detail/ReportDuplicateModal.svelte, DetailPanel.svelte **Verify:** browser: flag East Portal pair \u2192 merge_suggestions row. Helper code: plan doc Task 7.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/detail/ReportDuplicateModal.svelte\", \"frontend/src/lib/detail/DetailPanel.svelte\"], \"verifyCommand\": \"browser flow + pnpm check\", \"acceptanceCriteria\": [\"distance-sorted picker\", \"duplicate no-op handled\", \"correct pair posted\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 8: /admin review page",
+      "status": "completed",
+      "blockedBy": [
+        5
+      ],
+      "description": "**Goal:** requireAdmin-guarded /admin page: edit queue (current\u2192proposed diffs, approve/reject) + merge queue (both records, winner radio override, approve/reject); optimistic removal; design-language styling. **Files:** routes/admin/+page.server.ts, +page.svelte **Verify:** admin sees queues + approve applies; normal user \u2192 403 page; pnpm check. Load code: plan doc Task 8.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/admin/+page.server.ts\", \"frontend/src/routes/admin/+page.svelte\"], \"verifyCommand\": \"browser admin + non-admin flows + pnpm check\", \"acceptanceCriteria\": [\"guarded load\", \"edit diffs\", \"winner override\", \"optimistic updates\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 10,
+      "subject": "Task 9: Docs + handoff update",
+      "status": "pending",
+      "blockedBy": [
+        6,
+        7,
+        8,
+        9
+      ],
+      "description": "**Goal:** Update CLAUDE.md (new tables, role, merged_ridb_ids, service-token pattern, requireAdmin) and docs/handoff.md (session block, admin email, security-check outcome, alerts fix, migration numbers). **Verify:** review diffs, commit.\n\n```json:metadata\n{\"files\": [\"CLAUDE.md\", \"docs/handoff.md\"], \"verifyCommand\": \"review diffs\", \"acceptanceCriteria\": [\"docs match reality\", \"security-check outcome recorded\"], \"modelTier\": \"mechanical\"}\n```"
+    }
+  ],
+  "lastUpdated": "2026-07-04T13:52:09.045062+00:00"
+}

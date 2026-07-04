@@ -62,6 +62,22 @@ RIDB stores reservability per-campsite. The ETL must call `GET /facilities/{id}/
 ### Amenities are normalized at ETL time
 RIDB amenity field names are inconsistent across forests. The ETL normalizes everything into a fixed JSON schema (see `campfinder-spec.md` → Amenities JSON Schema). Unknown fields default to `null`/`"unknown"` rather than being omitted.
 
+### Svelte 5 runes — mandatory, no legacy syntax
+All `.svelte` files use Svelte 5 syntax; never Svelte 4 patterns.
+- State: `let x = $state(0)` — not `let x = 0`
+- Props: `let { prop } = $props()` — not `export let prop`
+- Derived: `let y = $derived(x * 2)` — not `$: y = x * 2`
+- Effects: `$effect(() => { ... })` — not `$: { ... }`
+- Events: `onclick={fn}` — not `on:click={fn}`
+- Slots: `{@render children()}` — not `<slot />`
+- Event dispatch: callback props (`onclose`, `onselect`) — not `createEventDispatcher`
+
+### No PocketBase anywhere
+The project switched from PocketBase to Teenybase early on. Zero PocketBase SDK usage — all backend calls are plain `fetch()` to the Teenybase REST API.
+
+### Map marker colors (single source: `CampMap.renderPins`)
+🔴 Closed · 🟢 Fully FCFS · 🟡 Partial FCFS · 🔵 Reservable only. Keep sidebar dots/badges in lockstep with marker colors.
+
 ### Teenybase quirks (do not deviate)
 - **JSON fields must be stringified on write** (`JSON.stringify(amenities)`) and parsed on read. Sending a plain object 400s.
 - **No compound WHERE** — `&&`/`AND` both fail with parse errors. Fetch with a high `limit` and filter in the SvelteKit server route (fine at ~592 records). See `frontend/src/routes/api/facilities/+server.ts`.
@@ -79,15 +95,20 @@ If a facility's `ridb_data_quality == "sparse"` (heuristic: amenities JSON has f
 
 Defined in `backend/teenybase.ts` — the single source of truth for the entire backend schema.
 
-- `users` — auth table with email/password + JWT. Row-level security: users can only read/update their own record.
-- `facilities` — normalized campground records synced from RIDB (includes `amenities` JSON, FCFS counts, `ridb_data_quality`). Public read (`listRule: 'true'`); ETL writes via service token (bypasses rules).
+- `users` — auth table with email/password + JWT, plus a nullable `role` text column (`'admin'` | null). Row-level security: users can only read/update their own record. **`role` is promoted manually via sqlite, never through any API** — Teenybase register mass-assigns fields, so the role is never trusted from the JWT/cookie (see `requireAdmin` below).
+- `facilities` — normalized campground records synced from RIDB (includes `amenities` JSON, FCFS counts, `ridb_data_quality`, and `merged_ridb_ids` — a JSON array of ridb_ids absorbed by admin duplicate-merges so the ETL never resurrects them). Public read (`listRule: 'true'`); ETL writes via service token, and admin-approved crowdsourced edits/merges write via the service token through server routes (the table's `updateRule` stays `'false'`).
 - `alerts` — scraped fs.usda.gov notices, keyed to facility, with `scraped_at` for 24hr cache invalidation. Public read; SvelteKit server route writes via service token.
 - `ratings` — user-submitted 1–5 scores. Public read; auth required to create (`createRule: 'auth.uid != null'`).
 - `saved_campgrounds` — authenticated user favorites. Private: all operations require `auth.uid == user_id`.
+- `edit_suggestions` — crowdsourced facility-edit submissions (`changes` JSON patch, `status` pending|approved|rejected, reviewer fields). **ALL rules `'false'`** — every read/write goes through SvelteKit server routes using `TB_SERVICE_TOKEN` (Teenybase's rule language can't express role checks and can't do compound WHERE).
+- `merge_suggestions` — user-flagged duplicate pairs (`facility_a`/`facility_b`, `status`, reviewer fields). **ALL rules `'false'`**, same service-token-only access pattern.
 
 ## Auth Pattern
 
-Auth is **httpOnly-cookie based — no token is ever exposed to client JS**. SvelteKit server routes (`/api/auth/{register,login,logout,me}`) proxy Teenybase and set httpOnly `cf_access` + `cf_refresh` cookies; `hooks.server.ts` decodes `cf_access`, silently refreshes when expired, and populates `event.locals.user`. Privileged writes (save, rate) are proxied through server routes (`/api/saved`, `/api/ratings/[facilityId]`) that derive `user_id` from `locals.user` — never trusted from the client. The `TB_SERVICE_TOKEN` (from `.dev.vars` / `.prod.vars`) is used server-side only (ETL writes, alert cache writes) and never exposed to the client.
+Auth is **httpOnly-cookie based — no token is ever exposed to client JS**. SvelteKit server routes (`/api/auth/{register,login,logout,me}`) proxy Teenybase and set httpOnly `cf_access` + `cf_refresh` cookies; `hooks.server.ts` decodes `cf_access`, silently refreshes when expired, and populates `event.locals.user`. Privileged writes (save, rate) are proxied through server routes (`/api/saved`, `/api/ratings/[facilityId]`) that derive `user_id` from `locals.user` — never trusted from the client. The `TB_SERVICE_TOKEN` (from `.dev.vars` / `.prod.vars`) is used server-side only (ETL writes, alert cache writes, all suggestion/merge table access) and never exposed to the client.
+
+### Admin gate — `requireAdmin` (server-side only)
+`frontend/src/lib/server/auth/admin.ts` exports `requireAdmin(locals)`, the single trusted way to answer "is this an admin request?". It re-fetches `users/view/{id}` with `TB_SERVICE_TOKEN` and checks `role === 'admin'` on **every** call — the role is never carried in the JWT/cookie (Teenybase register mass-assigns fields, so a client-supplied role can't be trusted). Returns the admin record or throws `error(401)`/`error(403)`. All `/api/admin/*` routes and the `/admin` page `load` call it first. `/api/auth/me` surfaces `role` display-only so `AccountMenu` can show an Admin link — that is convenience, not a gate.
 
 ## Build Order
 
