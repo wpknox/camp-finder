@@ -23,7 +23,11 @@
 
   $effect(() => {
     const f = $selectedFacility;
-    if (!f) return;
+    if (!f) {
+      // Panel closed — clear so reopening the same facility refetches fresh
+      lastRefreshedId = null;
+      return;
+    }
 
     const facilityId = f.id;
 
