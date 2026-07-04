@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { TbClient } from "./teenybase.js";
+import { TbClient, buildRidbIndex } from "./teenybase.js";
 import { NpsClient, CO_NPS_PARKS, normalizeNpsCampground } from "./nps.js";
 import type { NormalizedFacility } from "./types.js";
 
@@ -31,9 +31,9 @@ function feeLabel(f: NormalizedFacility): string {
   return `$${f.fee_min}`;
 }
 
-async function buildDedupeIndex(): Promise<DedupeIndex> {
+async function buildDedupeIndex(): Promise<{ byName: DedupeIndex; ridbIndex: Map<string, string> }> {
   console.log("Loading existing facilities for dedup...");
-  const existing = await tb.listAll();
+  const existing = await tb.listAllWithMerged();
   const byName: DedupeIndex = new Map();
   for (const r of existing) {
     const key = normalizeName(r.name);
@@ -41,7 +41,11 @@ async function buildDedupeIndex(): Promise<DedupeIndex> {
     byName.get(key)!.push(r);
   }
   console.log(`  Loaded ${existing.length} existing records`);
-  return byName;
+  // Redirects absorbed (merged) ridb_ids to their surviving row id, so a
+  // re-synced NPS record whose generated ridb_id was previously merged away
+  // doesn't resurrect it as a fresh duplicate.
+  const ridbIndex = buildRidbIndex(existing);
+  return { byName, ridbIndex };
 }
 
 function isNearMatch(
@@ -60,6 +64,7 @@ function isNearMatch(
 function classifyCampgrounds(
   raw: Array<NormalizedFacility | null>,
   byName: DedupeIndex,
+  ridbIndex: Map<string, string>,
 ): { toUpsert: NormalizedFacility[]; skippedOutOfState: number; skippedDupes: string[] } {
   const toUpsert: NormalizedFacility[] = [];
   const skippedDupes: string[] = [];
@@ -68,6 +73,13 @@ function classifyCampgrounds(
   for (const normalized of raw) {
     if (!normalized) {
       skippedOutOfState++;
+      continue;
+    }
+    if (ridbIndex.has(normalized.ridb_id)) {
+      // This ridb_id was previously merged into another facility as a
+      // duplicate — upsertFacilities would patch the survivor anyway, but we
+      // skip it here too so it isn't reported as a "new" campground.
+      skippedDupes.push(`${normalized.name} (merged into ${ridbIndex.get(normalized.ridb_id)})`);
       continue;
     }
     const existingId = isNearMatch(byName, normalized.name, normalized.lat, normalized.lng);
@@ -96,7 +108,7 @@ function classifyCampgrounds(
 async function main() {
   console.log(`Connecting to Teenybase at ${TB_API_URL}...`);
 
-  const byName = await buildDedupeIndex();
+  const { byName, ridbIndex } = await buildDedupeIndex();
 
   const parkCodes = Object.keys(CO_NPS_PARKS);
   console.log(`\nFetching NPS campgrounds for: ${parkCodes.join(", ")}...`);
@@ -106,7 +118,7 @@ async function main() {
   const normalized = raw.map((c) =>
     normalizeNpsCampground(c, CO_NPS_PARKS[c.parkCode] ?? c.parkCode),
   );
-  const { toUpsert, skippedOutOfState, skippedDupes } = classifyCampgrounds(normalized, byName);
+  const { toUpsert, skippedOutOfState, skippedDupes } = classifyCampgrounds(normalized, byName, ridbIndex);
 
   if (skippedOutOfState > 0) {
     console.log(`\nSkipped ${skippedOutOfState} campgrounds outside Colorado bounding box`);
