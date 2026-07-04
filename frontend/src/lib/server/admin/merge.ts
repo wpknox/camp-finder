@@ -64,44 +64,36 @@ export function mergeFacilityFields(
   loser: Facility,
   choices?: FieldChoices,
 ): Facility {
+  // merged starts as the winner, so a field only ever needs writing when the
+  // loser's value should be taken: an explicit 'loser' choice, or no choice
+  // and the winner's value is empty (gap-fill).
   const merged: Facility = { ...winner };
 
   if (choices?.name === "loser") merged.name = loser.name;
-  else if (choices?.name === "winner") merged.name = winner.name;
 
   if (choices?.location === "loser") {
     merged.lat = loser.lat;
     merged.lng = loser.lng;
-  } else if (choices?.location === "winner") {
-    merged.lat = winner.lat;
-    merged.lng = winner.lng;
   }
 
   for (const f of SCALAR_FIELDS) {
     const choice = choices?.[f as ChoiceField];
-    if (choice === "loser") {
-      (merged as unknown as Record<string, unknown>)[f] = loser[f];
-    } else if (choice === "winner") {
-      (merged as unknown as Record<string, unknown>)[f] = winner[f];
-    } else if (isEmpty(merged[f]) && !isEmpty(loser[f])) {
+    const takeLoser =
+      choice === "loser" ||
+      (choice === undefined && isEmpty(merged[f]) && !isEmpty(loser[f]));
+    if (takeLoser) {
       (merged as unknown as Record<string, unknown>)[f] = loser[f];
     }
   }
 
-  // FCFS counts travel as a unit.
-  if (choices?.fcfs === "loser") {
-    merged.fcfs_total = loser.fcfs_total;
-    merged.reservable_total = loser.reservable_total;
-    merged.is_fully_fcfs = loser.is_fully_fcfs;
-    merged.is_partial_fcfs = loser.is_partial_fcfs;
-  } else if (choices?.fcfs === "winner") {
-    merged.fcfs_total = winner.fcfs_total;
-    merged.reservable_total = winner.reservable_total;
-    merged.is_fully_fcfs = winner.is_fully_fcfs;
-    merged.is_partial_fcfs = winner.is_partial_fcfs;
-  } else if (merged.fcfs_total == null && merged.reservable_total == null) {
-    // Default gap-fill: only fill if winner has none at all
-    // (scraped records often lack counts entirely).
+  // FCFS counts travel as a unit; default gap-fill only when the winner has
+  // none at all (scraped records often lack counts entirely).
+  const takeLoserFcfs =
+    choices?.fcfs === "loser" ||
+    (choices?.fcfs === undefined &&
+      merged.fcfs_total == null &&
+      merged.reservable_total == null);
+  if (takeLoserFcfs) {
     merged.fcfs_total = loser.fcfs_total;
     merged.reservable_total = loser.reservable_total;
     merged.is_fully_fcfs = loser.is_fully_fcfs;
