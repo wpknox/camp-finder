@@ -89,6 +89,9 @@ Merged to `main` via `b1378d9`.
 - **Teenybase register mass-assigns `role`** — the Worker must not be publicly reachable in prod until fixed upstream (or add a WAF rule / strip `role` via a trigger). Runtime is safe because `requireAdmin` re-verifies server-side, but a directly-reachable Worker lets anyone self-assign `role='admin'` in the DB.
 - Don't leave the Teenybase Worker openly internet-reachable in prod (or tighten `ratings.listRule`) if review authorship should ever be private.
 
+### Future feature idea (user-requested 2026-07-04, NOT this branch)
+- **User notifications for moderation outcomes**: when an admin approves/rejects a user's edit suggestion or duplicate report, notify the submitter in-app. UX sketch from the user: a badge/symbol on or next to their account icon in the top-right nav; clicking it opens a notifications list. Would need a `notifications` table (user_id, type, facility ref, read flag; service-token writes from the admin approve/reject routes, RLS `auth.uid == user_id` reads), a nav badge component, and a dropdown/panel list. Both suggestion tables already store `user_id` + reviewer fields, so the write hook is a few lines in the two admin POST routes.
+
 ### Lower priority
 - **Deployment** (deferred until local testing is solid):
    - Frontend → Cloudflare Pages; Backend → `pnpm deploy` (Teenybase to Cloudflare Workers + D1)
