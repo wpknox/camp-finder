@@ -27,12 +27,6 @@ export class TbClient {
     return res.json();
   }
 
-  async upsertFacility(facility: NormalizedFacility): Promise<void> {
-    const rows = await this.listAllWithMerged();
-    const index = buildRidbIndex(rows);
-    await this.upsertFacilityWithIndex(facility, index);
-  }
-
   private async upsertFacilityWithIndex(
     facility: NormalizedFacility,
     index: Map<string, string>,
@@ -41,7 +35,7 @@ export class TbClient {
     if (existingId) {
       // Never overwrite the survivor's ridb_id — a merged/absorbed ridb_id must
       // keep resolving to the surviving record's identity, not clobber it.
-      const { ridb_id: _drop, ...patch } = facility as unknown as Record<string, unknown>;
+      const { ridb_id: _drop, ...patch } = facility;
       await this.tbFetch(`/table/facilities/edit/${existingId}`, patch);
     } else {
       await this.tbFetch("/table/facilities/insert", { values: facility });
@@ -60,22 +54,6 @@ export class TbClient {
       await this.upsertFacilityWithIndex(facilities[i], index);
       onProgress?.(i + 1, facilities.length);
     }
-  }
-
-  async listAllRidb(): Promise<Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string }>> {
-    const res = await this.tbFetch("/table/facilities/list", { limit: 10000 }) as {
-      items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string }>
-    };
-    return res.items.filter(f => !f.ridb_id.startsWith("fs-") && !f.ridb_id.startsWith("nps-"));
-  }
-
-  async listAll(): Promise<Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number }>> {
-    // limit: 10000 — well above current scale (~600 campgrounds). If the table ever
-    // grows past this, add cursor/offset pagination here.
-    const res = await this.tbFetch("/table/facilities/list", { limit: 10000 }) as {
-      items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number }>
-    };
-    return res.items;
   }
 
   async listAllWithMerged(): Promise<
