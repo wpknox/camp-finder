@@ -2,6 +2,7 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
 import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
+import { tbFetch } from "$lib/server/tbFetch";
 import { pickWinner, mergeFacilityFields, CHOICE_FIELDS } from "$lib/server/admin/merge";
 import type { ChoiceField, FieldChoices } from "$lib/server/admin/merge";
 import type { Facility } from "$lib/types";
@@ -68,7 +69,7 @@ function parseJson<T>(v: unknown, fallback: T): T {
 
 /** Load a facility by id, parsing its JSON fields into a usable Facility. */
 async function loadFacility(id: string): Promise<Facility | null> {
-  const res = await fetch(tb(`facilities/view/${id}`), { headers: tbHeaders });
+  const res = await tbFetch(tb(`facilities/view/${id}`), { headers: tbHeaders });
   if (!res.ok) return null;
   const raw = (await res.json()) as RawFacility;
   return {
@@ -133,13 +134,13 @@ async function repointChildren(
   for (const row of loserRows) {
     if (winnerUsers.has(row.user_id)) {
       // Collision: winner already has a row for this user. Drop the loser's.
-      await fetch(tb(`${table}/delete`), {
+      await tbFetch(tb(`${table}/delete`), {
         method: "POST",
         headers: tbHeaders,
         body: JSON.stringify({ where: `id == '${row.id}'` }),
       });
     } else {
-      await fetch(tb(`${table}/edit/${row.id}`), {
+      await tbFetch(tb(`${table}/edit/${row.id}`), {
         method: "POST",
         headers: tbHeaders,
         body: JSON.stringify({ facility_id: winnerId }),
@@ -169,7 +170,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     return json({ error: "field_choices contains unknown keys or invalid values" }, { status: 400 });
   }
 
-  const viewRes = await fetch(tb(`merge_suggestions/view/${id}`), {
+  const viewRes = await tbFetch(tb(`merge_suggestions/view/${id}`), {
     headers: tbHeaders,
   });
   if (!viewRes.ok) return json({ error: "Suggestion not found" }, { status: 404 });
@@ -202,14 +203,14 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     await repointChildren("saved_campgrounds", loser.id, winner.id);
 
     // Loser's alerts are a scrape cache — drop them, they regenerate on demand.
-    await fetch(tb("alerts/delete"), {
+    await tbFetch(tb("alerts/delete"), {
       method: "POST",
       headers: tbHeaders,
       body: JSON.stringify({ where: `facility_id == '${loser.id}'` }),
     });
 
     // Apply merged fields to the winner. Fail here BEFORE deleting the loser.
-    const editRes = await fetch(tb(`facilities/edit/${winner.id}`), {
+    const editRes = await tbFetch(tb(`facilities/edit/${winner.id}`), {
       method: "POST",
       headers: tbHeaders,
       body: JSON.stringify({
@@ -240,7 +241,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     }
 
     // Delete the loser LAST — children already repointed; any stragglers cascade.
-    await fetch(tb("facilities/delete"), {
+    await tbFetch(tb("facilities/delete"), {
       method: "POST",
       headers: tbHeaders,
       body: JSON.stringify({ where: `id == '${loser.id}'` }),
@@ -249,7 +250,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     mergedWinner = { id: winner.id, name: merged.name };
   }
 
-  const resolveRes = await fetch(tb(`merge_suggestions/edit/${id}`), {
+  const resolveRes = await tbFetch(tb(`merge_suggestions/edit/${id}`), {
     method: "POST",
     headers: tbHeaders,
     body: JSON.stringify({

@@ -1,6 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { PUBLIC_TB_URL } from "$env/static/public";
+import { tbFetch } from "$lib/server/tbFetch";
 import { ACCESS_COOKIE } from "$lib/server/auth/session";
 
 interface FacilityLite {
@@ -20,8 +20,8 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 
   // Display name (not in JWT).
   let name = "";
-  const me = await fetch(
-    `${PUBLIC_TB_URL}/api/v1/table/users/view/${locals.user.id}`,
+  const me = await tbFetch(
+    `/api/v1/table/users/view/${locals.user.id}`,
     {
       headers: { Authorization: `Bearer ${token}` },
     },
@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
   if (me.ok) name = ((await me.json()) as { name?: string }).name ?? "";
 
   // Facility id → {name, lat, lng} map (single fetch; ~600 rows at current scale).
-  const facRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/list`, {
+  const facRes = await tbFetch(`/api/v1/table/facilities/list`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ limit: 10000 }),
@@ -39,8 +39,8 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
   const facMap = new Map(facItems.map((f) => [f.id, f]));
 
   // Saved campgrounds (scoped to the user by their token).
-  const savedRes = await fetch(
-    `${PUBLIC_TB_URL}/api/v1/table/saved_campgrounds/list`,
+  const savedRes = await tbFetch(
+    `/api/v1/table/saved_campgrounds/list`,
     {
       method: "POST",
       headers: authHeaders,
@@ -62,7 +62,7 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
   }));
 
   // The user's reviews (ratings list is public; filter to this user).
-  const revRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/ratings/list`, {
+  const revRes = await tbFetch(`/api/v1/table/ratings/list`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

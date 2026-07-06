@@ -1,9 +1,9 @@
 import { json, error } from '@sveltejs/kit'
-import { PUBLIC_TB_URL } from '$env/static/public'
+import { tbFetch } from '$lib/server/tbFetch'
 import type { RequestHandler } from './$types'
 
 export const GET: RequestHandler = async ({ params }) => {
-  const res = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/list`, {
+  const res = await tbFetch(`/api/v1/table/facilities/list`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ where: `id == '${params.id}'`, limit: 1 }),

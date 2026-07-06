@@ -2,6 +2,7 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
 import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
+import { tbFetch } from "$lib/server/tbFetch";
 import type { Amenities } from "$lib/types";
 
 interface RawSuggestion {
@@ -81,7 +82,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     return json({ error: "id and action (approve|reject) required" }, { status: 400 });
   }
 
-  const viewRes = await fetch(tb(`edit_suggestions/view/${id}`), {
+  const viewRes = await tbFetch(tb(`edit_suggestions/view/${id}`), {
     headers: tbHeaders,
   });
   if (!viewRes.ok) return json({ error: "Suggestion not found" }, { status: 404 });
@@ -95,7 +96,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   if (action === "approve") {
     const changes = parseJson<Record<string, unknown>>(suggestion.changes, {});
 
-    const facRes = await fetch(tb(`facilities/view/${suggestion.facility_id}`), {
+    const facRes = await tbFetch(tb(`facilities/view/${suggestion.facility_id}`), {
       headers: tbHeaders,
     });
     if (!facRes.ok) return json({ error: "Facility not found" }, { status: 404 });
@@ -111,7 +112,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       patch.amenities = JSON.stringify({ ...current, ...amenityChanges });
     }
 
-    const editRes = await fetch(tb(`facilities/edit/${facility.id}`), {
+    const editRes = await tbFetch(tb(`facilities/edit/${facility.id}`), {
       method: "POST",
       headers: tbHeaders,
       body: JSON.stringify(patch),
@@ -126,7 +127,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     editedFacility = { id: facility.id, name: facility.name };
   }
 
-  const resolveRes = await fetch(tb(`edit_suggestions/edit/${id}`), {
+  const resolveRes = await tbFetch(tb(`edit_suggestions/edit/${id}`), {
     method: "POST",
     headers: tbHeaders,
     body: JSON.stringify({
