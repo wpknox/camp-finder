@@ -15,9 +15,57 @@
   import { onMount } from "svelte";
 
   let campMap: CampMap = $state(null!);
+  let lastRefreshedId: string | null = $state(null);
 
   $effect(() => {
     if (campMap) campMap.renderPins($filteredFacilities);
+  });
+
+  $effect(() => {
+    const f = $selectedFacility;
+    if (!f) {
+      // Panel closed — clear so reopening the same facility refetches fresh
+      lastRefreshedId = null;
+      return;
+    }
+
+    const facilityId = f.id;
+
+    // Don't refetch if we just refreshed this facility
+    if (facilityId === lastRefreshedId) {
+      return;
+    }
+
+    // Fetch fresh data
+    (async () => {
+      try {
+        const res = await fetch(`/api/facilities/${facilityId}`);
+
+        // If 404, close the panel (facility was deleted/merged)
+        if (res.status === 404) {
+          selectedFacility.set(null);
+          return;
+        }
+
+        // For other errors, keep showing the cached record
+        if (!res.ok) {
+          return;
+        }
+
+        const freshData = await res.json();
+
+        // Check if selection changed while we were fetching (ignore stale response)
+        if ($selectedFacility?.id !== facilityId) {
+          return;
+        }
+
+        // Update with fresh data
+        selectedFacility.set(freshData);
+        lastRefreshedId = facilityId;
+      } catch {
+        // Network error, keep cached record
+      }
+    })();
   });
 
   onMount(async () => {

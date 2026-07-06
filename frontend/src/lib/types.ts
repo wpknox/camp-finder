@@ -38,6 +38,7 @@ export interface Facility {
   ridb_data_quality: DataQuality;
   fs_url: string;
   is_closed: boolean;
+  merged_ridb_ids?: string[];
 }
 
 export interface Alert {
@@ -51,4 +52,40 @@ export interface Rating {
   notes: string;
   visited_at: string;
   user_id: string;
+}
+
+export type SuggestionStatus = "pending" | "approved" | "rejected";
+
+export interface EditChanges {
+  fee_min?: number | null;
+  fee_max?: number | null;
+  season_start?: string;
+  season_end?: string;
+  amenities?: Partial<Amenities>;
+}
+
+export interface EditSuggestion {
+  id: string;
+  facility_id: string;
+  user_id: string;
+  changes: EditChanges;
+  note: string;
+  status: SuggestionStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  admin_note: string | null;
+  created: string;
+}
+
+export interface MergeSuggestion {
+  id: string;
+  facility_a: string;
+  facility_b: string;
+  user_id: string;
+  note: string;
+  status: SuggestionStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  admin_note: string | null;
+  created: string;
 }

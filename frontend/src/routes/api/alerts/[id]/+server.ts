@@ -14,17 +14,18 @@ const tbHeaders = {
 
 export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id
-  const cutoff = new Date(Date.now() - CACHE_TTL_MS).toISOString()
+  const cutoff = Date.now() - CACHE_TTL_MS
 
   const cacheRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/list`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ where: `facility_id == '${facilityId}' && scraped_at >= '${cutoff}'`, limit: 1 }),
+    body: JSON.stringify({ where: `facility_id == '${facilityId}'`, limit: 1 }),
   })
   const cache = await cacheRes.json() as { items?: Array<{ content: string; scraped_at: string }> }
+  const fresh = cache.items?.find(i => new Date(i.scraped_at).getTime() >= cutoff)
 
-  if (cache.items?.length) {
-    return json({ content: cache.items[0].content, scraped_at: cache.items[0].scraped_at, cached: true })
+  if (fresh) {
+    return json({ content: fresh.content, scraped_at: fresh.scraped_at, cached: true })
   }
 
   const facRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/view/${facilityId}`)

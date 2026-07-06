@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { parse as parseHtml } from "node-html-parser";
-import { TbClient } from "./teenybase.js";
+import { TbClient, buildRidbIndex } from "./teenybase.js";
 import {
   scrapeForestCampgroundUrls,
   scrapeCampgroundPage,
@@ -83,9 +83,15 @@ function normalizeName(name: string): string {
 async function main() {
   console.log(`Connecting to Teenybase at ${TB_API_URL}...`);
 
-  // Load all RIDB records once to detect duplicates by name + proximity
+  // Load all records once to detect duplicates by name + proximity, and to
+  // redirect any generated ridb_id that was previously absorbed via an admin
+  // duplicate-merge back to its surviving row (merged_ridb_ids).
   console.log("Loading existing RIDB records for dedup...");
-  const ridbRecords = await tb.listAllRidb();
+  const allRecords = await tb.listAllWithMerged();
+  const mergedIndex = buildRidbIndex(allRecords);
+  const ridbRecords = allRecords.filter(
+    (f) => !f.ridb_id.startsWith("fs-") && !f.ridb_id.startsWith("nps-"),
+  );
   const ridbByName = new Map<string, typeof ridbRecords>();
   for (const r of ridbRecords) {
     const key = normalizeName(r.name);
@@ -148,6 +154,15 @@ async function main() {
       }
 
       const ridb_id = `fs-${forest.slug}-${slug}`;
+
+      // This ridb_id was previously merged into another facility as a
+      // duplicate — upsertFacilities would patch the survivor anyway (never
+      // overwriting its identity), but skip it here too so it isn't logged
+      // as newly discovered.
+      if (mergedIndex.has(ridb_id)) {
+        await sleep(300);
+        continue;
+      }
 
       forestDiscovered.push({
         ridb_id,
