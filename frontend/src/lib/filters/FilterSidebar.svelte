@@ -380,20 +380,23 @@
       flex: none;
       height: auto;
       gap: 0.5rem;
-      transition: height 0.2s var(--ease);
+      transition: max-height 0.2s var(--ease);
     }
-    /* Bounded heights when a disclosure is open; the map below may clip while
-       the user refines/browses. Both-open gets a little extra. */
+    /* Caps (not fixed heights) when a disclosure is open: the sidebar hugs
+       its content, so a collapsed section never leaves dead space below it,
+       and only stops growing at these bounds — the inner region scrolls once
+       a cap is hit. The map below may clip while the user refines/browses.
+       Both-open gets a little extra. */
     /* The list is opened on purpose to browse, so let it dominate the screen
        (the map below clips while browsing). */
     .sidebar.results-open {
-      height: 78vh;
+      max-height: 78vh;
     }
     .sidebar.filters-open {
-      height: 62vh;
+      max-height: 62vh;
     }
     .sidebar.filters-open.results-open {
-      height: 82vh;
+      max-height: 82vh;
     }
 
     /* Order: filter toggle, filter body, search, results. */
@@ -448,14 +451,25 @@
     .result-list {
       display: none;
     }
+    /* Content-based flex bases (auto, not 0): the sidebar is content-sized up
+       to its max-height cap, so a 0 basis would collapse the list to nothing.
+       With auto, the list grows the sidebar until the cap, then shrinks
+       (min-height: 0) and scrolls. */
     .sidebar.results-open .results {
-      flex: 1 1 0;
+      flex: 1 1 auto;
     }
     .sidebar.results-open .results-head {
       margin-bottom: 0.5rem;
     }
     .sidebar.results-open .result-list {
       display: block;
+      flex: 1 1 auto;
+    }
+    /* Both open: cap the list so its (potentially huge) content height can't
+       out-shrink the filter body to nothing when the sidebar hits its cap —
+       basis-weighted flex shrink would otherwise squash the filters. */
+    .sidebar.filters-open.results-open .result-list {
+      max-height: 42vh;
     }
     /* Hide the "tap to browse" hint once the list is open. */
     .sidebar.results-open .results-hint {
