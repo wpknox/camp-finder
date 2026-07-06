@@ -15,20 +15,23 @@ const enc = new TextEncoder();
 
 function b64url(bytes: Uint8Array): string {
   let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  for (const b of bytes) bin += String.fromCodePoint(b);
+  return btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
 function fromB64url(s: string): Uint8Array | null {
   try {
-    const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
-    return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const bin = atob(s.replaceAll("-", "+").replaceAll("_", "/"));
+    return Uint8Array.from(bin, (c) => c.codePointAt(0) ?? 0);
   } catch {
     return null;
   }
 }
 
-async function importKey(secret: string, usage: "sign" | "verify"): Promise<CryptoKey> {
+async function importKey(
+  secret: string,
+  usage: "sign" | "verify",
+): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
     enc.encode(secret),
@@ -53,7 +56,11 @@ export async function signToken(
   const payload: TokenPayload = { ...payloadIn, exp: Date.now() + ttlMs };
   const body = b64url(enc.encode(JSON.stringify(payload)));
   const key = await importKey(secret, "sign");
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(`${body}.${updatedStamp}`));
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    enc.encode(`${body}.${updatedStamp}`),
+  );
   return `${body}.${b64url(new Uint8Array(sig))}`;
 }
 
@@ -64,7 +71,9 @@ export function decodeToken(token: string): TokenPayload | null {
   if (!bytes) return null;
   try {
     const payload = JSON.parse(new TextDecoder().decode(bytes)) as TokenPayload;
-    return typeof payload.uid === "string" && typeof payload.exp === "number" ? payload : null;
+    return typeof payload.uid === "string" && typeof payload.exp === "number"
+      ? payload
+      : null;
   } catch {
     return null;
   }
