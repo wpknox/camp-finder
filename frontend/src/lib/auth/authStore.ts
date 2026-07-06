@@ -25,13 +25,16 @@ function createAuthStore() {
       const data = await post('login', { email, password })
       set(data.user ?? null)
     },
-    async register(email: string, name: string, password: string, passwordConfirm: string) {
-      const data = await post('register', { email, name, password, passwordConfirm })
+    async register(email: string, name: string, password: string, passwordConfirm: string, inviteCode: string) {
+      const data = await post('register', { email, name, password, passwordConfirm, inviteCode })
       set(data.user ?? null)
     },
     async logout() {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
       set(null)
+    },
+    async requestReset(email: string) {
+      await post('request-reset', { email })
     },
   }
 }
