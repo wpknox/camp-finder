@@ -406,11 +406,13 @@
       flex: none;
       display: none;
     }
-    /* When expanded, the filter body scrolls within the bounded sidebar.
-       flex-basis:0 so it shares space by weight instead of by content height. */
+    /* When expanded, the filter body is sized to its own content — it should
+       not flex-grow to fill the bounded sidebar height (that left a big empty
+       gap before the search button when results stayed collapsed). It can
+       still shrink and scroll if content ever exceeds the available space. */
     .filter-body.open {
       display: flex;
-      flex: 3 1 0;
+      flex: 0 1 auto;
       min-height: 0;
       overflow-y: auto;
     }
