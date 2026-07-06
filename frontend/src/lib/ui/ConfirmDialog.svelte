@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { portal } from "./portal";
+
   let {
     message,
     confirmLabel = "Confirm",
@@ -22,6 +24,7 @@
 <div
   class="overlay"
   role="presentation"
+  use:portal
   onclick={(e) => { if (e.target === e.currentTarget) oncancel(); }}
   onkeydown={(e) => { if (e.key === 'Escape') oncancel(); }}
 >

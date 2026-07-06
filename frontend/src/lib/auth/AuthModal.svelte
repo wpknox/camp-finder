@@ -1,5 +1,6 @@
 <script lang="ts">
   import { auth } from "./authStore";
+  import { portal } from "$lib/ui/portal";
 
   let { onclose, onsuccess }: { onclose?: () => void; onsuccess?: () => void } = $props();
 
@@ -68,6 +69,7 @@
 <div
   class="overlay"
   role="presentation"
+  use:portal
   onclick={(e) => { if (e.target === e.currentTarget) onclose?.(); }}
   onkeydown={(e) => { if (e.key === 'Escape') onclose?.(); }}
 >
