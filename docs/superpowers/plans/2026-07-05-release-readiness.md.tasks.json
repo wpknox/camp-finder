@@ -1,0 +1,103 @@
+{
+  "planPath": "docs/superpowers/plans/2026-07-05-release-readiness.md",
+  "note": "Native task IDs 5-18 map to plan Tasks 1-14. Full Goal/Files/AC/Verify/Steps + code live in the plan doc sections; native task descriptions carry the same four sections. modelTier: mechanical=haiku, standard=sonnet, orchestrator=Fable in-session with the user (not a subagent).",
+  "tasks": [
+    {
+      "id": 5,
+      "subject": "Task 1: Live end-to-end test of the merge admin UI",
+      "status": "pending",
+      "description": "**Goal:** Exercise the never-live-tested side-by-side merge UI end-to-end in a browser against local dev servers, before any new code.\n\n**USER-ORDERED GATE — NON-SKIPPABLE.** Close only after every acceptance criterion is re-validated independently with captured output.\n\n**Files:** none (bug fixes committed as found).\n\n**Acceptance Criteria:** duplicate flag reaches /admin merge queue; A|B grid + master toggle + per-field override work; approve succeeds with notice; winner has chosen values and loser 404s; ratings/saves repointed.\n\n**Verify:** Playwright walkthrough + sqlite merge_suggestions status = approved.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"manual browser walkthrough + sqlite status check\", \"acceptanceCriteria\": [\"duplicate flag reaches admin queue\", \"A|B grid + master toggle + per-field override work\", \"approve succeeds with notice\", \"winner has chosen values; loser 404s\", \"ratings/saves repointed\"], \"modelTier\": \"orchestrator\", \"userGate\": true, \"tags\": [\"user-gate\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 2: ETL non-resurrection check after the real merge",
+      "status": "pending",
+      "blockedBy": [5],
+      "description": "**Goal:** Prove the merged-away facility from Task 1 is not resurrected by ETL syncs.\n\n**USER-ORDERED GATE — NON-SKIPPABLE.** Close only with captured before/after evidence.\n\n**Files:** none.\n\n**Acceptance Criteria:** facility count stable across pnpm sync + sync-nps; loser ridb_id count = 0; winner merged_ridb_ids intact.\n\n**Verify:** sqlite3 facility count before/after; loser ridb_id lookup = 0.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"sqlite3 count before/after pnpm sync + loser ridb_id lookup = 0\", \"acceptanceCriteria\": [\"facility count stable across syncs\", \"loser ridb_id absent\", \"merged_ridb_ids intact\"], \"modelTier\": \"orchestrator\", \"userGate\": true, \"tags\": [\"user-gate\"], \"requireEvidenceTokens\": [[\"before\",\"pre-sync\"], [\"after\",\"post-sync\"]]}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 3: Auth token module (stateless HMAC) — TDD",
+      "status": "pending",
+      "blockedBy": [6],
+      "description": "**Goal:** signToken/verifyToken/decodeToken via Web Crypto HMAC-SHA256; user's `updated` stamp mixed into signature. Full code in plan doc Task 3.\n\n**Files:** Create frontend/src/lib/server/auth/tokens.ts; Test frontend/src/lib/server/auth/tokens.test.ts.\n\n**Acceptance Criteria:** round-trip verify; rejects tamper/expiry/purpose/stale-stamp/garbage (null, never throws); crypto.subtle only; check 0/0.\n\n**Verify:** cd frontend && pnpm test -- tokens && pnpm check.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/server/auth/tokens.ts\", \"frontend/src/lib/server/auth/tokens.test.ts\"], \"verifyCommand\": \"cd frontend && pnpm test -- tokens && pnpm check\", \"acceptanceCriteria\": [\"round-trip verify\", \"rejects tamper/expiry/purpose/stale-stamp/garbage\", \"Web Crypto only\", \"check 0/0\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 4: Email module (Resend + console fallback)",
+      "status": "pending",
+      "blockedBy": [6],
+      "description": "**Goal:** sendEmail via Resend REST, console fallback without RESEND_API_KEY; reset + verify templates with origin-based links. Full code in plan doc Task 4.\n\n**Files:** Create frontend/src/lib/server/email.ts.\n\n**Acceptance Criteria:** console fallback returns true; Resend POST with key; never throws; origin-based links; check 0/0.\n\n**Verify:** cd frontend && pnpm check.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/server/email.ts\"], \"verifyCommand\": \"cd frontend && pnpm check\", \"acceptanceCriteria\": [\"console fallback when no key\", \"Resend POST with key\", \"never throws\", \"origin-based links\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 5: Password reset routes (request-reset + reset)",
+      "status": "pending",
+      "blockedBy": [7, 8],
+      "description": "**Goal:** POST /api/auth/request-reset (always-200, emails link) + POST /api/auth/reset (token → new password via service token). SPIKE FIRST: prove service-token users/edit password change hashes correctly (login works after); if not, STOP and report. Full code in plan doc Task 5.\n\n**Files:** Create api/auth/request-reset + api/auth/reset routes, lib/server/auth/users.ts; Modify lib/server/auth/limiters.ts (emailLimiter 5/15min).\n\n**Acceptance Criteria:** spike passes; no enumeration (identical 200); quote-bearing emails 400; token verified vs current updated stamp; local round trip via console link; reused link 400; check 0/0 + tests green.\n\n**Verify:** cd frontend && pnpm check && pnpm test + manual round trip.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/api/auth/request-reset/+server.ts\", \"frontend/src/routes/api/auth/reset/+server.ts\", \"frontend/src/lib/server/auth/users.ts\", \"frontend/src/lib/server/auth/limiters.ts\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"spike: service-token password edit hashes\", \"always-200 no enumeration\", \"quote-bearing emails rejected\", \"token validated vs current updated stamp\", \"local round trip works\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 10,
+      "subject": "Task 6: Verification routes + invite-gated register",
+      "status": "pending",
+      "blockedBy": [7, 8, 9],
+      "description": "**Goal:** GET /api/auth/verify, POST /api/auth/request-verify, fail-closed invite-code gate in register, best-effort signup verification email, email_verified in /api/auth/me. Full code in plan doc Task 6.\n\n**Files:** Create api/auth/verify + api/auth/request-verify; Modify api/auth/register + api/auth/me.\n\n**Acceptance Criteria:** wrong/missing/unconfigured invite code → 403; verify link sets flag + 303 /?verified=1 (idempotent), bad → /?verified=0; request-verify auth'd + emailLimiter; me includes email_verified; email failures never fail registration; check 0/0 + tests green.\n\n**Verify:** cd frontend && pnpm check && pnpm test + manual verify round trip.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/api/auth/verify/+server.ts\", \"frontend/src/routes/api/auth/request-verify/+server.ts\", \"frontend/src/routes/api/auth/register/+server.ts\", \"frontend/src/routes/api/auth/me/+server.ts\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"invite code fail-closed 403\", \"verify link sets flag + redirects, idempotent\", \"request-verify auth'd + rate-limited\", \"me includes email_verified\", \"registration email best-effort\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 11,
+      "subject": "Task 7: AuthModal — forgot-password flow + invite code field",
+      "status": "pending",
+      "blockedBy": [9, 10],
+      "description": "**Goal:** Add `forgot` mode (email form → neutral confirmation) and required invite-code register field to AuthModal; authStore gains requestReset + inviteCode threading. Code sketches in plan doc Task 7.\n\n**Files:** Modify frontend/src/lib/auth/AuthModal.svelte + frontend/src/lib/auth/authStore.ts.\n\n**Acceptance Criteria:** forgot mode always shows neutral success; invite code blur-validated + 403 surfaced; runes only; existing styling reused; check 0/0.\n\n**Verify:** cd frontend && pnpm check + manual pass of all three modes.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/auth/AuthModal.svelte\", \"frontend/src/lib/auth/authStore.ts\"], \"verifyCommand\": \"cd frontend && pnpm check\", \"acceptanceCriteria\": [\"forgot mode with neutral confirmation\", \"invite code required on register with blur validation\", \"403 error surfaced\", \"runes only\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 12,
+      "subject": "Task 8: /reset page",
+      "status": "pending",
+      "blockedBy": [11],
+      "description": "**Goal:** Page consuming the emailed reset link: password + confirm (blur validation), POST /api/auth/reset, success + expired states. Full component code in plan doc Task 8.\n\n**Files:** Create frontend/src/routes/reset/+page.svelte.\n\n**Acceptance Criteria:** token from $app/state page.url; blur validation; success → goto('/'); 400 → error + request-new-link path; design-language full-page card; runes only; check 0/0.\n\n**Verify:** cd frontend && pnpm check + manual round trip incl. reused link.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/reset/+page.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check\", \"acceptanceCriteria\": [\"token from query\", \"blur validation\", \"success + expired states\", \"design-language styling\", \"runes only\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 13,
+      "subject": "Task 9: Verify-nag banner + account-page resend",
+      "status": "pending",
+      "blockedBy": [11, 12],
+      "description": "**Goal:** Dismissible session banner for signed-in unverified users with resend; /?verified=1|0 redirect notices; account-page verified status/resend. Details in plan doc Task 9.\n\n**Files:** Create lib/auth/VerifyBanner.svelte; Modify routes/+layout.svelte, lib/auth/authStore.ts (email_verified + requestVerify), routes/account/+page.svelte.\n\n**Acceptance Criteria:** banner only signed-in+unverified; sessionStorage dismiss (SSR-guarded); resend feedback incl. 429; redirect notices; account status; design language; runes only; check 0/0.\n\n**Verify:** cd frontend && pnpm check + manual banner lifecycle.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/auth/VerifyBanner.svelte\", \"frontend/src/routes/+layout.svelte\", \"frontend/src/lib/auth/authStore.ts\", \"frontend/src/routes/account/+page.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check\", \"acceptanceCriteria\": [\"banner only when signed-in + unverified\", \"session dismiss\", \"resend with feedback\", \"?verified redirect notices\", \"account page status\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 14,
+      "subject": "Task 10: tbFetch wrapper + sweep all server TB calls + ETL Access headers",
+      "status": "pending",
+      "blockedBy": [13],
+      "description": "**Goal:** All server-side Teenybase fetches routed through tbFetch (env.TB_URL || PUBLIC_TB_URL; conditional CF-Access headers); ETL gets same optional headers. Zero local behavior change. Full code in plan doc Task 10.\n\n**Files:** Create frontend/src/lib/server/tbFetch.ts; Modify every grep hit for PUBLIC_TB_URL in frontend/src + etl/src/teenybase.ts.\n\n**Acceptance Criteria:** wrapper injects headers iff both TB_ACCESS_CLIENT_ID/SECRET set; grep for PUBLIC_TB_URL (excl. tbFetch + tests) clean; ETL headers conditional; frontend+etl tests green, check 0/0, manual smoke.\n\n**Verify:** cd frontend && pnpm check && pnpm test && cd ../etl && pnpm test; grep clean; manual smoke.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/server/tbFetch.ts\", \"etl/src/teenybase.ts\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test && cd ../etl && pnpm test; grep -rn PUBLIC_TB_URL frontend/src --include='*.ts' --include='*.svelte' | grep -v tbFetch | grep -v '.test.'\", \"acceptanceCriteria\": [\"wrapper with conditional Access headers\", \"grep-clean sweep\", \"ETL headers\", \"zero local behavior change, all tests green\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 15,
+      "subject": "Task 11: Cloudflare account setup — domain, Resend, Zero Trust (USER)",
+      "status": "pending",
+      "description": "**Goal:** Domain purchased (cheap campfinder-adjacent shortlist), Resend domain verified + API key, Access app for tb.<domain> + two service tokens, env-var worksheet complete. User does dashboard steps with orchestrator instructions. Worksheet in plan doc Task 11.\n\n**Files:** none in repo.\n\n**Acceptance Criteria:** domain bought; Resend Verified + RESEND_API_KEY; Access app + frontend/etl tokens; worksheet complete (Pages vars, .prod.vars fresh secrets, etl prod env).\n\n**Verify:** dig +short <domain>; Resend + Zero Trust dashboards confirmed.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"dig +short <domain>; Resend + Zero Trust dashboard states confirmed\", \"acceptanceCriteria\": [\"domain purchased\", \"Resend domain verified + API key\", \"Access app + 2 service tokens\", \"env worksheet complete\"], \"modelTier\": \"orchestrator\"}\n```"
+    },
+    {
+      "id": 16,
+      "subject": "Task 12: Deploy backend + frontend to Cloudflare",
+      "status": "pending",
+      "blockedBy": [14, 15],
+      "description": "**Goal:** Teenybase Worker at tb.<domain> behind Access with prod D1 migrated (0001–0012, no 0013); Pages app live at <domain> with worksheet env vars. Details in plan doc Task 12.\n\n**Files:** Modify backend/wrangler.jsonc (+.prod.vars).\n\n**Acceptance Criteria:** pnpm deploy succeeds + route attached; migrations applied remote (unique save index + SET NULL FKs verified); curl without Access headers → 403, with etl token → 200, BEFORE seeding; Pages live over HTTPS on the domain.\n\n**Verify:** blocked/allowed curl pair; https://<domain> renders the map.\n\n```json:metadata\n{\"files\": [\"backend/wrangler.jsonc\"], \"verifyCommand\": \"curl tb.<domain> without headers -> Access 403; with etl token -> 200; https://<domain> loads\", \"acceptanceCriteria\": [\"worker deployed + routed\", \"prod migrations applied\", \"Access enforced before data exists\", \"Pages live with env vars + domain\"], \"modelTier\": \"orchestrator\"}\n```"
+    },
+    {
+      "id": 17,
+      "subject": "Task 13: Seed production data + promote admin",
+      "status": "pending",
+      "blockedBy": [16],
+      "description": "**Goal:** ~592 facilities in prod via local ETL runs against tb.<domain> (etl Access token); owner registered on live site and promoted to admin via wrangler d1 execute. No throwaway accounts. Details in plan doc Task 13.\n\n**Files:** none committed.\n\n**Acceptance Criteria:** three syncs complete; prod count ≈ 592; owner sole admin; /admin loads after sign out/in.\n\n**Verify:** wrangler d1 execute remote COUNT(*) facilities ≈ 592; role query → owner only.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"wrangler d1 execute backend-db --remote --command 'SELECT COUNT(*) FROM facilities'\", \"acceptanceCriteria\": [\"~592 facilities in prod\", \"no throwaway accounts\", \"owner is sole admin and /admin works\"], \"modelTier\": \"orchestrator\"}\n```"
+    },
+    {
+      "id": 18,
+      "subject": "Task 14: Post-deploy smoke checklist",
+      "status": "pending",
+      "blockedBy": [17],
+      "description": "**Goal:** Every user-facing flow proven in prod; Worker proven locked; handoff updated. Details in plan doc Task 14.\n\n**USER-ORDERED GATE — NON-SKIPPABLE.** Close only after every criterion is re-validated with captured output.\n\n**Files:** docs/handoff.md.\n\n**Acceptance Criteria:** direct sign-up with role payload blocked by Access; invite gate works; real verification email round trip; real reset round trip; core flows + one admin approval; alerts scrape status recorded; handoff updated + committed.\n\n**Verify:** manual prod walkthrough with captured outputs; handoff commit.\n\n```json:metadata\n{\"files\": [\"docs/handoff.md\"], \"verifyCommand\": \"manual prod walkthrough with captured outputs\", \"acceptanceCriteria\": [\"worker sign-up blocked without Access headers\", \"invite gate works\", \"real verification email round trip\", \"real reset round trip\", \"core flows + one admin approval work\", \"alerts scrape status recorded\", \"handoff updated\"], \"modelTier\": \"orchestrator\", \"userGate\": true, \"tags\": [\"user-gate\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-07-05T00:00:00Z"
+}

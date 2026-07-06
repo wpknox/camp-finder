@@ -46,7 +46,7 @@ Token = base64url payload `{uid, purpose: 'reset' | 'verify', exp}` + HMAC-SHA25
 
 ### Schema change (the only one)
 
-- `users.email_verified` — integer/boolean, default 0. Migration `0013` via `pnpm generate && pnpm migrate`.
+- ~~`users.email_verified` — integer/boolean, default 0. Migration `0013` via `pnpm generate && pnpm migrate`.~~ **Correction (plan-writing research):** `email_verified BOOLEAN NOT NULL DEFAULT 0` already exists — Teenybase's `authFields` scaffold ships it. **No migration needed; zero schema changes.**
 - Set to 1 only by the verify route using `TB_SERVICE_TOKEN`. Never writable by the user (register proxy controls its outbound body, same pattern as `role`).
 - **Registration order note:** Teenybase register mass-assigns fields, so the register proxy must continue to send only the allowlisted fields; `email_verified` must not be accepted from the client.
 
