@@ -14,19 +14,17 @@ Plan being executed: `docs/superpowers/plans/2026-07-05-release-readiness.md` (+
 
 ## What's next
 
-### FIRST — open decision blocking Tasks 11–14
-Key discovery: `backend/src/index.ts` is our own Hono app wrapping Teenybase, so a ~10-line middleware rejecting requests without an `X-TB-Key` header locks the Worker down **without Cloudflare Access and without a domain** — `*.pages.dev` + `*.workers.dev` hosting at $0/mo. `tbFetch` and the ETL already send that header when `TB_SHARED_SECRET` is set.
+### DECISION MADE (2026-07-07): free tier, no domain, no Resend
+Worker lockdown = `X-TB-Key` header guard; hosting on `*.workers.dev` + `*.pages.dev` ($0/mo); reset links read from Pages logs (`wrangler pages deployment tail`) by the admin; email UI hidden when `RESEND_API_KEY` unset. User also declined CI/CD (manual wrangler deploys). Plan re-cut accordingly, commit `73d03be` — Tasks 11–14 became Tasks 11–16 (`.tasks.json` ids 15–20).
 
-A domain (~$10/yr, Cloudflare Registrar) is only genuinely needed for **Resend reset/verification emails to arbitrary recipients** + a nicer URL. (Fly.io / Raspberry Pi were evaluated and rejected: Teenybase needs the Workers runtime; a named CF Tunnel needs a domain anyway; capacity needs are trivial — 1 vCPU / 256–512 MB covers 20 concurrent users.)
+### Resume point (session ended 2026-07-07 mid-execution)
+Was about to dispatch parallel implementer subagents (subagent-driven-development skill) for the two code tasks — **neither has been started, no code written**:
+- **Task 11** (id 15): `X-TB-Key` guard in `backend/src/index.ts` — full code in plan doc (wrap `app.fetch`, NOT Hono middleware).
+- **Task 12** (id 16): hide verify banner + account resend when `email_enabled` false; `/api/auth/me` gains `email_enabled` — full code in plan doc.
 
-**User must choose:** (a) buy a cheap domain → real emails; or (b) no domain → header guard + `workers.dev`, prod password resets done by admin via `wrangler d1 execute`. Either way, **re-cut plan Tasks 11–12** to the chosen mechanism (header-guard middleware replaces the Cloudflare Access steps currently written in the plan).
+Then in-session with user: Task 13 secrets worksheet + `wrangler whoami`, Task 14 deploy, Task 15 seed + admin promote, Task 16 smoke gate (reset via log link; verify UI absent), then PR to `main`.
 
-### Then — remaining plan tasks
-- Task 11: account setup (domain/Resend/secrets — shape depends on the decision)
-- Task 12: deploy backend (Worker + prod D1, migrations 0001–0012 — there is no 0013) and frontend (Pages; adapter-cloudflare already configured)
-- Task 13: seed prod via local ETL runs; register owner on live site; promote admin via `wrangler d1 execute backend-db --remote --command "UPDATE users SET role='admin' WHERE email='<you>'"`
-- Task 14: post-deploy smoke checklist (user gate) — must confirm the Worker rejects a direct `sign-up` carrying a `role` payload, and check whether fs.usda.gov alert scraping works from Cloudflare IPs (graceful failure exists if not)
-- Then: PR `feat/release-readiness` → `main`
+Resume: `/superpowers-extended-cc:executing-plans docs/superpowers/plans/2026-07-05-release-readiness.md` (or subagent-driven-development in-session).
 
 ### Deployment security notes
 - Teenybase register mass-assigns `role` (and `email_verified`, whose `noUpdate` we stripped) — mitigated entirely by the Worker guard; runtime is safe regardless (`requireAdmin` re-verifies server-side; the register proxy controls its outbound body).
