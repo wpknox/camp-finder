@@ -11,8 +11,8 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
   try {
     // Web-standard base64url decode — Buffer is unavailable on Cloudflare
     // Pages functions without the nodejs_compat flag.
-    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const b64 = parts[1].replaceAll("-", "+").replaceAll("_", "/");
+    const bytes = Uint8Array.from(atob(b64), (c) => c.codePointAt(0) ?? 0);
     const json = JSON.parse(new TextDecoder().decode(bytes));
     if (!json || typeof json.id !== "string" || typeof json.exp !== "number")
       return null;
