@@ -337,10 +337,12 @@ input[type="checkbox"]:focus-visible {
 
 /* iOS Safari auto-zooms the page when a focused input's font-size is under
    16px — and never zooms back out after the keyboard closes, leaving the
-   filter bar cropped. Serve all form fields at 16px on phones so the zoom
-   never triggers. !important is required to beat scoped component styles
-   (e.g. AuthModal's input { font-size: 0.95rem }). */
-@media (max-width: 640px) {
+   filter bar cropped. Serve all form fields at 16px on touch devices so the
+   zoom never triggers; (pointer: coarse) covers phones in any orientation
+   (landscape iPhones are wider than any width breakpoint). !important is
+   required to beat scoped component styles (e.g. AuthModal's
+   input { font-size: 0.95rem }). */
+@media (max-width: 640px), (pointer: coarse) {
   input,
   select,
   textarea {
