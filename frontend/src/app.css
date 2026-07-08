@@ -334,3 +334,16 @@ input[type="checkbox"]:focus-visible {
 .leaflet-control-attribution a {
   color: var(--pine);
 }
+
+/* iOS Safari auto-zooms the page when a focused input's font-size is under
+   16px — and never zooms back out after the keyboard closes, leaving the
+   filter bar cropped. Serve all form fields at 16px on phones so the zoom
+   never triggers. !important is required to beat scoped component styles
+   (e.g. AuthModal's input { font-size: 0.95rem }). */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
