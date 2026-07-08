@@ -114,9 +114,11 @@
 
 <style>
   .reset-page {
+    /* .app-shell is a flex row; without flex:1 this page shrinks to its
+       content width and sits at the left edge. */
+    flex: 1;
     display: grid;
     place-items: center;
-    min-height: 100dvh;
     background: var(--paper);
     padding: 1.5rem;
     box-sizing: border-box;
