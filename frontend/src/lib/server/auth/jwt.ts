@@ -9,9 +9,11 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
-    const json = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString("utf8"),
-    );
+    // Web-standard base64url decode — Buffer is unavailable on Cloudflare
+    // Pages functions without the nodejs_compat flag.
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const json = JSON.parse(new TextDecoder().decode(bytes));
     if (!json || typeof json.id !== "string" || typeof json.exp !== "number")
       return null;
     return { id: json.id, user: json.user, sub: json.sub, exp: json.exp };
