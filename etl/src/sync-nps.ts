@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { TbClient, buildRidbIndex } from "./teenybase.js";
 import { NpsClient, CO_NPS_PARKS, normalizeNpsCampground } from "./nps.js";
+import { canonicalName, findDuplicate } from "./dedupe.js";
 import type { NormalizedFacility } from "./types.js";
 
 const NPS_API_KEY = process.env.NPS_API_KEY!;
@@ -15,10 +16,6 @@ const tb = new TbClient(TB_API_URL, TB_SERVICE_TOKEN);
 
 type DedupeEntry = { id: string; ridb_id: string; name: string; lat: number; lng: number };
 type DedupeIndex = Map<string, DedupeEntry[]>;
-
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, " ").trim();
-}
 
 function fcfsLabel(f: NormalizedFacility): string {
   if (f.is_fully_fcfs) return "fully FCFS";
@@ -36,7 +33,7 @@ async function buildDedupeIndex(): Promise<{ byName: DedupeIndex; ridbIndex: Map
   const existing = await tb.listAllWithMerged();
   const byName: DedupeIndex = new Map();
   for (const r of existing) {
-    const key = normalizeName(r.name);
+    const key = canonicalName(r.name);
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key)!.push(r);
   }
@@ -54,10 +51,7 @@ function isNearMatch(
   lat: number,
   lng: number,
 ): string | null {
-  const candidates = byName.get(normalizeName(name)) ?? [];
-  const match = candidates.find(
-    (r) => Math.abs(r.lat - lat) < 0.01 && Math.abs(r.lng - lng) < 0.01,
-  );
+  const match = findDuplicate(byName, name, lat, lng);
   return match?.ridb_id ?? null;
 }
 
@@ -91,7 +85,7 @@ function classifyCampgrounds(
     // Add to the index so later records in this same batch dedupe against it.
     // Without this, the same campground listed under two park codes (e.g. East
     // Portal under both cure and blca) would be inserted twice.
-    const key = normalizeName(normalized.name);
+    const key = canonicalName(normalized.name);
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key)!.push({
       id: "",

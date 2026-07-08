@@ -10,6 +10,7 @@ import {
   parseDescriptionAmenities,
   scoreDataQuality,
 } from "./normalize.js";
+import { groupByCanonicalName, findDuplicate } from "./dedupe.js";
 import type { NormalizedFacility } from "./types.js";
 
 const TB_API_URL = process.env.TB_API_URL ?? "http://localhost:8787";
@@ -76,10 +77,6 @@ async function collectCampgroundUrls(slug: string): Promise<string[]> {
   return [...new Set(paths)];
 }
 
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
 async function main() {
   console.log(`Connecting to Teenybase at ${TB_API_URL}...`);
 
@@ -92,12 +89,7 @@ async function main() {
   const ridbRecords = allRecords.filter(
     (f) => !f.ridb_id.startsWith("fs-") && !f.ridb_id.startsWith("nps-"),
   );
-  const ridbByName = new Map<string, typeof ridbRecords>();
-  for (const r of ridbRecords) {
-    const key = normalizeName(r.name);
-    if (!ridbByName.has(key)) ridbByName.set(key, []);
-    ridbByName.get(key)!.push(r);
-  }
+  const ridbByName = groupByCanonicalName(ridbRecords);
   console.log(`  Loaded ${ridbRecords.length} RIDB records`);
 
   let totalDiscovered = 0;
@@ -137,9 +129,11 @@ async function main() {
 
       // If an RIDB record already covers this campground (matched by name + ~1km
       // proximity), enrich it with FS-derived data rather than creating a duplicate.
-      const candidates = ridbByName.get(normalizeName(campground.name)) ?? [];
-      const ridbMatch = candidates.find(
-        r => Math.abs(r.lat - campground.lat) < 0.01 && Math.abs(r.lng - campground.lng) < 0.01
+      const ridbMatch = findDuplicate(
+        ridbByName,
+        campground.name,
+        campground.lat,
+        campground.lng,
       );
       if (ridbMatch) {
         await tb.patchFacility(ridbMatch.id, {

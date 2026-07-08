@@ -1,6 +1,17 @@
 // etl/src/teenybase.ts
 import type { NormalizedFacility } from "./types.js";
 
+export interface UpsertOptions {
+  // Fields never sent when updating an existing row (inserts still get them).
+  // Used for fields the source can't actually observe (e.g. RIDB has no
+  // closure data, so its hardcoded is_closed:false must not clobber a
+  // scrape/admin-set closure).
+  omitOnUpdate?: Array<keyof NormalizedFacility>;
+  // Fields dropped from an update patch when null/empty, so a source that
+  // failed to derive a value doesn't wipe one another source already wrote.
+  omitEmptyOnUpdate?: Array<keyof NormalizedFacility>;
+}
+
 export class TbClient {
   constructor(
     private readonly baseUrl: string,
@@ -38,12 +49,22 @@ export class TbClient {
   private async upsertFacilityWithIndex(
     facility: NormalizedFacility,
     index: Map<string, string>,
+    opts?: UpsertOptions,
   ): Promise<void> {
     const existingId = index.get(facility.ridb_id);
     if (existingId) {
       // Never overwrite the survivor's ridb_id — a merged/absorbed ridb_id must
       // keep resolving to the surviving record's identity, not clobber it.
       const { ridb_id: _drop, ...patch } = facility;
+      for (const field of opts?.omitOnUpdate ?? []) {
+        delete (patch as Record<string, unknown>)[field];
+      }
+      for (const field of opts?.omitEmptyOnUpdate ?? []) {
+        const v = (patch as Record<string, unknown>)[field];
+        if (v === null || v === undefined || v === "") {
+          delete (patch as Record<string, unknown>)[field];
+        }
+      }
       await this.tbFetch(`/table/facilities/edit/${existingId}`, patch);
     } else {
       await this.tbFetch("/table/facilities/insert", { values: facility });
@@ -53,13 +74,14 @@ export class TbClient {
   async upsertFacilities(
     facilities: NormalizedFacility[],
     onProgress?: (i: number, total: number) => void,
+    opts?: UpsertOptions,
   ): Promise<void> {
     // Build the ridb_id -> row id index ONCE per run (rather than one lookup per
     // facility) so merges (merged_ridb_ids) are resolved consistently and cheaply.
     const rows = await this.listAllWithMerged();
     const index = buildRidbIndex(rows);
     for (let i = 0; i < facilities.length; i++) {
-      await this.upsertFacilityWithIndex(facilities[i], index);
+      await this.upsertFacilityWithIndex(facilities[i], index, opts);
       onProgress?.(i + 1, facilities.length);
     }
   }
