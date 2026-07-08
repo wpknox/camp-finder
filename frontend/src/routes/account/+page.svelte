@@ -71,18 +71,20 @@
       <span class="label">Status</span>
       {#if $currentUser?.email_verified}
         <span class="verified">Email verified ✓</span>
-      {:else if verifyState === "sent"}
-        <span class="verify-msg">Sent — check your inbox.</span>
-      {:else if verifyState === "error"}
-        <span class="verify-msg error">{verifyError}</span>
-      {:else}
-        <button
-          class="link resend"
-          onclick={resendVerification}
-          disabled={verifyState === "sending"}
-        >
-          {verifyState === "sending" ? "Sending…" : "Resend verification email"}
-        </button>
+      {:else if $currentUser?.email_enabled}
+        {#if verifyState === "sent"}
+          <span class="verify-msg">Sent — check your inbox.</span>
+        {:else if verifyState === "error"}
+          <span class="verify-msg error">{verifyError}</span>
+        {:else}
+          <button
+            class="link resend"
+            onclick={resendVerification}
+            disabled={verifyState === "sending"}
+          >
+            {verifyState === "sending" ? "Sending…" : "Resend verification email"}
+          </button>
+        {/if}
       {/if}
     </div>
   </section>

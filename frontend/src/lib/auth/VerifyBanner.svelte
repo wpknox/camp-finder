@@ -19,7 +19,10 @@
 
   let visible = $derived(
     !dismissed &&
-      (kind !== "nag" || ($currentUser != null && $currentUser.email_verified !== true)),
+      (kind !== "nag" ||
+        ($currentUser != null &&
+          $currentUser.email_verified !== true &&
+          $currentUser.email_enabled === true)),
   );
 
   function dismiss() {

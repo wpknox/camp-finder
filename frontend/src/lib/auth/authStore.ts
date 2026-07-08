@@ -7,6 +7,7 @@ export interface AuthUser {
   name?: string | null
   role?: string | null
   email_verified?: boolean
+  email_enabled?: boolean
 }
 
 function createAuthStore() {
