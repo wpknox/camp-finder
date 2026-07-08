@@ -1,0 +1,28 @@
+{
+  "name": "CampFinder",
+  "short_name": "CampFinder",
+  "description": "Find first-come, first-serve campgrounds in Colorado",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ece3cf",
+  "theme_color": "#44542f",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
