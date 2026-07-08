@@ -39,6 +39,13 @@ All prod secrets live in the owner's private worksheet (generated 2026-07-07, ne
 - **/reset page is left-aligned** instead of centered — cosmetic bug, unfixed.
 - fs.usda.gov rate-limits the scraper (HTTP 429); multi-pass `pnpm discover` with 10–15 min cooldowns converges.
 
+### Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)
+
+Users should additionally be able to suggest edits for:
+1. **Site counts** — total sites and FCFS site count (`fcfs_total`/`reservable_total`; note the derived `is_fully_fcfs`/`is_partial_fcfs` flags must be recomputed on approval).
+2. **Campground location** — coordinates. Typing lat/lng works, but drag/place a pin on a map would be much better; needs a richer edit UI than the current field-patch form (map picker in the suggest-edit modal).
+3. **Closed status** — whether the campground is closed (`is_closed`; drives the red marker).
+
 ## How to run locally
 
 ```bash
