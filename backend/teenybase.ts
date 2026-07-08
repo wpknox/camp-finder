@@ -12,6 +12,18 @@ import {
 } from "teenybase/scaffolds/fields";
 
 // Shared moderation-review fields for edit_suggestions / merge_suggestions.
+// authFields ships `email_verified` with `noUpdate: true`, which Teenybase's
+// $Table.onUpdateParse enforces unconditionally on the field object (see
+// node_modules/teenybase/dist/worker/$Table.js ~L401) — even for the service
+// token. We strip it so the SvelteKit verify route (service token) can flip
+// the flag. Tradeoff: a user's own JWT could also flip it via a direct
+// Worker call — acceptable because the prod Worker sits behind a
+// shared-secret guard (all direct calls blocked) and the flag is nag-only,
+// never a gate.
+const usersFields = [...baseFields, ...authFields].map((f) =>
+  f.name === "email_verified" ? { ...f, noUpdate: false } : f,
+);
+
 const moderationFields = [
   { name: "note", type: "text", sqlType: "text" },
   { name: "status", type: "select", sqlType: "text", notNull: true }, // pending | approved | rejected
@@ -42,7 +54,7 @@ export default {
       // Teenybase Worker itself is directly reachable and unprotected.
       // role must only ever be set directly in sqlite by an operator;
       // never trust or forward client-supplied `role` in any server route.
-      fields: [...baseFields, ...authFields],
+      fields: usersFields,
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
         {

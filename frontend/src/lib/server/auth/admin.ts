@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
-import { PUBLIC_TB_URL } from "$env/static/public";
 import { TB_SERVICE_TOKEN } from "$env/static/private";
+import { tbFetch } from "../tbFetch";
 
 export interface AdminUser {
   id: string;
@@ -15,8 +15,8 @@ export interface AdminUser {
  */
 async function fetchUserRecord(userId: string): Promise<AdminUser | null> {
   try {
-    const res = await fetch(
-      `${PUBLIC_TB_URL}/api/v1/table/users/view/${userId}`,
+    const res = await tbFetch(
+      `/api/v1/table/users/view/${userId}`,
       { headers: { Authorization: `Bearer ${TB_SERVICE_TOKEN}` } },
     );
     if (!res.ok) return null;

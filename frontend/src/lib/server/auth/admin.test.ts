@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("$env/static/public", () => ({ PUBLIC_TB_URL: "http://tb.test" }));
 vi.mock("$env/static/private", () => ({ TB_SERVICE_TOKEN: "test-token" }));
+vi.mock("$env/dynamic/private", () => ({ env: {} }));
 
 import { requireAdmin } from "./admin";
 
@@ -44,7 +45,7 @@ describe("requireAdmin", () => {
     // Verify the lookup hits users/view with the service token.
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("/api/v1/table/users/view/u1");
-    expect((init.headers as Record<string, string>).Authorization).toMatch(
+    expect(new Headers(init.headers).get("Authorization")).toMatch(
       /^Bearer /,
     );
   });

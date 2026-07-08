@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { PUBLIC_TB_URL } from '$env/static/public'
+import { tbFetch } from '$lib/server/tbFetch'
 import { TB_SERVICE_TOKEN } from '$env/static/private'
 import { suggestionLimiter } from '$lib/server/auth/limiters'
 import type { EditChanges } from '$lib/types'
 
-const TB = `${PUBLIC_TB_URL}/api/v1/table/edit_suggestions`
+const TB = `/api/v1/table/edit_suggestions`
 // Deliberately uses TB_SERVICE_TOKEN: edit_suggestions has ALL Teenybase rules set to
 // 'false', so the service token is the only way in. Unlike sibling routes (api/saved,
 // api/ratings) which use the user's own JWT — don't "fix" this to the per-request
@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ locals, request, getClientAddress }
   const badKey = Object.keys(changes).find((k) => !ALLOWED_KEYS.has(k))
   if (badKey) return json({ error: `Unknown field: ${badKey}` }, { status: 400 })
 
-  const res = await fetch(`${TB}/insert`, {
+  const res = await tbFetch(`${TB}/insert`, {
     method: 'POST',
     headers,
     body: JSON.stringify({

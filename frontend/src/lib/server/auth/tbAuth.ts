@@ -1,6 +1,6 @@
-import { PUBLIC_TB_URL } from "$env/static/public";
+import { tbFetch } from "../tbFetch";
 
-const AUTH = `${PUBLIC_TB_URL}/api/v1/table/users/auth`;
+const AUTH = `/api/v1/table/users/auth`;
 
 export interface TbAuthResult {
   token: string;
@@ -17,7 +17,7 @@ async function call(
     "Content-Type": "application/json",
   };
   if (bearer) headers.Authorization = `Bearer ${bearer}`;
-  return fetch(`${AUTH}/${path}`, {
+  return tbFetch(`${AUTH}/${path}`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -69,8 +69,8 @@ export async function tbGetName(
   userId: string,
 ): Promise<string | null> {
   try {
-    const res = await fetch(
-      `${PUBLIC_TB_URL}/api/v1/table/users/view/${userId}`,
+    const res = await tbFetch(
+      `/api/v1/table/users/view/${userId}`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!res.ok) return null;

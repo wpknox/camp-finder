@@ -1,9 +1,9 @@
 import { json } from "@sveltejs/kit";
-import { PUBLIC_TB_URL } from "$env/static/public";
+import { tbFetch } from "$lib/server/tbFetch";
 import { ACCESS_COOKIE } from "$lib/server/auth/session";
 import type { RequestHandler } from "./$types";
 
-const TB = `${PUBLIC_TB_URL}/api/v1/table/ratings`;
+const TB = `/api/v1/table/ratings`;
 
 interface RatingRow {
   id: string;
@@ -15,7 +15,7 @@ interface RatingRow {
 }
 
 async function listForFacility(facilityId: string): Promise<RatingRow[]> {
-  const res = await fetch(`${TB}/list`, {
+  const res = await tbFetch(`${TB}/list`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -66,12 +66,12 @@ export const POST: RequestHandler = async ({
   };
 
   const res = existing
-    ? await fetch(`${TB}/edit/${existing.id}`, {
+    ? await tbFetch(`${TB}/edit/${existing.id}`, {
         method: "POST",
         headers,
         body: JSON.stringify(values),
       })
-    : await fetch(`${TB}/insert`, {
+    : await tbFetch(`${TB}/insert`, {
         method: "POST",
         headers,
         body: JSON.stringify({ values }),
@@ -89,7 +89,7 @@ export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
     (r) => r.user_id === locals.user!.id,
   );
   if (!mine) return json({ ok: true });
-  const res = await fetch(`${TB}/delete`, {
+  const res = await tbFetch(`${TB}/delete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

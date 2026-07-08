@@ -1,22 +1,25 @@
 <script lang="ts">
   import { auth } from "./authStore";
+  import { portal } from "$lib/ui/portal";
 
   let { onclose, onsuccess }: { onclose?: () => void; onsuccess?: () => void } = $props();
 
   // Mirror of the server-side email rule ($lib/server/auth/validate.ts).
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  let mode = $state<"login" | "register">("login");
+  let mode = $state<"login" | "register" | "forgot">("login");
   let email = $state("");
   let name = $state("");
   let password = $state("");
   let passwordConfirm = $state("");
+  let inviteCode = $state("");
   let error = $state("");
   let submitting = $state(false);
+  let resetSent = $state(false);
 
   // A field's inline error only shows once the user has left it (blur) or tried
   // to submit — so we don't yell at someone mid-typing their first character.
-  let touched = $state({ email: false, name: false, password: false, passwordConfirm: false });
+  let touched = $state({ email: false, name: false, password: false, passwordConfirm: false, inviteCode: false });
 
   function touch(field: keyof typeof touched) {
     touched = { ...touched, [field]: true };
@@ -34,21 +37,40 @@
   const passwordConfirmError = $derived(
     mode === "register" && passwordConfirm !== password ? "Passwords do not match." : "",
   );
+  const inviteCodeError = $derived(
+    mode === "register" && !inviteCode.trim() ? "Invite code is required." : "",
+  );
 
   const formValid = $derived(
-    !emailError && !nameError && !passwordError && !passwordConfirmError,
+    mode === "forgot"
+      ? !emailError
+      : !emailError && !nameError && !passwordError && !passwordConfirmError && !inviteCodeError,
   );
 
   async function submit() {
     error = "";
+
+    if (mode === "forgot") {
+      touched = { ...touched, email: true };
+      if (!formValid) return;
+      submitting = true;
+      try {
+        await auth.requestReset(email);
+      } finally {
+        submitting = false;
+        resetSent = true;
+      }
+      return;
+    }
+
     // Surface every field's error at once on a submit attempt.
-    touched = { email: true, name: true, password: true, passwordConfirm: true };
+    touched = { email: true, name: true, password: true, passwordConfirm: true, inviteCode: true };
     if (!formValid) return;
 
     submitting = true;
     try {
       if (mode === "login") await auth.login(email, password);
-      else await auth.register(email, name, password, passwordConfirm);
+      else await auth.register(email, name, password, passwordConfirm, inviteCode);
       onsuccess?.();
       onclose?.();
     } catch (e: any) {
@@ -61,20 +83,68 @@
   function switchMode() {
     mode = mode === "login" ? "register" : "login";
     error = "";
-    touched = { email: false, name: false, password: false, passwordConfirm: false };
+    touched = { email: false, name: false, password: false, passwordConfirm: false, inviteCode: false };
+  }
+
+  function goToForgot() {
+    mode = "forgot";
+    error = "";
+    resetSent = false;
+    touched = { ...touched, name: false, password: false, passwordConfirm: false, inviteCode: false };
+  }
+
+  function backToSignIn() {
+    mode = "login";
+    error = "";
+    resetSent = false;
+    touched = { ...touched, email: false };
   }
 </script>
 
 <div
   class="overlay"
   role="presentation"
+  use:portal
   onclick={(e) => { if (e.target === e.currentTarget) onclose?.(); }}
   onkeydown={(e) => { if (e.key === 'Escape') onclose?.(); }}
 >
-  <div class="modal" role="dialog" aria-modal="true" aria-label={mode === 'login' ? 'Sign in' : 'Create account'}>
-    <span class="eyebrow">{mode === "login" ? "Welcome back" : "Join the trail"}</span>
-    <h2>{mode === "login" ? "Sign in" : "Create account"}</h2>
+  <div class="modal" role="dialog" aria-modal="true" aria-label={mode === 'login' ? 'Sign in' : mode === 'register' ? 'Create account' : 'Reset password'}>
+    <span class="eyebrow">{mode === "login" ? "Welcome back" : mode === "register" ? "Join the trail" : "Lost the trail?"}</span>
+    <h2>{mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Reset password"}</h2>
 
+    {#if mode === "forgot"}
+      {#if resetSent}
+        <p class="reset-confirm">If that address has an account, a reset link is on its way.</p>
+        <button class="toggle" type="button" onclick={backToSignIn}>
+          <span class="toggle-action">Back to sign in</span>
+        </button>
+      {:else}
+        <!-- A real form so pressing Enter in the field submits. -->
+        <form class="auth-form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+        <div class="field">
+          <input
+            type="email"
+            bind:value={email}
+            onblur={() => touch("email")}
+            placeholder="Email"
+            autocomplete="email"
+            class:invalid={touched.email && emailError}
+            aria-invalid={touched.email && !!emailError}
+          />
+          {#if touched.email && emailError}<p class="field-error">{emailError}</p>{/if}
+        </div>
+
+        <button class="primary" type="submit" disabled={submitting}>
+          {#if submitting}<span class="spinner" aria-hidden="true"></span>{/if}
+          {submitting ? "Please wait…" : "Send reset link"}
+        </button>
+        </form>
+
+        <button class="toggle" type="button" onclick={backToSignIn}>
+          <span class="toggle-action">Back to sign in</span>
+        </button>
+      {/if}
+    {:else}
     <!-- A real form so pressing Enter in any field submits. -->
     <form class="auth-form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
     <div class="field">
@@ -122,6 +192,12 @@
       {/if}
     </div>
 
+    {#if mode === "login"}
+      <button class="toggle forgot-link" type="button" onclick={goToForgot}>
+        <span class="toggle-action">Forgot password?</span>
+      </button>
+    {/if}
+
     {#if mode === "register"}
       <div class="field">
         <input
@@ -134,6 +210,19 @@
           aria-invalid={touched.passwordConfirm && !!passwordConfirmError}
         />
         {#if touched.passwordConfirm && passwordConfirmError}<p class="field-error">{passwordConfirmError}</p>{/if}
+      </div>
+
+      <div class="field">
+        <input
+          type="text"
+          bind:value={inviteCode}
+          onblur={() => touch("inviteCode")}
+          placeholder="Invite code"
+          autocomplete="off"
+          class:invalid={touched.inviteCode && inviteCodeError}
+          aria-invalid={touched.inviteCode && !!inviteCodeError}
+        />
+        {#if touched.inviteCode && inviteCodeError}<p class="field-error">{inviteCodeError}</p>{/if}
       </div>
     {/if}
 
@@ -149,6 +238,7 @@
       {mode === "login" ? "Need an account?" : "Already have an account?"}
       <span class="toggle-action">{mode === "login" ? "Register" : "Sign in"}</span>
     </button>
+    {/if}
   </div>
 </div>
 
@@ -203,5 +293,7 @@
   .toggle { background: none; border: none; color: var(--ink-soft); font-weight: 400; font-size: 0.875rem; padding: 0; cursor: pointer; align-self: flex-start; }
   .toggle-action { color: var(--pine); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
   .toggle:hover .toggle-action { color: var(--pine-deep); }
+  .forgot-link { align-self: flex-end; margin-top: -0.4rem; }
   .error { color: var(--rust); font-size: 0.85rem; margin: 0; }
+  .reset-confirm { color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5; margin: 0 0 0.2rem; }
 </style>

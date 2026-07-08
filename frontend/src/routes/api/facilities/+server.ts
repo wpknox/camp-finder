@@ -1,5 +1,5 @@
 import { json } from "@sveltejs/kit";
-import { PUBLIC_TB_URL } from "$env/static/public";
+import { tbFetch } from "$lib/server/tbFetch";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
   // Teenybase WHERE parser doesn't support compound expressions, so fetch all
   // and filter by bbox here. Fine at this scale (CO NF campgrounds = small set).
-  const res = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/list`, {
+  const res = await tbFetch(`/api/v1/table/facilities/list`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ limit: 2000 }),

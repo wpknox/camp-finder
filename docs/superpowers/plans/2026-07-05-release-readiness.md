@@ -2,18 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers-extended-cc:subagent-driven-development (recommended) or superpowers-extended-cc:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship CampFinder to production on Cloudflare for the owner + friends: password reset + email verification via Resend, invite-gated registration, Access-token-locked Teenybase Worker, full deploy + seed.
+**Goal:** Ship CampFinder to production on Cloudflare's free tier (`*.workers.dev` + `*.pages.dev`) for the owner + friends: password reset (links via server logs — no email provider), invite-gated registration, header-guarded Teenybase Worker, full deploy + seed.
 
-**Architecture:** Stateless HMAC tokens (Web Crypto, no token table — `users.email_verified` already exists in the auth scaffold, so **zero schema changes**). All email/auth work happens in SvelteKit server routes using the service token. A single `tbFetch` wrapper adds Cloudflare Access service-token headers in prod. Deployment interleaves user dashboard actions with agent CLI work.
+**Architecture:** Stateless HMAC tokens (Web Crypto, no token table — `users.email_verified` already exists in the auth scaffold, so **zero schema changes**). All email/auth work happens in SvelteKit server routes using the service token. A single `tbFetch` wrapper adds the `X-TB-Key` shared-secret header in prod; the Worker rejects requests without it. Deployment interleaves user dashboard actions with agent CLI work.
 
-**Tech Stack:** SvelteKit (Svelte 5 runes only), Teenybase (Workers + D1), Resend REST API (plain fetch), Cloudflare Pages/Workers/Zero Trust, Vitest.
+**Tech Stack:** SvelteKit (Svelte 5 runes only), Teenybase (Workers + D1), Cloudflare Pages/Workers, Vitest.
 
 **User decisions (already made):**
-- Buy the cheapest available campfinder-adjacent domain (Cloudflare Registrar).
-- Worker lockdown = Cloudflare Access service tokens.
+- ~~Buy the cheapest available campfinder-adjacent domain (Cloudflare Registrar).~~ **Superseded 2026-07-07:** no domain — free hosting on `*.workers.dev` / `*.pages.dev` ($0/mo).
+- ~~Worker lockdown = Cloudflare Access service tokens.~~ **Superseded 2026-07-07:** lockdown = `X-TB-Key` shared-secret guard in `backend/src/index.ts` (`tbFetch` + ETL already send the header when `TB_SHARED_SECRET` is set).
+- **2026-07-07:** No Resend — `RESEND_API_KEY` stays unset in prod. Reset/verify links are console-logged (readable via `wrangler pages deployment tail`); the admin relays them. Email-dependent UI (verify-nag banner, resend buttons) is hidden when email is unconfigured; the forgot-password flow stays.
 - One shared invite code (env var).
 - Email verification is nag-only; blocks nothing.
-- Model tiers: haiku for mechanical tasks, sonnet standard, opus only if very complex (none currently qualify; deployment tasks run in-session with the orchestrator + user, not subagents).
+- Model tiers: haiku for mechanical tasks, sonnet standard, opus only if very complex. Tasks 11–12 (re-cut) are standard subagent tasks; Tasks 13–16 run in-session with the orchestrator + user.
 
 **Standing rules:** `cd frontend && pnpm check` must report 0 errors / 0 warnings before EVERY commit. `pnpm test` (frontend and/or etl, wherever tests exist for touched code) must pass. Svelte 5 runes only — no `export let`, no `$:`, no `on:click`, no `<slot>`. JSON fields stringified on write to Teenybase. NO compound WHERE (`&&`/`AND`/`||`) in Teenybase queries — single condition + JS filtering.
 
@@ -953,91 +954,314 @@ export function tbFetch(path: string, init: RequestInit = {}): Promise<Response>
 
 ---
 
-## Task 11: Cloudflare account setup — domain, Resend, Zero Trust (USER + orchestrator)
+## Task 11: Worker header guard (`X-TB-Key`) — prod lockdown without a domain
 
-**Goal:** All dashboard-side prerequisites exist: domain purchased, Resend sending domain verified, Access application + two service tokens protecting the future `tb.<domain>`.
+> **Re-cut 2026-07-07:** replaces the old "Cloudflare account setup — domain, Resend, Zero Trust" task. Decision: no domain, no Resend, no Cloudflare Access — free `*.workers.dev` + `*.pages.dev` hosting with a shared-secret header guard.
 
-**Executor:** User performs dashboard actions; orchestrator supplies exact instructions, checks results (`dig`, `curl`), and records values (never secrets in git).
-
-**Files:** none in repo (secrets land in local env files + a private note of what exists).
-
-**Acceptance Criteria:**
-- [ ] Domain purchased on Cloudflare Registrar from an availability-checked shortlist of cheap campfinder-adjacent names (orchestrator produces the shortlist first).
-- [ ] Resend: domain added + DNS records (SPF/DKIM) created in Cloudflare DNS and verified in the Resend dashboard; `RESEND_API_KEY` created.
-- [ ] Zero Trust: Access application for `tb.<domain>` (path `/*`) with a service-auth policy; two service tokens created ("frontend", "etl"); client id/secret pairs captured into the env-var worksheet below.
-- [ ] Env-var worksheet complete (values held by user, names recorded):
-  - Pages: `TB_URL=https://tb.<domain>`, `TB_SERVICE_TOKEN`, `AUTH_TOKEN_SECRET` (fresh 32+ chars), `INVITE_CODE`, `RESEND_API_KEY`, `EMAIL_FROM=CampFinder <noreply@<domain>>`, `TB_ACCESS_CLIENT_ID`, `TB_ACCESS_CLIENT_SECRET`, `PUBLIC_TB_URL=https://tb.<domain>` (legacy fallback)
-  - Backend `.prod.vars`: fresh `JWT_SECRET`, `JWT_SECRET_USERS`, `ADMIN_SERVICE_TOKEN` (= Pages `TB_SERVICE_TOKEN`), `APP_URL=https://<domain>`, Pocket UI passwords
-  - `etl/.env` (prod runs): `TB_API_URL=https://tb.<domain>`, `TB_SERVICE_TOKEN`, `TB_ACCESS_CLIENT_ID/SECRET` (etl token)
-
-**Verify:** Resend dashboard shows the domain "Verified"; Zero Trust shows the app + 2 tokens; `dig +short <domain>` resolves to Cloudflare.
-
-**Steps:**
-- [ ] **Step 1:** Orchestrator: shortlist 5–8 available cheap domains (check via registrar search with the user), user buys one.
-- [ ] **Step 2:** User adds domain to Resend; orchestrator provides the DNS records to add; wait for "Verified".
-- [ ] **Step 3:** User creates the Access app + service tokens per criteria; fill in the worksheet together.
-
-```json:metadata
-{"files": [], "verifyCommand": "dig +short <domain>; Resend + Zero Trust dashboard states confirmed", "acceptanceCriteria": ["domain purchased", "Resend domain verified + API key", "Access app + 2 service tokens", "env worksheet complete"], "modelTier": "orchestrator"}
-```
-
----
-
-## Task 12: Deploy backend + frontend to Cloudflare (orchestrator + user)
-
-**Goal:** Teenybase Worker live at `tb.<domain>` behind Access with prod D1 migrated; SvelteKit app live on Pages at `<domain>`.
-
-**Executor:** Orchestrator drives `wrangler`/`pnpm` from the terminal (user has run `wrangler login`); user handles any dashboard-only steps. Expect Teenybase pre-alpha friction — debug rather than improvise architecture changes.
+**Goal:** `backend/src/index.ts` rejects every request whose `X-TB-Key` header doesn't match the `TB_SHARED_SECRET` env var — active only when the secret is set (prod), zero behavior change when unset (local dev).
 
 **Files:**
-- Modify: `backend/wrangler.jsonc` (prod D1 binding id + route `tb.<domain>`), possibly `backend/.prod.vars`.
+- Modify: `backend/src/index.ts`
+
+**Why this works with zero other changes (verified):** `frontend/src/lib/server/tbFetch.ts:10-12` and `etl/src/teenybase.ts:15-16` already send `X-TB-Key: $TB_SHARED_SECRET` whenever that env var is set. No browser code ever calls the Worker directly — every call is proxied through SvelteKit server routes.
 
 **Acceptance Criteria:**
-- [ ] `cd backend && pnpm deploy` (or the Teenybase-documented equivalent) succeeds; Worker bound to a **production** D1 database and routed at `tb.<domain>`.
-- [ ] All migrations applied to prod D1: `wrangler d1 migrations list backend-db --remote` shows none pending (0001–0012; there is no 0013 — `email_verified` ships in the scaffold). Verify `saved_campgrounds` unique index + `merge_suggestions` SET NULL FKs exist remotely.
-- [ ] `curl https://tb.<domain>/api/v1/table/facilities/list -X POST -d '{"limit":1}'` **without** Access headers → Access 403 block page, NOT a Teenybase response. Same request **with** the etl service-token headers → 200 JSON.
-- [ ] Pages project created from the repo (`frontend/`, adapter-cloudflare already configured), all worksheet env vars set, custom domain `<domain>` attached, site loads over HTTPS.
+- [ ] `TB_SHARED_SECRET` unset → behavior identical to today (curl `POST /api/v1/table/facilities/list` without any header → 200).
+- [ ] `TB_SHARED_SECRET` set → request without the header, or with a wrong value → 403 JSON `{"error":"Forbidden"}`; correct header → 200. Applies to ALL paths, including `/api/v1/table/users/auth/sign-up` and `/api/v1/pocket/` (Pocket UI being locked in prod is intended; prod admin access is `wrangler d1 execute`).
+- [ ] Frontend works locally end-to-end with the secret set on both sides (map search + login), proving `tbFetch` sends the header.
+- [ ] Dev env files restored afterward (secret removed from `backend/.dev.vars` and `frontend/.env` — local stays unguarded).
+- [ ] `cd frontend && pnpm check` 0/0 (nothing frontend changed, but run it anyway per standing rules).
 
-**Verify:** The two curls above (blocked vs allowed) + `https://<domain>` renders the map with tiles.
+**Verify:** curl triple below (no-secret 200 → guarded 403 → header 200) with output captured.
 
 **Steps:**
-- [ ] **Step 1:** Create prod D1 (`wrangler d1 create backend-db-prod` or reuse name per Teenybase docs), update `wrangler.jsonc` bindings, deploy Worker, attach the `tb.<domain>` route.
-- [ ] **Step 2:** Run migrations against prod (`pnpm migrate` with the remote/prod flag Teenybase supports, else `wrangler d1 migrations apply backend-db --remote`).
-- [ ] **Step 3:** Confirm Access is enforcing (curl pair above) BEFORE seeding any data.
-- [ ] **Step 4:** Create the Pages project, set env vars, attach domain, deploy, load the site.
+
+- [ ] **Step 1: Implement the guard** — rewrite `backend/src/index.ts` to:
+
+```ts
+import {
+  $Database,
+  $Env,
+  OpenApiExtension,
+  PocketUIExtension,
+  D1Adapter,
+  teenyHono,
+} from "teenybase/worker";
+import config from "virtual:teenybase";
+
+type Env = $Env & { Bindings: CloudflareBindings };
+type Bindings = CloudflareBindings & { TB_SHARED_SECRET?: string };
+
+const app = teenyHono<Env>(async (c) => {
+  const db = new $Database(c, config, new D1Adapter(c.env.PRIMARY_DB));
+  db.extensions.push(new OpenApiExtension(db, true), new PocketUIExtension(db));
+  return db;
+});
+
+// Constant-time comparison (length still leaks; fine for a shared-secret header).
+function keyMatches(provided: string | null, expected: string): boolean {
+  if (provided === null || provided.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+// When TB_SHARED_SECRET is set (prod), every request must carry a matching
+// X-TB-Key header. tbFetch (frontend server routes) and the ETL client already
+// send it. Unset (local dev) => guard is inert.
+export default {
+  fetch(request: Request, env: Bindings, ctx: ExecutionContext): Response | Promise<Response> {
+    const secret = env.TB_SHARED_SECRET;
+    if (secret && !keyMatches(request.headers.get("X-TB-Key"), secret)) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return app.fetch(request, env, ctx);
+  },
+};
+```
+
+(Wrapping `app.fetch` instead of `app.use()` middleware is deliberate: `teenyHono` registers its routes internally, so Hono middleware ordering can't be trusted; the export-level wrapper runs unconditionally before anything Teenybase does.)
+
+- [ ] **Step 2: Baseline check (guard inert).** With `cd backend && pnpm dev` running and NO `TB_SHARED_SECRET` in `.dev.vars`:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8787/api/v1/table/facilities/list \
+  -H 'Content-Type: application/json' -d '{"limit":1}'
+```
+
+Expected: `200`.
+
+- [ ] **Step 3: Guarded check.** Add `TB_SHARED_SECRET=devguardtest123` to `backend/.dev.vars`, restart the backend dev server, then:
+
+```bash
+# no header -> 403
+curl -s -w '\n%{http_code}\n' -X POST http://localhost:8787/api/v1/table/facilities/list \
+  -H 'Content-Type: application/json' -d '{"limit":1}'
+# wrong header -> 403
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8787/api/v1/table/facilities/list \
+  -H 'X-TB-Key: wrong' -H 'Content-Type: application/json' -d '{"limit":1}'
+# correct header -> 200
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8787/api/v1/table/facilities/list \
+  -H 'X-TB-Key: devguardtest123' -H 'Content-Type: application/json' -d '{"limit":1}'
+```
+
+Expected: `{"error":"Forbidden"}` + `403`, then `403`, then `200`.
+
+- [ ] **Step 4: Frontend passthrough check.** Add `TB_SHARED_SECRET=devguardtest123` to `frontend/.env`, restart the frontend dev server, hit `curl "http://localhost:5173/api/facilities?north=41&south=38&east=-104&west=-107"` → 200 with facilities JSON (proves tbFetch injects the header).
+
+- [ ] **Step 5: Restore dev state.** Remove `TB_SHARED_SECRET` from BOTH `backend/.dev.vars` and `frontend/.env`; restart both servers; re-run Step 2 curl → 200.
+
+- [ ] **Step 6:** `cd frontend && pnpm check` → 0/0. Commit:
+
+```bash
+git add backend/src/index.ts
+git commit -m "feat(backend): X-TB-Key shared-secret guard for prod lockdown"
+```
 
 ```json:metadata
-{"files": ["backend/wrangler.jsonc"], "verifyCommand": "curl tb.<domain> without headers -> Access 403; with etl token -> 200; https://<domain> loads", "acceptanceCriteria": ["worker deployed + routed", "prod migrations applied", "Access enforced before data exists", "Pages live with env vars + domain"], "modelTier": "orchestrator"}
+{"files": ["backend/src/index.ts"], "verifyCommand": "curl triple: unset->200, guarded no/wrong header->403, correct header->200; frontend proxy 200 with secret set both sides", "acceptanceCriteria": ["guard inert when TB_SHARED_SECRET unset", "403 on missing/wrong X-TB-Key for all paths incl. sign-up and pocket UI", "200 with correct header", "frontend works via tbFetch with secret set", "dev env files restored"], "modelTier": "standard"}
 ```
 
 ---
 
-## Task 13: Seed production data + promote admin (orchestrator)
+## Task 12: Hide email-dependent UI when email sending is unconfigured
 
-**Goal:** Prod D1 holds the ~592 facilities; the owner's account exists and is admin.
+> **Re-cut 2026-07-07 (new task):** prod ships without `RESEND_API_KEY`, so the verify-nag banner and resend buttons would nag forever about emails that can never arrive. Hide them when email is off. The forgot-password flow STAYS — its links are console-logged and readable via `wrangler pages deployment tail`, so it still works with the admin as mail carrier.
+
+**Goal:** `/api/auth/me` exposes `email_enabled` (= `RESEND_API_KEY` is set); `VerifyBanner` and the account page's resend UI render only when it's `true`.
+
+**Files:**
+- Modify: `frontend/src/routes/api/auth/me/+server.ts`
+- Modify: `frontend/src/lib/auth/authStore.ts` (AuthUser type)
+- Modify: `frontend/src/lib/auth/VerifyBanner.svelte`
+- Modify: `frontend/src/routes/account/+page.svelte`
+
+**Acceptance Criteria:**
+- [ ] `/api/auth/me` (signed in) includes `email_enabled: boolean` reflecting `env.RESEND_API_KEY` presence.
+- [ ] Email disabled (local default): signed-in unverified user sees NO nag banner; account page shows no resend button (but still shows "Email verified ✓" when verified).
+- [ ] Email "enabled" (set `RESEND_API_KEY=dummy` in `frontend/.env`, restart): banner and resend button reappear for an unverified user.
+- [ ] `/?verified=1` and `/?verified=0` redirect notices still render regardless (verify links from logs remain usable).
+- [ ] Svelte 5 runes only; `pnpm check` 0/0; `pnpm test` green.
+
+**Verify:** `cd frontend && pnpm check && pnpm test` → clean; manual banner/account checks in both env states.
+
+**Steps:**
+
+- [ ] **Step 1: me route** — `frontend/src/routes/api/auth/me/+server.ts`:
+
+```ts
+import { json } from '@sveltejs/kit'
+import { env } from '$env/dynamic/private'
+import { getRoleForDisplay } from '$lib/server/auth/admin'
+import { getUserById } from '$lib/server/auth/users'
+import type { RequestHandler } from './$types'
+
+export const GET: RequestHandler = async ({ locals }) => {
+  if (!locals.user) return json({ user: null })
+
+  const [role, record] = await Promise.all([
+    getRoleForDisplay(locals),
+    getUserById(locals.user.id).catch(() => null),
+  ])
+  const email_verified = record?.email_verified === true || record?.email_verified === 1
+  // Mirrors the sendEmail() console-fallback condition in $lib/server/email.ts.
+  const email_enabled = !!env.RESEND_API_KEY
+  return json({ user: { ...locals.user, role, email_verified, email_enabled } })
+}
+```
+
+- [ ] **Step 2: Sweep for sibling user-shape producers.** Run `grep -rn "email_verified" frontend/src --include='*.ts' --include='*.svelte' | grep -v '.test.'`. If any OTHER server-side code builds the client user object (e.g. a `+layout.server.ts` load), add the same `email_enabled` field there. If only the me route and consumers show up, move on.
+
+- [ ] **Step 3: AuthUser type** — in `frontend/src/lib/auth/authStore.ts` add to the interface:
+
+```ts
+  email_enabled?: boolean
+```
+
+- [ ] **Step 4: VerifyBanner** — in `frontend/src/lib/auth/VerifyBanner.svelte`, change only the `visible` derived (the nag now also requires email to be enabled; `?verified=1|0` link-redirect notices are unaffected):
+
+```ts
+  let visible = $derived(
+    !dismissed &&
+      (kind !== "nag" ||
+        ($currentUser != null &&
+          $currentUser.email_verified !== true &&
+          $currentUser.email_enabled === true)),
+  );
+```
+
+(`email_enabled === true` is deliberately strict: while the store hydrates and the field is `undefined`, the banner stays hidden — no flash.)
+
+- [ ] **Step 5: Account page** — in `frontend/src/routes/account/+page.svelte`, gate the unverified branch (currently `{#if $currentUser?.email_verified} … {:else if verifyState === "sent"} …`) so everything after the verified badge only renders when email is enabled:
+
+```svelte
+      {#if $currentUser?.email_verified}
+        <span class="verified">Email verified ✓</span>
+      {:else if $currentUser?.email_enabled}
+        {#if verifyState === "sent"}
+          <span class="verify-msg">Sent — check your inbox.</span>
+        {:else if verifyState === "error"}
+          <span class="verify-msg error">{verifyError}</span>
+        {:else}
+          <button
+            class="link resend"
+            onclick={resendVerification}
+            disabled={verifyState === "sending"}
+          >
+            {verifyState === "sending" ? "Sending…" : "Resend verification email"}
+          </button>
+        {/if}
+      {/if}
+```
+
+(Match the file's actual current markup when editing — read it first; the shape above reflects lines ~72-85 today.)
+
+- [ ] **Step 6: Manual pass.** Default env (no `RESEND_API_KEY`): sign in as an unverified user → no banner, account page has no resend UI. Then add `RESEND_API_KEY=dummy` to `frontend/.env`, restart, refresh → banner + resend button back. Remove the dummy key afterward.
+
+- [ ] **Step 7:** If a me-route test exists that snapshots the response shape, update its env mock (`vi.mock('$env/dynamic/private', …)`) and expectations. `pnpm check && pnpm test` → clean. Commit:
+
+```bash
+git add -A frontend/src
+git commit -m "feat(auth-ui): hide verification UI when email sending unconfigured"
+```
+
+```json:metadata
+{"files": ["frontend/src/routes/api/auth/me/+server.ts", "frontend/src/lib/auth/authStore.ts", "frontend/src/lib/auth/VerifyBanner.svelte", "frontend/src/routes/account/+page.svelte"], "verifyCommand": "cd frontend && pnpm check && pnpm test", "acceptanceCriteria": ["me includes email_enabled", "banner + account resend hidden when email off", "reappear with RESEND_API_KEY set", "?verified notices unaffected", "runes only, check 0/0, tests green"], "modelTier": "standard"}
+```
+
+---
+
+## Task 13: Prod secrets worksheet + wrangler auth (USER + orchestrator)
+
+> **Re-cut 2026-07-07:** replaces domain purchase / Resend verification / Zero Trust setup. Nothing to buy, no dashboards beyond Cloudflare itself.
+
+**Goal:** All prod secret values generated and recorded locally (never in git); `wrangler` authenticated against the user's Cloudflare account.
+
+**Executor:** Orchestrator + user in-session (not a subagent).
+
+**Files:** none in repo (values live in local env files + a private worksheet).
+
+**Acceptance Criteria:**
+- [ ] `wrangler whoami` succeeds (user runs `wrangler login` if not).
+- [ ] Fresh secrets generated (`openssl rand -base64 32` each): `TB_SHARED_SECRET`, `AUTH_TOKEN_SECRET`, `JWT_SECRET`, `ADMIN_SERVICE_TOKEN` (= Pages `TB_SERVICE_TOKEN`), plus a new memorable `INVITE_CODE` (not `letmecamp`) and Pocket UI passwords.
+- [ ] Env-var worksheet complete (names recorded, values held by user):
+  - **Pages project env:** `TB_URL=https://backend.<subdomain>.workers.dev`, `PUBLIC_TB_URL` (same value), `TB_SERVICE_TOKEN`, `TB_SHARED_SECRET`, `AUTH_TOKEN_SECRET`, `INVITE_CODE`. **Deliberately UNSET:** `RESEND_API_KEY`, `EMAIL_FROM`, `TB_ACCESS_CLIENT_ID/SECRET` (email stays console-logged; no Access).
+  - **Worker secrets** (`backend/.prod.vars` / `wrangler secret put`): `JWT_SECRET`, `ADMIN_SERVICE_TOKEN`, `TB_SHARED_SECRET`, `APP_URL=https://<pages-project>.pages.dev`, `POCKET_UI_*_PASSWORD`s.
+  - **`etl/.env` (prod runs):** `TB_API_URL=https://backend.<subdomain>.workers.dev`, `TB_SERVICE_TOKEN`, `TB_SHARED_SECRET`.
+
+**Verify:** `wrangler whoami` output captured; worksheet reviewed together with every name filled.
+
+**Steps:**
+- [ ] **Step 1:** `wrangler whoami`; if unauthenticated, user runs `wrangler login` (suggest typing `! wrangler login` in the prompt so the OAuth flow runs interactively).
+- [ ] **Step 2:** Generate the secrets above; fill the worksheet; confirm the workers.dev subdomain (`wrangler whoami` shows the account; subdomain visible in dashboard → Workers & Pages).
+
+```json:metadata
+{"files": [], "verifyCommand": "wrangler whoami; worksheet complete", "acceptanceCriteria": ["wrangler authenticated", "fresh secrets generated", "worksheet complete with RESEND/Access vars deliberately unset"], "modelTier": "orchestrator"}
+```
+
+---
+
+## Task 14: Deploy backend + frontend to Cloudflare free tier (orchestrator + user)
+
+**Goal:** Teenybase Worker live at `https://backend.<subdomain>.workers.dev` with prod D1 migrated and the `X-TB-Key` guard enforcing; SvelteKit app live at `https://<project>.pages.dev`.
+
+**Executor:** Orchestrator drives `wrangler`/`pnpm`; user handles any dashboard-only steps. Expect Teenybase pre-alpha friction — debug rather than improvise architecture changes.
+
+**Files:**
+- Modify: `backend/wrangler.jsonc` only if the deploy requires it (prod D1 `database_id` after auto-create).
+
+**Acceptance Criteria:**
+- [ ] `cd backend && pnpm deploy` (or the Teenybase-documented `npx teeny` equivalent — check `backend/package.json` scripts first) succeeds; Worker reachable on its workers.dev URL.
+- [ ] All migrations applied to prod D1: `wrangler d1 migrations list backend-db --remote` shows none pending (0001–0012; there is no 0013). Spot-check remotely: `saved_campgrounds` unique index + `merge_suggestions` SET NULL FKs exist.
+- [ ] Worker secrets set (Task 13 worksheet), including `TB_SHARED_SECRET`, BEFORE any data exists.
+- [ ] Guard proven live: `curl -X POST https://backend.<subdomain>.workers.dev/api/v1/table/facilities/list -d '{"limit":1}'` without `X-TB-Key` → 403; with the correct header → 200.
+- [ ] Pages project created (root `frontend/`, adapter-cloudflare already configured), all worksheet env vars set, deploy succeeds, `https://<project>.pages.dev` renders the map with tiles.
+
+**Verify:** blocked/allowed curl pair against the live Worker + the Pages URL rendering the map.
+
+**Steps:**
+- [ ] **Step 1:** Read `backend/package.json` deploy script; deploy the Worker (D1 `TEENY_AUTO_CREATE` should create/bind `backend-db` remotely; if it emits a concrete `database_id` into `wrangler.jsonc`, commit that change).
+- [ ] **Step 2:** Apply migrations remotely (`pnpm migrate` with the remote flag Teenybase supports, else `wrangler d1 migrations apply backend-db --remote`).
+- [ ] **Step 3:** Set all Worker secrets; re-deploy if required; run the guard curl pair — 403 without header MUST be confirmed before Task 15 seeds anything.
+- [ ] **Step 4:** Create the Pages project (git integration or `wrangler pages deploy` — user's choice; direct upload is fine for a friends-only app), set env vars, deploy, load the site.
+
+```json:metadata
+{"files": ["backend/wrangler.jsonc"], "verifyCommand": "curl workers.dev without X-TB-Key -> 403, with header -> 200; https://<project>.pages.dev renders the map", "acceptanceCriteria": ["worker deployed on workers.dev", "prod migrations applied (none pending)", "guard enforced before data exists", "Pages live with env vars"], "modelTier": "orchestrator"}
+```
+
+---
+
+## Task 15: Seed production data + promote admin (orchestrator)
+
+**Goal:** Prod D1 holds the ~588 facilities; the owner's account exists and is admin.
 
 **Executor:** Orchestrator, local terminal, `etl/.env` pointed at prod.
 
 **Files:** none (env-file edits only, not committed).
 
 **Acceptance Criteria:**
-- [ ] `cd etl && pnpm sync && pnpm sync-nps` (and `pnpm discover` — tolerate 429s, rerun if needed) complete against `https://tb.<domain>` with the etl Access token; facility count in prod ≈ local (~592).
+- [ ] `cd etl && pnpm sync && pnpm sync-nps` (and `pnpm discover` — tolerate 429s, rerun if needed) complete against the workers.dev URL with `TB_SHARED_SECRET` set; prod facility count ≈ local (~588).
 - [ ] NO `testview@example.com` or other throwaway accounts in prod.
-- [ ] Owner registers through the live site (with invite code); then promote: `wrangler d1 execute backend-db --remote --command "UPDATE users SET role='admin' WHERE email='<owner-email>'"`; sign out/in; Admin link appears and `/admin` loads.
+- [ ] Owner registers through the live site (with the prod invite code); then promote: `wrangler d1 execute backend-db --remote --command "UPDATE users SET role='admin' WHERE email='<owner-email>'"`; sign out/in; Admin link appears and `/admin` loads.
 
-**Verify:** `wrangler d1 execute backend-db --remote --command "SELECT COUNT(*) FROM facilities"` ≈ 592; `SELECT email, role FROM users WHERE role IS NOT NULL` → exactly the owner.
+**Verify:** `wrangler d1 execute backend-db --remote --command "SELECT COUNT(*) FROM facilities"` ≈ 588; `SELECT email, role FROM users WHERE role IS NOT NULL` → exactly the owner.
 
 **Steps:**
-- [ ] **Step 1:** Point `etl/.env` at prod (worksheet values); run the three syncs; watch for Access/auth errors on first batch.
+- [ ] **Step 1:** Point `etl/.env` at prod (worksheet values incl. `TB_SHARED_SECRET`); run the three syncs; watch for 403s on the first batch (means the header isn't reaching the Worker).
 - [ ] **Step 2:** Register the owner account on the live site; promote via d1 execute; verify Admin access.
 
 ```json:metadata
-{"files": [], "verifyCommand": "wrangler d1 execute backend-db --remote --command 'SELECT COUNT(*) FROM facilities'", "acceptanceCriteria": ["~592 facilities in prod", "no throwaway accounts", "owner is sole admin and /admin works"], "modelTier": "orchestrator"}
+{"files": [], "verifyCommand": "wrangler d1 execute backend-db --remote --command 'SELECT COUNT(*) FROM facilities'", "acceptanceCriteria": ["~588 facilities in prod", "no throwaway accounts", "owner is sole admin and /admin works"], "modelTier": "orchestrator"}
 ```
 
 ---
 
-## Task 14: Post-deploy smoke checklist
+## Task 16: Post-deploy smoke checklist
 
 **USER-ORDERED GATE — NON-SKIPPABLE.** This task was requested by the user in the current conversation. It MUST NOT be closed by walking around it, by declaring it "verified inline", or by substituting a cheaper check. Close only after every item in `acceptanceCriteria` has been re-validated independently, with output captured.
 
@@ -1048,10 +1272,10 @@ export function tbFetch(path: string, init: RequestInit = {}): Promise<Response>
 **Files:** none; update `docs/handoff.md` with deployment state + any discovered prod limitations at the end.
 
 **Acceptance Criteria (each captured with output/screenshot):**
-- [ ] Direct `POST https://tb.<domain>/api/v1/table/users/auth/sign-up` (no Access headers) with a `role":"admin"` payload → blocked by Access (403), never reaches Teenybase.
+- [ ] Direct `POST https://backend.<subdomain>.workers.dev/api/v1/table/users/auth/sign-up` (no `X-TB-Key`) with a `"role":"admin"` payload → 403 from the guard, never reaches Teenybase.
 - [ ] Register with invite code → works; wrong code → "Invalid invite code."
-- [ ] Verification email arrives at a REAL inbox (not console); link verifies; banner clears.
-- [ ] Full password-reset round trip with a real email; old password dead, new one works.
+- [ ] Password-reset round trip WITHOUT real email: trigger "Forgot password?" on the live site, read the reset link from the Pages function logs (`wrangler pages deployment tail --project-name <project>`), complete the reset; old password dead, new one works.
+- [ ] Verification UI correctly absent: signed-in unverified user sees no nag banner and no account-page resend button (Task 12 behavior, `RESEND_API_KEY` unset in prod).
 - [ ] Map search, save, rate, suggest-edit, report-duplicate each work once; admin approves one edit from the queue.
 - [ ] Detail-panel alerts scrape: either alerts load, or the graceful-failure message shows — if fs.usda.gov blocks Cloudflare IPs, record it in `docs/handoff.md` as a known prod limitation.
 - [ ] `docs/handoff.md` updated: deployment status, env-var worksheet location, smoke results.
@@ -1059,7 +1283,7 @@ export function tbFetch(path: string, init: RequestInit = {}): Promise<Response>
 **Verify:** All checklist items captured; handoff committed: `git add docs/handoff.md && git commit -m "docs(handoff): production deployment + smoke results"`.
 
 ```json:metadata
-{"files": ["docs/handoff.md"], "verifyCommand": "manual prod walkthrough with captured outputs", "acceptanceCriteria": ["worker sign-up blocked without Access headers", "invite gate works", "real verification email round trip", "real reset round trip", "core flows + one admin approval work", "alerts scrape status recorded", "handoff updated"], "modelTier": "orchestrator", "userGate": true, "tags": ["user-gate"]}
+{"files": ["docs/handoff.md"], "verifyCommand": "manual prod walkthrough with captured outputs", "acceptanceCriteria": ["worker sign-up with role payload blocked 403 without X-TB-Key", "invite gate works", "reset round trip via Pages log link", "verify banner + resend absent in prod", "core flows + one admin approval work", "alerts scrape status recorded", "handoff updated"], "modelTier": "orchestrator", "userGate": true, "tags": ["user-gate"]}
 ```
 
 ---
@@ -1071,5 +1295,6 @@ export function tbFetch(path: string, init: RequestInit = {}): Promise<Response>
 - Task 5 ← 3, 4 · Task 6 ← 3, 4, 5 (shares `users.ts`)
 - Tasks 7, 8, 9 ← 5, 6 (UI needs routes; run sequentially — 7 → 8 → 9 — to avoid authStore conflicts)
 - Task 10 ← 9 (sweep runs after all Phase 1 files exist)
-- Task 11: independent, any time (user-paced)
-- Task 12 ← 10, 11 · Task 13 ← 12 · Task 14 ← 13
+- Tasks 11, 12 ← 10 (both subagent-able; independent of each other — may run in parallel or in either order; 11 is backend-only, 12 is frontend-only)
+- Task 13: independent, any time (user-paced)
+- Task 14 ← 11, 12, 13 · Task 15 ← 14 · Task 16 ← 15

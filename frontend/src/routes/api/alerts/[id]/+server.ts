@@ -1,7 +1,7 @@
 // frontend/src/routes/api/alerts/[id]/+server.ts
 import { json } from '@sveltejs/kit'
 import { parse } from 'node-html-parser'
-import { PUBLIC_TB_URL } from '$env/static/public'
+import { tbFetch } from '$lib/server/tbFetch'
 import { TB_SERVICE_TOKEN } from '$env/static/private'
 import type { RequestHandler } from './$types'
 
@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id
   const cutoff = Date.now() - CACHE_TTL_MS
 
-  const cacheRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/list`, {
+  const cacheRes = await tbFetch(`/api/v1/table/alerts/list`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ where: `facility_id == '${facilityId}'`, limit: 1 }),
@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ params }) => {
     return json({ content: fresh.content, scraped_at: fresh.scraped_at, cached: true })
   }
 
-  const facRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/view/${facilityId}`)
+  const facRes = await tbFetch(`/api/v1/table/facilities/view/${facilityId}`)
   const facility = facRes.ok ? await facRes.json() as { fs_url?: string } : null
 
   if (!facility?.fs_url) return json({ content: null, scraped_at: null })
@@ -64,7 +64,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
   const scraped_at = new Date().toISOString()
 
-  const existingRes = await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/list`, {
+  const existingRes = await tbFetch(`/api/v1/table/alerts/list`, {
     method: 'POST',
     headers: tbHeaders,
     body: JSON.stringify({ where: `facility_id == '${facilityId}'`, limit: 1 }),
@@ -72,12 +72,12 @@ export const GET: RequestHandler = async ({ params }) => {
   const existing = await existingRes.json() as { items?: Array<{ id: string }> }
 
   if (existing.items?.length) {
-    await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/edit/${existing.items[0].id}`, {
+    await tbFetch(`/api/v1/table/alerts/edit/${existing.items[0].id}`, {
       method: 'POST', headers: tbHeaders,
       body: JSON.stringify({ content, scraped_at }),
     })
   } else {
-    await fetch(`${PUBLIC_TB_URL}/api/v1/table/alerts/insert`, {
+    await tbFetch(`/api/v1/table/alerts/insert`, {
       method: 'POST', headers: tbHeaders,
       body: JSON.stringify({ values: { facility_id: facilityId, content, scraped_at } }),
     })

@@ -3,13 +3,17 @@
   import { auth, isLoggedIn } from "$lib/auth/authStore";
   import AccountMenu from "$lib/auth/AccountMenu.svelte";
   import AuthModal from "$lib/auth/AuthModal.svelte";
+  import VerifyBanner from "$lib/auth/VerifyBanner.svelte";
 
   let { children, data } = $props();
   let showAuth = $state(false);
 
-  // Hydrate the client auth store from server layout data on every load.
+  // Hydrate the client auth store from server layout data on every load, then
+  // refresh from /api/auth/me to pick up email_verified (the layout load
+  // doesn't fetch it) so VerifyBanner reflects the latest state after reload.
   $effect(() => {
     auth.setUser(data.user);
+    if (data.user) auth.refresh();
   });
 </script>
 
@@ -41,6 +45,8 @@
     <button class="signin" onclick={() => (showAuth = true)}>Sign in</button>
   {/if}
 </nav>
+
+<VerifyBanner />
 
 <div class="app-shell">
   {@render children()}

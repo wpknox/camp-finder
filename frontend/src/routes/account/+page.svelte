@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { auth } from "$lib/auth/authStore";
+  import { auth, currentUser } from "$lib/auth/authStore";
   import { goto, invalidateAll } from "$app/navigation";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
 
@@ -10,6 +10,20 @@
     | { kind: "delreview"; facilityId: string; name: string }
     | null;
   let pending: Pending = $state(null);
+
+  let verifyState: "idle" | "sending" | "sent" | "error" = $state("idle");
+  let verifyError = $state("");
+
+  async function resendVerification() {
+    verifyState = "sending";
+    const result = await auth.requestVerify();
+    if (result.ok) {
+      verifyState = "sent";
+    } else {
+      verifyState = "error";
+      verifyError = result.error ?? "Could not send email. Try again later.";
+    }
+  }
 
   async function signOut() {
     await auth.logout();
@@ -53,6 +67,26 @@
       >
     </div>
     <div><span class="label">Email</span><span>{data.account.email}</span></div>
+    <div>
+      <span class="label">Status</span>
+      {#if $currentUser?.email_verified}
+        <span class="verified">Email verified ✓</span>
+      {:else if $currentUser?.email_enabled}
+        {#if verifyState === "sent"}
+          <span class="verify-msg">Sent — check your inbox.</span>
+        {:else if verifyState === "error"}
+          <span class="verify-msg error">{verifyError}</span>
+        {:else}
+          <button
+            class="link resend"
+            onclick={resendVerification}
+            disabled={verifyState === "sending"}
+          >
+            {verifyState === "sending" ? "Sending…" : "Resend verification email"}
+          </button>
+        {/if}
+      {/if}
+    </div>
   </section>
 
   <section>
@@ -282,5 +316,21 @@
   }
   .link.danger:hover {
     color: #832e12;
+  }
+  .verified {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--moss);
+    font-weight: 600;
+  }
+  .verify-msg {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .verify-msg.error {
+    color: var(--rust);
+  }
+  .link.resend {
+    font-size: 0.85rem;
   }
 </style>

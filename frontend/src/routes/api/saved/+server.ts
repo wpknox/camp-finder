@@ -1,9 +1,9 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { PUBLIC_TB_URL } from "$env/static/public";
+import { tbFetch } from "$lib/server/tbFetch";
 import { ACCESS_COOKIE } from "$lib/server/auth/session";
 
-const TB = `${PUBLIC_TB_URL}/api/v1/table/saved_campgrounds`;
+const TB = `/api/v1/table/saved_campgrounds`;
 
 function authHeaders(token: string) {
   return {
@@ -17,7 +17,7 @@ function authHeaders(token: string) {
 export const GET: RequestHandler = async ({ locals, cookies, url }) => {
   if (!locals.user) return json({ error: "Unauthenticated" }, { status: 401 });
   const token = cookies.get(ACCESS_COOKIE)!;
-  const res = await fetch(`${TB}/list`, {
+  const res = await tbFetch(`${TB}/list`, {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({
@@ -51,7 +51,7 @@ export const POST: RequestHandler = async ({ locals, cookies, request }) => {
   // existing row first and return it rather than inserting a duplicate. The DB
   // also enforces this with a unique (user_id, facility_id) index, but this
   // guard keeps the API well-behaved and hands the client back a stable id.
-  const existingRes = await fetch(`${TB}/list`, {
+  const existingRes = await tbFetch(`${TB}/list`, {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({
@@ -65,7 +65,7 @@ export const POST: RequestHandler = async ({ locals, cookies, request }) => {
   const dupe = existing.items?.find((i) => i.facility_id === facility_id);
   if (dupe) return json(dupe, { status: 200 });
 
-  const res = await fetch(`${TB}/insert`, {
+  const res = await tbFetch(`${TB}/insert`, {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({
@@ -86,7 +86,7 @@ export const DELETE: RequestHandler = async ({ locals, cookies, request }) => {
   const { id } = (await request.json()) as Record<string, string>;
   if (!id) return json({ error: "id required" }, { status: 400 });
   // saved_campgrounds deleteRule (auth.uid == user_id) ensures users only delete their own.
-  const res = await fetch(`${TB}/delete`, {
+  const res = await tbFetch(`${TB}/delete`, {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify({ where: `id == '${id}'` }),

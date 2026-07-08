@@ -1,5 +1,5 @@
 // frontend/src/routes/compare/+page.server.ts
-import { PUBLIC_TB_URL } from '$env/static/public'
+import { tbFetch } from '$lib/server/tbFetch'
 import type { PageServerLoad } from './$types'
 import type { Facility } from '$lib/types'
 
@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ url }) => {
   // parse), so we can't query several ids at once. Fetch the full set and
   // filter in-process — the same workaround used by /api/facilities. Fine at
   // ~592 records. Preserve the requested id order so columns match selection.
-  const res = await fetch(`${PUBLIC_TB_URL}/api/v1/table/facilities/list`, {
+  const res = await tbFetch(`/api/v1/table/facilities/list`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ limit: 10000 }),

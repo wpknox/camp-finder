@@ -3,6 +3,7 @@
   import { isLoggedIn, currentUser } from "$lib/auth/authStore";
   import AuthModal from "$lib/auth/AuthModal.svelte";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import { portal } from "$lib/ui/portal";
   import type { Rating } from "$lib/types";
 
   let {
@@ -69,6 +70,7 @@
 </script>
 
 <div class="overlay" role="presentation"
+  use:portal
   onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
   onkeydown={(e) => { if (e.key === 'Escape') onclose(); }}>
   <div class="modal" role="dialog" aria-modal="true" aria-label={`Reviews for ${facilityName}`}>

@@ -8,10 +8,18 @@ export class TbClient {
   ) {}
 
   private get headers() {
-    return {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.serviceToken}`,
     };
+    if (process.env.TB_SHARED_SECRET) {
+      headers["X-TB-Key"] = process.env.TB_SHARED_SECRET;
+    }
+    if (process.env.TB_ACCESS_CLIENT_ID && process.env.TB_ACCESS_CLIENT_SECRET) {
+      headers["CF-Access-Client-Id"] = process.env.TB_ACCESS_CLIENT_ID;
+      headers["CF-Access-Client-Secret"] = process.env.TB_ACCESS_CLIENT_SECRET;
+    }
+    return headers;
   }
 
   private async tbFetch(path: string, body: unknown): Promise<unknown> {
