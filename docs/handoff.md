@@ -12,7 +12,7 @@ The release-readiness plan (`docs/superpowers/plans/2026-07-05-release-readiness
 - **Backend:** https://backend.misty-cell-863d.workers.dev — Teenybase Worker + prod D1 `backend-db`. Deploys are manual: `cd backend && pnpm deploy` (needs `.prod.vars`).
 - **Lockdown:** `X-TB-Key` header guard live and verified (403 on all paths incl. Pocket UI without the secret; prod Pocket UI is intentionally unreachable — admin data access is `wrangler d1 execute backend-db --remote`).
 - **Free tier throughout:** no domain, no Resend, no CF Access. `RESEND_API_KEY`/`EMAIL_FROM`/`TB_ACCESS_*` deliberately unset in prod.
-- **Data:** ~540 facilities seeded (271 RIDB, ~250 fs.usda.gov, 21 NPS). ~50 fs.usda.gov stragglers remain (429s) — rerun `cd etl && pnpm discover` with prod `.env` values to top up; dedupe makes reruns safe.
+- **Data:** 649 facilities (2026-07-08 grid-sweep resync: 353 RIDB-sourced, rest fs.usda.gov/NPS; 102 RIDB ids absorbed into scraped rows via `merged_ridb_ids`). ~50 fs.usda.gov stragglers remain (429s) — rerun `cd etl && pnpm discover` with prod `.env` values to top up; dedupe makes reruns safe.
 - **Accounts:** `knox.wp@gmail.com` is the sole user and sole admin. Invite code: `fcfscamp` (Pages env var `INVITE_CODE`; changing it only affects new registrations).
 
 ### Secrets
@@ -33,11 +33,25 @@ All prod secrets live in the owner's private worksheet (generated 2026-07-07, ne
 - **`Buffer` broke sessions on Pages** (`2e91c43`): `decodeJwtPayload` used Node `Buffer`, unavailable on Pages functions without `nodejs_compat`. Every request's JWT decode threw → silent refresh per request → parallel requests ("Search this area") raced refresh-token rotation → loser cleared session cookies. Fixed with `atob`/`TextDecoder`. **Lesson: Pages functions are not Node — web APIs only in `frontend/src/lib/server` and routes.**
 - Teenybase deploy quirks: `teeny deploy --remote` keeps its own migration ledger (`_db_migrations`) and settings (`$settings` in `_ddb_internal_kv`) **inside D1** — applying migrations via plain `wrangler d1 migrations apply` satisfies wrangler but leaves Teenybase reporting "Table not found". A crashed teeny deploy required dropping the empty tables and letting teeny redo it end-to-end. Also: teeny's API settings sync is blocked by the X-TB-Key guard — temporarily `wrangler secret delete TB_SHARED_SECRET`, deploy, re-run `pnpm secrets-upload`.
 
+### Session 2026-07-08 — ETL grid-sweep redesign + prod resync
+
+The old RIDB sync (`state=CO&activity=CAMPING`) silently missed ~80 real campgrounds: RIDB's `state` filter matches the facility *address record* and `activity` its ACTIVITY list — both empty for many real campgrounds (e.g. ROSY LANE 232157). Redesigned in `etl/`:
+
+- **Grid sweep** (`forests.ts`): lat/lng radius queries over the CO bbox (RIDB clamps `radius` to ~25mi), dedupe by FacilityID, filter to bbox coords.
+- **Junk filter**: `facilitytype=Campground` includes trailheads/day-use/a cemetery; skip facilities with zero *overnight* campsites (only when the campsite fetch succeeded).
+- **Cross-source dedupe** (`dedupe.ts`, shared by sync/discover/sync-nps): canonicalized names (strips parens, " - District" suffixes, "Campground") + ~1km proximity. New RIDB ids matching existing `fs-*`/`nps-*` rows are absorbed into `merged_ridb_ids` (enriched, not duplicated).
+- **Update-clobber protection** (`teenybase.ts` UpsertOptions): re-syncs no longer reset `is_closed` or wipe fees/fs_url/description another source populated.
+- **Retry/backoff** in RidbClient for 429/5xx.
+- Prod resync ran clean: 1001 candidates → 694 junk-skipped → 307 campgrounds upserted, 102 absorbed, 566→649 facilities. Tests: 127 ETL (was 108).
+
+**Leftover:** pre-existing duplicate pairs from the old weak name-match (e.g. RIDB "Lodgepole (Taylor River…)" + `fs-gmug-lodgepole-campground-gunnison-rd`, ditto Lottis Creek) are still in prod — merge via the /admin duplicate UI.
+
 ### Known limitations / follow-ups
 
-- **Reset links are admin-delivered:** with no email sending, "Forgot password?" logs the link to Pages logs; the admin reads it via `cd frontend && npx wrangler pages deployment tail --project-name camp-finder` and hands it to the user. Possible improvement: an admin-only `/admin` surface that regenerates a user's reset link (must NEVER be shown to the unauthenticated requester — that's account takeover).
-- **/reset page is left-aligned** instead of centered — cosmetic bug, unfixed.
+- ~~Reset links are admin-delivered~~ **DONE 2026-07-08**: `/admin` now has a "Password reset link" section (`POST /api/admin/reset-link`, gated by `requireAdmin`; link shown only to the authenticated admin, valid 30 min). Pages-log tailing no longer needed.
+- ~~/reset page is left-aligned~~ **FIXED 2026-07-08**: `.app-shell` is a flex row, so the page needed `flex: 1` — card now centers.
 - fs.usda.gov rate-limits the scraper (HTTP 429); multi-pass `pnpm discover` with 10–15 min cooldowns converges.
+- SonarQube (sonarjs) repo scan 2026-07-08 left unfixed: super-linear regexes in `auth/validate.ts` (email — hit by public auth routes), `auth/tokens.ts`, `api/alerts/[id]`, `etl fsScraper/normalize`; plus minor hygiene (unused import in filterStore, nested ternary in ratings route, `Math.random()` in username.ts). Re-run with `eslint.sonar.config.mjs` (repo root, untracked).
 
 ### Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)
 
@@ -46,7 +60,7 @@ Users should additionally be able to suggest edits for:
 2. **Campground location** — coordinates. Typing lat/lng works, but drag/place a pin on a map would be much better; needs a richer edit UI than the current field-patch form (map picker in the suggest-edit modal).
 3. **Closed status** — whether the campground is closed (`is_closed`; drives the red marker).
 
-Also: **favicon + PWA icons** — browser-tab favicon and a proper app icon set (192/512 px + `apple-touch-icon`, wired into the web manifest) so installing the PWA on a phone doesn't show a bare letter. Design must follow `docs/design-language.md` ("Folded Field Map" palette).
+~~Also: **favicon + PWA icons**~~ — **DONE 2026-07-08**: owner-supplied icon set (mountain-ridge logo, Folded Field Map palette) lives in `frontend/static/icons/` (16/32 favicons, 180 apple-touch, 48/192/512 + `site.webmanifest`); wired into `app.html` head, `theme-color` now `#44542f`.
 
 ## How to run locally
 
@@ -57,7 +71,7 @@ cd etl && pnpm sync       # RIDB; pnpm discover (fs.usda.gov); pnpm sync-nps (NP
 cd backend && pnpm generate && pnpm migrate   # after schema changes
 ```
 
-Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (40); `etl pnpm test` (108).
+Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (40); `etl pnpm test` (127).
 
 **Teenybase regenerated `backend/migrations/` as a squashed 0000–0006 set during the prod deploy** (gitignored; old 0001–0012 history is gone — local dev DB predates the squash and is fine).
 
