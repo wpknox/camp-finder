@@ -2,6 +2,7 @@
     // Use 'npx teeny' commands instead of 'npx wrangler' — teeny wraps wrangler with auto-resource creation and auth.
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "backend",
+    "account_id": "1c42df17423ee690be99392eb2f342f2",
     "main": "src/index.ts",
     "compatibility_date": "2026-05-26",
     "compatibility_flags": ["nodejs_compat"],
@@ -17,7 +18,7 @@
         {
             "binding": "PRIMARY_DB",
             "database_name": "backend-db",
-            "database_id": "TEENY_AUTO_CREATE",
+            "database_id": "4630569c-7b18-410d-8016-90238427ab2e",
             "migrations_dir": "migrations"
         }
     ]

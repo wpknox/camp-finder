@@ -24,7 +24,7 @@ Was about to dispatch parallel implementer subagents (subagent-driven-developmen
 
 Then in-session with user: Task 13 secrets worksheet + `wrangler whoami`, Task 14 deploy, Task 15 seed + admin promote, Task 16 smoke gate (reset via log link; verify UI absent), then PR to `main`.
 
-Resume: `/superpowers-extended-cc:executing-plans docs/superpowers/plans/2026-07-05-release-readiness.md` (or subagent-driven-development in-session).
+Resume: `/superpowers-extended-cc:subagent-driven-development docs/superpowers/plans/2026-07-05-release-readiness.md`
 
 ### Deployment security notes
 - Teenybase register mass-assigns `role` (and `email_verified`, whose `noUpdate` we stripped) — mitigated entirely by the Worker guard; runtime is safe regardless (`requireAdmin` re-verifies server-side; the register proxy controls its outbound body).
