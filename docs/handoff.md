@@ -46,6 +46,8 @@ Users should additionally be able to suggest edits for:
 2. **Campground location** — coordinates. Typing lat/lng works, but drag/place a pin on a map would be much better; needs a richer edit UI than the current field-patch form (map picker in the suggest-edit modal).
 3. **Closed status** — whether the campground is closed (`is_closed`; drives the red marker).
 
+Also: **favicon + PWA icons** — browser-tab favicon and a proper app icon set (192/512 px + `apple-touch-icon`, wired into the web manifest) so installing the PWA on a phone doesn't show a bare letter. Design must follow `docs/design-language.md` ("Folded Field Map" palette).
+
 ## How to run locally
 
 ```bash
