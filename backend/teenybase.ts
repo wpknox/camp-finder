@@ -109,6 +109,10 @@ export default {
         { name: "last_synced", type: "date", sqlType: "timestamp" },
         // JSON array of ridb_ids absorbed by merges — ETL must not re-create these.
         { name: "merged_ridb_ids", type: "json", sqlType: "json" },
+        // Soft-delete tombstone set by admin-approved deletion flags. The row
+        // stays so the ETL's ridb_id index keeps resolving it (never
+        // resurrected); the public facilities route filters it out.
+        { name: "is_deleted", type: "bool", sqlType: "boolean" },
       ],
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
@@ -313,6 +317,44 @@ export default {
           sqlType: "text",
           foreignKey: { table: "users", column: "id", onDelete: "CASCADE" },
         },
+        ...moderationFields,
+      ],
+      triggers: [createdTrigger, updatedTrigger],
+      extensions: [
+        {
+          name: "rules",
+          listRule: "false",
+          viewRule: "false",
+          createRule: "false",
+          updateRule: "false",
+          deleteRule: "false",
+        } satisfies TableRulesExtensionData,
+      ],
+    },
+    {
+      name: "delete_suggestions",
+      autoSetUid: true,
+      fields: [
+        ...baseFields,
+        // SET NULL (not CASCADE), matching merge_suggestions: if the facility
+        // is removed by a merge, the flag survives as an audit record.
+        {
+          name: "facility_id",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: {
+            table: "facilities",
+            column: "id",
+            onDelete: "SET NULL",
+          },
+        },
+        {
+          name: "user_id",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: { table: "users", column: "id", onDelete: "CASCADE" },
+        },
+        // The required deletion reason is stored in moderationFields' `note`.
         ...moderationFields,
       ],
       triggers: [createdTrigger, updatedTrigger],

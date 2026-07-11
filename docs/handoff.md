@@ -53,12 +53,30 @@ The old RIDB sync (`state=CO&activity=CAMPING`) silently missed ~80 real campgro
 - fs.usda.gov rate-limits the scraper (HTTP 429); multi-pass `pnpm discover` with 10–15 min cooldowns converges.
 - SonarQube (sonarjs) repo scan 2026-07-08 left unfixed: super-linear regexes in `auth/validate.ts` (email — hit by public auth routes), `auth/tokens.ts`, `api/alerts/[id]`, `etl fsScraper/normalize`; plus minor hygiene (unused import in filterStore, nested ternary in ratings route, `Math.random()` in username.ts). Re-run with `eslint.sonar.config.mjs` (repo root, untracked).
 
-### Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)
+### Session 2026-07-11 — moderation wishlist built (`feat/moderation-wishlist`, PR open)
+
+Both wishlist items below are **implemented** on `feat/moderation-wishlist` (11 commits, plan: `docs/superpowers/plans/2026-07-11-moderation-wishlist.md`), awaiting owner code review + merge.
+
+- **Expanded suggest-an-edit**: site counts (`fcfs_total`/`reservable_total`, derived FCFS flags recomputed on approval via shared `$lib/fcfs.ts`), closed status, and location via a draggable-pin Leaflet picker (`LocationPicker.svelte`). New fields validated in `/api/suggestions`.
+- **Suggest-a-deletion**: `delete_suggestions` table (all rules `'false'`), required reason, `FlagDeletionModal` entry next to report-duplicate, `/admin` "Deletion flags" queue. Approval **tombstones** (`facilities.is_deleted`) — public bbox route filters tombstones, ETL never updates/resurrects them (`etl/tests/tombstone.test.ts`).
+- **Admin UX**: `/admin` is now its own scroll container (the `.app-shell` overflow:hidden lock made it unscrollable); "View on map" links on all three queues; location edits render a before/after mini-map (`LocationDiffMap.svelte`); admins opening a detail panel see a "⚑ N pending reviews" pill linking to `/admin` (`/api/admin/pending/[facilityId]`).
+- **⚠ Deploy order**: run `cd backend && pnpm deploy` (new table + column) BEFORE merging to `main` — the auto-deployed frontend 500s on `/api/deletions` without the schema.
+- **⚠ Local dev DB trap (root-caused & fixed)**: commit `b8e4073` (7/7 prod deploy) changed `database_id` in `wrangler.jsonc`, which re-keys miniflare's local D1 storage — every dev run since bound a NEW empty DB ("no such table" everywhere). Fixed by copying the old sqlite over the new object and hand-applying the new DDL. The served file is now `da240ff2…sqlite` (use THIS hash for the sqlite promote command below). `pnpm migrate` (`teeny deploy --local`) proved unreliable locally (ledger-only writes, empty `migrations/`) — for local schema changes prefer direct SQL against the served sqlite + verify with a real request.
+- Tests now: frontend 44 (`pnpm check` 0/0), etl 130.
+
+### ~~Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)~~ — DONE 2026-07-11 (see session note above)
 
 Users should additionally be able to suggest edits for:
 1. **Site counts** — total sites and FCFS site count (`fcfs_total`/`reservable_total`; note the derived `is_fully_fcfs`/`is_partial_fcfs` flags must be recomputed on approval).
 2. **Campground location** — coordinates. Typing lat/lng works, but drag/place a pin on a map would be much better; needs a richer edit UI than the current field-patch form (map picker in the suggest-edit modal).
 3. **Closed status** — whether the campground is closed (`is_closed`; drives the red marker).
+
+### ~~Wishlist: suggest-a-deletion (owner request, 2026-07-09)~~ — DONE 2026-07-11 (see session note above)
+
+Users should be able to flag a facility for **deletion** — some records aren't real campgrounds (bad scrape/RIDB entries). A **reason is required** (free text), same as the reason we'd want on any moderation action. Suggested shape:
+- New `delete_suggestions` table (mirror `merge_suggestions`: `facility`, `reason`, `status` pending|approved|rejected, reviewer fields; **ALL rules `'false'`**, service-token-only via SvelteKit server routes — Teenybase can't express role checks or compound WHERE).
+- Approval should **soft-delete / tombstone** rather than hard-delete, so the ETL doesn't resurrect the row on the next sync (compare the `merged_ridb_ids` absorb pattern — likely a `deleted`/`suppressed` flag the ETL respects, since a deleted `ridb_id` would otherwise reappear).
+- Surface the flag entry point next to the existing report-duplicate action; approve/reject from `/admin` alongside edits and merges.
 
 ~~Also: **favicon + PWA icons**~~ — **DONE 2026-07-08**: owner-supplied icon set (mountain-ridge logo, Folded Field Map palette) lives in `frontend/static/icons/` (16/32 favicons, 180 apple-touch, 48/192/512 + `site.webmanifest`); wired into `app.html` head, `theme-color` now `#44542f`.
 

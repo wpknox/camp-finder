@@ -49,10 +49,15 @@ export class TbClient {
   private async upsertFacilityWithIndex(
     facility: NormalizedFacility,
     index: Map<string, string>,
+    deletedIds: Set<string>,
     opts?: UpsertOptions,
   ): Promise<void> {
     const existingId = index.get(facility.ridb_id);
     if (existingId) {
+      // Admin-tombstoned rows are frozen: never refresh them, never let a
+      // sync make them look alive again. (No insert either — the index
+      // already resolves this ridb_id to the tombstoned row.)
+      if (deletedIds.has(existingId)) return;
       // Never overwrite the survivor's ridb_id — a merged/absorbed ridb_id must
       // keep resolving to the surviving record's identity, not clobber it.
       const { ridb_id: _drop, ...patch } = facility;
@@ -80,23 +85,25 @@ export class TbClient {
     // facility) so merges (merged_ridb_ids) are resolved consistently and cheaply.
     const rows = await this.listAllWithMerged();
     const index = buildRidbIndex(rows);
+    const deletedIds = new Set(rows.filter((r) => r.is_deleted).map((r) => r.id));
     for (let i = 0; i < facilities.length; i++) {
-      await this.upsertFacilityWithIndex(facilities[i], index, opts);
+      await this.upsertFacilityWithIndex(facilities[i], index, deletedIds, opts);
       onProgress?.(i + 1, facilities.length);
     }
   }
 
   async listAllWithMerged(): Promise<
-    Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string; merged_ridb_ids: string[] }>
+    Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string; merged_ridb_ids: string[]; is_deleted: boolean }>
   > {
     // limit: 10000 — well above current scale (~600 campgrounds). If the table ever
     // grows past this, add cursor/offset pagination here.
     const res = (await this.tbFetch("/table/facilities/list", { limit: 10000 })) as {
-      items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string; merged_ridb_ids?: string | string[] | null }>;
+      items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string; merged_ridb_ids?: string | string[] | null; is_deleted?: boolean | null }>;
     };
     return res.items.map((f) => ({
       ...f,
       merged_ridb_ids: typeof f.merged_ridb_ids === "string" ? JSON.parse(f.merged_ridb_ids) : (f.merged_ridb_ids ?? []),
+      is_deleted: !!f.is_deleted,
     }));
   }
 

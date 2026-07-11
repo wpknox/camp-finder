@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { Facility, Amenities } from "$lib/types";
+  import LocationDiffMap from "$lib/admin/LocationDiffMap.svelte";
 
   interface EditRow {
     id: string;
@@ -11,6 +12,16 @@
     note: string;
     created: string;
     current: Facility | null;
+  }
+
+  interface DeletionRow {
+    id: string;
+    facility_id: string | null;
+    facility_name: string;
+    facility_ridb_id: string;
+    user_email: string;
+    note: string;
+    created: string;
   }
 
   interface MergeRow {
@@ -80,7 +91,8 @@
     return String(v);
   }
 
-  let { data }: { data: { edits: EditRow[]; merges: MergeRow[] } } = $props();
+  let { data }: { data: { edits: EditRow[]; merges: MergeRow[]; deletions: DeletionRow[] } } =
+    $props();
 
   // Admin-generated password reset link.
   let resetEmail = $state("");
@@ -132,6 +144,7 @@
   // be untracked (see SuggestEditModal.svelte for the established pattern).
   let edits = $state(untrack(() => [...data.edits]));
   let merges = $state(untrack(() => [...data.merges]));
+  let deletions = $state(untrack(() => [...data.deletions]));
 
   const AMENITY_LABELS: Record<string, string> = {
     potableWater: "Potable Water",
@@ -148,6 +161,11 @@
     fee_max: "Fee max ($/night)",
     season_start: "Season start",
     season_end: "Season end",
+    fcfs_total: "FCFS sites",
+    reservable_total: "Reservable sites",
+    is_closed: "Closed",
+    lat: "Latitude",
+    lng: "Longitude",
   };
 
   function fieldLabel(key: string): string {
@@ -216,10 +234,12 @@
   }
   let mergeSuccesses = $state<SuccessNotice[]>([]);
   let editSuccesses = $state<SuccessNotice[]>([]);
+  let deletionSuccesses = $state<SuccessNotice[]>([]);
 
   function dismissSuccess(id: string) {
     mergeSuccesses = mergeSuccesses.filter((s) => s.id !== id);
     editSuccesses = editSuccesses.filter((s) => s.id !== id);
+    deletionSuccesses = deletionSuccesses.filter((s) => s.id !== id);
   }
 
   function useAllOfSide(rowId: string, side: Side) {
@@ -345,6 +365,39 @@
       busy = { ...busy, [row.id]: false };
     }
   }
+
+  async function resolveDeletion(row: DeletionRow, action: "approve" | "reject") {
+    if (busy[row.id]) return;
+    busy = { ...busy, [row.id]: true };
+    errors = { ...errors, [row.id]: "" };
+    try {
+      const res = await fetch("/api/admin/deletions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: row.id,
+          action,
+          admin_note: notes[row.id] ?? "",
+        }),
+      });
+      if (res.ok) {
+        deletions = deletions.filter((d) => d.id !== row.id);
+        if (action === "approve") {
+          deletionSuccesses = [
+            ...deletionSuccesses,
+            { id: row.id, facility_id: "", facility_name: row.facility_name },
+          ];
+        }
+      } else {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        errors = { ...errors, [row.id]: body.error ?? "Something went wrong" };
+      }
+    } catch {
+      errors = { ...errors, [row.id]: "Something went wrong" };
+    } finally {
+      busy = { ...busy, [row.id]: false };
+    }
+  }
 </script>
 
 <svelte:head>
@@ -369,6 +422,7 @@
 {/snippet}
 
 <main class="admin">
+  <div class="admin-inner">
   <header class="page-header">
     <span class="eyebrow">Ranger's desk</span>
     <h1>Admin Review</h1>
@@ -424,12 +478,19 @@
     {:else}
       <div class="cards">
         {#each edits as row (row.id)}
+          {@const propLat = row.changes.lat}
+          {@const propLng = row.changes.lng}
           <article class="card">
             <div class="card-head">
               <h3>{row.facility_name}</h3>
               <span class="meta">
                 {row.user_email} · {fmtDate(row.created)}
               </span>
+              {#if row.current}
+                <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
+                  View on map ↗
+                </a>
+              {/if}
             </div>
 
             <div class="diff">
@@ -457,6 +518,15 @@
                 {/if}
               {/each}
             </div>
+
+            {#if typeof propLat === "number" && typeof propLng === "number" && row.current}
+              <LocationDiffMap
+                fromLat={row.current.lat}
+                fromLng={row.current.lng}
+                toLat={propLat}
+                toLng={propLng}
+              />
+            {/if}
 
             {#if row.note}
               <p class="note">"{row.note}"</p>
@@ -536,6 +606,18 @@
             <div class="card-head">
               <h3>{row.facility_a_name} <span class="vs">vs</span> {row.facility_b_name}</h3>
               <span class="meta">{row.user_email} · {fmtDate(row.created)}</span>
+              <span class="map-links">
+                {#if row.facility_a_data}
+                  <a class="map-link" href={`/?facility=${row.facility_a}`} target="_blank" rel="noopener">
+                    A on map ↗
+                  </a>
+                {/if}
+                {#if row.facility_b_data}
+                  <a class="map-link" href={`/?facility=${row.facility_b}`} target="_blank" rel="noopener">
+                    B on map ↗
+                  </a>
+                {/if}
+              </span>
             </div>
 
             <div class="merge-pair">
@@ -674,16 +756,132 @@
       </div>
     {/if}
   </section>
+
+  <section class="queue">
+    <h2>Deletion flags <span class="count">{deletions.length}</span></h2>
+
+    {#each deletionSuccesses as success (success.id)}
+      {@render successBanner(success, "Removed")}
+    {/each}
+
+    {#if deletions.length === 0}
+      <p class="empty">No pending deletion flags — the queue is clear.</p>
+    {:else}
+      <div class="cards">
+        {#each deletions as row (row.id)}
+          <article class="card">
+            <div class="card-head">
+              <h3>{row.facility_name}</h3>
+              <span class="meta">
+                {#if row.facility_ridb_id}
+                  <span class="badge">{ridbSourceBadge(row.facility_ridb_id)}</span> ·
+                {/if}
+                {row.user_email} · {fmtDate(row.created)}
+              </span>
+              {#if row.facility_id}
+                <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
+                  View on map ↗
+                </a>
+              {/if}
+            </div>
+
+            <p class="note">"{row.note}"</p>
+
+            {#if !row.facility_id}
+              <p class="winner-hint error-hint">
+                This facility was already removed (merge or prior deletion) — reject to clear the flag.
+              </p>
+            {/if}
+
+            {#if errors[row.id]}
+              <p class="error" role="alert">{errors[row.id]}</p>
+            {/if}
+
+            {#if rejecting[row.id]}
+              <div class="reject-form">
+                <input
+                  type="text"
+                  placeholder="Optional note to the submitter…"
+                  bind:value={notes[row.id]}
+                  maxlength="1000"
+                />
+                <div class="actions">
+                  <button
+                    class="cancel"
+                    type="button"
+                    onclick={() => (rejecting = { ...rejecting, [row.id]: false })}
+                  >
+                    Back
+                  </button>
+                  <button
+                    class="danger"
+                    type="button"
+                    disabled={busy[row.id]}
+                    onclick={() => resolveDeletion(row, "reject")}
+                  >
+                    Confirm reject
+                  </button>
+                </div>
+              </div>
+            {:else}
+              <div class="actions">
+                <button
+                  class="cancel"
+                  type="button"
+                  disabled={busy[row.id]}
+                  onclick={() => (rejecting = { ...rejecting, [row.id]: true })}
+                >
+                  Reject
+                </button>
+                <button
+                  class="danger"
+                  type="button"
+                  disabled={busy[row.id] || !row.facility_id}
+                  onclick={() => resolveDeletion(row, "approve")}
+                >
+                  Delete campground
+                </button>
+              </div>
+            {/if}
+          </article>
+        {/each}
+      </div>
+    {/if}
+  </section>
+  </div>
 </main>
 
 <style>
+  /* .app-shell (layout) is a fixed-height flex row with overflow:hidden for
+     the map screen — the admin page must be its own scroll container. */
   .admin {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+  }
+  .admin-inner {
     max-width: 880px;
     margin: 0 auto;
     padding: 2.5rem 1.25rem 4rem;
     display: flex;
     flex-direction: column;
     gap: 2.25rem;
+  }
+  .map-links {
+    display: flex;
+    gap: 0.9rem;
+  }
+  .map-link {
+    width: fit-content;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--pine-deep);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--pine-deep) 45%, transparent);
+    transition: border-color 0.13s var(--ease);
+  }
+  .map-link:hover {
+    border-bottom-color: var(--pine-deep);
   }
   .page-header {
     display: flex;

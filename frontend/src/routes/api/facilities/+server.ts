@@ -26,6 +26,7 @@ export const GET: RequestHandler = async ({ url }) => {
   const data = (await res.json()) as { items?: Array<Record<string, unknown>> };
   const items = (data.items ?? [])
     .filter((f) => {
+      if (f.is_deleted) return false; // admin-tombstoned: hidden everywhere public
       const lat = f.lat as number;
       const lng = f.lng as number;
       return lat >= south && lat <= north && lng >= west && lng <= east;
