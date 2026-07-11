@@ -61,6 +61,11 @@ export interface EditChanges {
   fee_max?: number | null;
   season_start?: string;
   season_end?: string;
+  fcfs_total?: number | null;
+  reservable_total?: number | null;
+  is_closed?: boolean;
+  lat?: number;
+  lng?: number;
   amenities?: Partial<Amenities>;
 }
 
