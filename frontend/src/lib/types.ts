@@ -39,6 +39,7 @@ export interface Facility {
   fs_url: string;
   is_closed: boolean;
   merged_ridb_ids?: string[];
+  is_deleted?: boolean;
 }
 
 export interface Alert {
