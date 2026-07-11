@@ -9,6 +9,7 @@
   import RatingsSection from './RatingsSection.svelte'
   import SuggestEditModal from './SuggestEditModal.svelte'
   import ReportDuplicateModal from './ReportDuplicateModal.svelte'
+  import FlagDeletionModal from './FlagDeletionModal.svelte'
   import AuthModal from '$lib/auth/AuthModal.svelte'
   import { isLoggedIn } from '$lib/auth/authStore'
   import { page } from '$app/stores'
@@ -17,8 +18,9 @@
 
   let suggestOpen = $state(false)
   let duplicateOpen = $state(false)
+  let deletionOpen = $state(false)
   let showAuth = $state(false)
-  let pendingAction: 'suggest' | 'duplicate' | null = $state(null)
+  let pendingAction: 'suggest' | 'duplicate' | 'deletion' | null = $state(null)
   function onSuggestClick() {
     if (!$isLoggedIn) { pendingAction = 'suggest'; showAuth = true; return; }
     suggestOpen = true
@@ -27,10 +29,15 @@
     if (!$isLoggedIn) { pendingAction = 'duplicate'; showAuth = true; return; }
     duplicateOpen = true
   }
+  function onFlagDeletionClick() {
+    if (!$isLoggedIn) { pendingAction = 'deletion'; showAuth = true; return; }
+    deletionOpen = true
+  }
   function onAuthSuccess() {
     showAuth = false
     if (pendingAction === 'suggest') suggestOpen = true
     else if (pendingAction === 'duplicate') duplicateOpen = true
+    else if (pendingAction === 'deletion') deletionOpen = true
     pendingAction = null
   }
 
@@ -137,6 +144,9 @@
       <button class="report-duplicate-link" type="button" onclick={onReportDuplicateClick}>
         Seeing this campground twice? Report a duplicate
       </button>
+      <button class="report-duplicate-link" type="button" onclick={onFlagDeletionClick}>
+        Not a real campground? Flag for deletion
+      </button>
     </header>
 
     <FCFSBadge fcfs_total={facility.fcfs_total} reservable_total={facility.reservable_total}
@@ -186,6 +196,10 @@
 
 {#if duplicateOpen}
   <ReportDuplicateModal {facility} onclose={() => (duplicateOpen = false)} />
+{/if}
+
+{#if deletionOpen}
+  <FlagDeletionModal {facility} onclose={() => (deletionOpen = false)} />
 {/if}
 
 {#if showAuth}
