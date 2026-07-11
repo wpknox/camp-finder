@@ -24,6 +24,9 @@
   let feeMax = $state(initial.fee_max?.toString() ?? '')
   let seasonStart = $state(initial.season_start ?? '')
   let seasonEnd = $state(initial.season_end ?? '')
+  let fcfsTotal = $state(initial.fcfs_total?.toString() ?? '')
+  let reservableTotal = $state(initial.reservable_total?.toString() ?? '')
+  let closedStatus = $state<'open' | 'closed'>(initial.is_closed ? 'closed' : 'open')
   let amenityValues = $state(Object.fromEntries(
     EDITABLE_AMENITIES.map(({ key }) => [key, triState(initial.amenities?.[key] as boolean | null)]),
   ) as Record<string, 'yes' | 'no' | 'unknown'>)
@@ -33,7 +36,7 @@
   let errorMsg = $state('')
 
   // Inline validation, only surfaced after blur — mirrors AuthModal's pattern.
-  let touched = $state({ feeMin: false, feeMax: false })
+  let touched = $state({ feeMin: false, feeMax: false, fcfsTotal: false, reservableTotal: false })
   function touch(field: keyof typeof touched) {
     touched = { ...touched, [field]: true }
   }
@@ -45,15 +48,29 @@
   )
   const feesValid = $derived(!feeMinError && !feeMaxError)
 
+  function countError(v: string): string {
+    if (v === '') return ''
+    const n = Number(v)
+    return !Number.isInteger(n) || n < 0 ? 'Enter a whole number (0 or more).' : ''
+  }
+  const fcfsTotalError = $derived(countError(fcfsTotal))
+  const reservableTotalError = $derived(countError(reservableTotal))
+  const countsValid = $derived(!fcfsTotalError && !reservableTotalError)
+
   let changes = $derived.by(() => {
     const c: EditChanges = {}
-    if (!feesValid) return c
+    if (!feesValid || !countsValid) return c
     const fMin = feeMin === '' ? null : Number(feeMin)
     const fMax = feeMax === '' ? null : Number(feeMax)
     if (fMin !== (facility.fee_min ?? null)) c.fee_min = fMin
     if (fMax !== (facility.fee_max ?? null)) c.fee_max = fMax
     if (seasonStart !== (facility.season_start ?? '')) c.season_start = seasonStart
     if (seasonEnd !== (facility.season_end ?? '')) c.season_end = seasonEnd
+    const ft = fcfsTotal === '' ? null : Number(fcfsTotal)
+    if (ft !== (facility.fcfs_total ?? null)) c.fcfs_total = ft
+    const rt = reservableTotal === '' ? null : Number(reservableTotal)
+    if (rt !== (facility.reservable_total ?? null)) c.reservable_total = rt
+    if ((closedStatus === 'closed') !== !!facility.is_closed) c.is_closed = closedStatus === 'closed'
     const amenityDiff: Partial<Amenities> = {}
     for (const { key } of EDITABLE_AMENITIES) {
       const original = triState(facility.amenities?.[key] as boolean | null)
@@ -69,8 +86,8 @@
   let hasChanges = $derived(Object.keys(changes).length > 0)
 
   async function submit() {
-    touched = { feeMin: true, feeMax: true }
-    if (!hasChanges || submitting || !feesValid) return
+    touched = { feeMin: true, feeMax: true, fcfsTotal: true, reservableTotal: true }
+    if (!hasChanges || submitting || !feesValid || !countsValid) return
     submitting = true
     errorMsg = ''
     try {
@@ -144,6 +161,47 @@
           <div class="field">
             <label for="season-end">Season end</label>
             <input id="season-end" type="text" bind:value={seasonEnd} placeholder="e.g. Sept 30" />
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label for="fcfs-total">FCFS sites</label>
+            <input
+              id="fcfs-total"
+              type="text"
+              inputmode="numeric"
+              bind:value={fcfsTotal}
+              onblur={() => touch('fcfsTotal')}
+              placeholder="e.g. 12"
+              class:invalid={touched.fcfsTotal && fcfsTotalError}
+              aria-invalid={touched.fcfsTotal && !!fcfsTotalError}
+            />
+            {#if touched.fcfsTotal && fcfsTotalError}<p class="field-error">{fcfsTotalError}</p>{/if}
+          </div>
+          <div class="field">
+            <label for="reservable-total">Reservable sites</label>
+            <input
+              id="reservable-total"
+              type="text"
+              inputmode="numeric"
+              bind:value={reservableTotal}
+              onblur={() => touch('reservableTotal')}
+              placeholder="e.g. 18"
+              class:invalid={touched.reservableTotal && reservableTotalError}
+              aria-invalid={touched.reservableTotal && !!reservableTotalError}
+            />
+            {#if touched.reservableTotal && reservableTotalError}<p class="field-error">{reservableTotalError}</p>{/if}
+          </div>
+        </div>
+
+        <div class="amenity-row">
+          <span class="amenity-label">Campground status</span>
+          <div class="segmented">
+            <button type="button" class:active={closedStatus === 'open'}
+                    onclick={() => (closedStatus = 'open')}>Open</button>
+            <button type="button" class:active={closedStatus === 'closed'}
+                    onclick={() => (closedStatus = 'closed')}>Closed</button>
           </div>
         </div>
 
