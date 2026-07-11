@@ -148,6 +148,11 @@
     fee_max: "Fee max ($/night)",
     season_start: "Season start",
     season_end: "Season end",
+    fcfs_total: "FCFS sites",
+    reservable_total: "Reservable sites",
+    is_closed: "Closed",
+    lat: "Latitude",
+    lng: "Longitude",
   };
 
   function fieldLabel(key: string): string {

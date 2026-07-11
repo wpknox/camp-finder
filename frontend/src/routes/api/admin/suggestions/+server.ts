@@ -4,6 +4,7 @@ import { requireAdmin } from "$lib/server/auth/admin";
 import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
 import { tbFetch } from "$lib/server/tbFetch";
 import type { Amenities } from "$lib/types";
+import { deriveFcfsFlags } from "$lib/fcfs";
 
 interface RawSuggestion {
   id: string;
@@ -22,6 +23,8 @@ interface RawFacility {
   id: string;
   name: string;
   amenities: string | Record<string, unknown>;
+  fcfs_total: number | null;
+  reservable_total: number | null;
 }
 
 interface RawUser {
@@ -110,6 +113,14 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     if (amenityChanges && typeof amenityChanges === "object") {
       const current = parseJson<Record<string, unknown>>(facility.amenities, {});
       patch.amenities = JSON.stringify({ ...current, ...amenityChanges });
+    }
+
+    // Site counts drive derived flags (and marker colors) — recompute whenever
+    // either count changes, using the facility's current value for the other.
+    if ("fcfs_total" in changes || "reservable_total" in changes) {
+      const fcfs = (changes.fcfs_total ?? facility.fcfs_total ?? 0) as number;
+      const reservable = (changes.reservable_total ?? facility.reservable_total ?? 0) as number;
+      Object.assign(patch, deriveFcfsFlags(fcfs, reservable));
     }
 
     const editRes = await tbFetch(tb(`facilities/edit/${facility.id}`), {
