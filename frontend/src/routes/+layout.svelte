@@ -21,16 +21,13 @@
   <a class="brand" href="/">
     <span class="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+        <circle cx="18" cy="7" r="2.4" fill="var(--clay)" />
         <path
-          d="M12 3.5 21 20H3z"
+          d="M2.5 19 8 9.5l3 4.5 4-8.5L21.5 19"
           stroke="currentColor"
-          stroke-width="1.6"
+          stroke-width="2"
+          stroke-linecap="round"
           stroke-linejoin="round"
-        />
-        <path
-          d="M12 8.5 16.5 17H7.5z"
-          fill="currentColor"
-          opacity="0.5"
         />
       </svg>
     </span>
@@ -91,8 +88,9 @@
     width: 36px;
     height: 36px;
     border-radius: 9px;
-    background: var(--pine);
-    color: #f1e8d2;
+    background: var(--paper-2);
+    color: var(--pine);
+    border: 1px solid var(--line);
     box-shadow: var(--shadow-sm);
   }
   .brand-text {
