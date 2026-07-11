@@ -1,0 +1,68 @@
+{
+  "planPath": "docs/superpowers/plans/2026-07-11-moderation-wishlist.md",
+  "tasks": [
+    {
+      "id": 1,
+      "subject": "Task 1: Branch + EditChanges type + suggestion API allowlist/validation",
+      "status": "completed",
+      "description": "**Goal:** Create the feature branch and teach the type system and the user-facing suggestion route about the five new editable fields (`fcfs_total`, `reservable_total`, `is_closed`, `lat`, `lng`).\n\n**Files:**\n- Modify: `frontend/src/lib/types.ts` (EditChanges interface, ~line 59)\n- Modify: `frontend/src/routes/api/suggestions/+server.ts`\n\n**Acceptance Criteria:**\n- Branch `feat/moderation-wishlist` exists and is checked out (created from `main`)\n- `EditChanges` includes the five new optional fields\n- `POST /api/suggestions` accepts the new keys and rejects malformed values with 400\n- `cd frontend && pnpm check` 0/0; `pnpm test` passes\n\n**Verify:** `cd frontend && pnpm check && pnpm test`\n\n**Steps:** Full code in plan doc → Task 1. Create branch (leave pre-existing dirty files alone), extend EditChanges, extend ALLOWED_KEYS + validateChanges(), verify + commit.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/types.ts\", \"frontend/src/routes/api/suggestions/+server.ts\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"branch feat/moderation-wishlist checked out\", \"EditChanges has fcfs_total/reservable_total/is_closed/lat/lng\", \"POST /api/suggestions validates new fields with 400 on bad values\", \"pnpm check 0/0 and pnpm test green\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: FCFS flag helper + admin approve recompute + admin diff labels",
+      "status": "completed",
+      "blockedBy": [1],
+      "description": "**Goal:** On approval of a suggestion that changes site counts, recompute the derived `is_fully_fcfs`/`is_partial_fcfs` flags; label the new fields in the admin diff view.\n\n**Files:**\n- Create: `frontend/src/lib/fcfs.ts`\n- Create: `frontend/src/lib/fcfs.test.ts`\n- Modify: `frontend/src/routes/api/admin/suggestions/+server.ts`\n- Modify: `frontend/src/routes/admin/+page.svelte` (FIELD_LABELS)\n\n**Acceptance Criteria:**\n- `deriveFcfsFlags` matches `etl/src/normalize.ts:142` exactly\n- Approve recomputes flags when counts change, using facility current value for the omitted count\n- Admin diff labels for the five new fields\n- `pnpm check && pnpm test` green\n\n**Verify:** `cd frontend && pnpm test -- fcfs`; `pnpm check` 0/0\n\n**Steps:** Full code in plan doc → Task 2. TDD the helper, wire recompute into approve branch (extend RawFacility), add FIELD_LABELS, verify + commit.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/fcfs.ts\", \"frontend/src/lib/fcfs.test.ts\", \"frontend/src/routes/api/admin/suggestions/+server.ts\", \"frontend/src/routes/admin/+page.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"deriveFcfsFlags matches ETL derivation\", \"approve recomputes flags when counts change\", \"admin FIELD_LABELS covers new fields\", \"check 0/0 and tests green\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: SuggestEditModal — site counts + closed status",
+      "status": "completed",
+      "blockedBy": [1],
+      "description": "**Goal:** Let users propose FCFS/reservable site counts and closed status from the suggest-an-edit modal.\n\n**Files:**\n- Modify: `frontend/src/lib/detail/SuggestEditModal.svelte`\n\n**Acceptance Criteria:**\n- Two integer inputs with blur-triggered inline validation matching the fee-field pattern\n- Segmented Open/Closed control initialized from `facility.is_closed`\n- `changes` diff-only; submit gated on validity\n- Svelte 5 runes only; `pnpm check` 0/0\n\n**Verify:** `cd frontend && pnpm check && pnpm test`; manual smoke via pnpm dev + /admin diff\n\n**Steps:** Full code in plan doc → Task 3. State + validators + diff logic, markup rows (existing CSS classes), verify + commit.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/detail/SuggestEditModal.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"count inputs with blur validation\", \"Open/Closed segmented control\", \"diff-only changes and correct submit gating\", \"Svelte 5 runes only, check 0/0\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: SuggestEditModal — location map picker",
+      "status": "completed",
+      "blockedBy": [1, 3],
+      "description": "**Goal:** Let users propose a corrected campground location by dragging a pin on a mini Leaflet map (lat/lng inputs kept in sync).\n\n**Files:**\n- Create: `frontend/src/lib/detail/LocationPicker.svelte`\n- Modify: `frontend/src/lib/detail/SuggestEditModal.svelte`\n\n**Acceptance Criteria:**\n- \"Adjust location\" toggle reveals a ~240px Leaflet map with draggable marker; map click moves it\n- Two-way sync with lat/lng inputs at 5 decimals\n- `changes.lat`/`changes.lng` only when moved, always together\n- Leaflet dynamically imported; init $effect untracked (no per-keystroke map recreation); `pnpm check` 0/0\n\n**Verify:** `cd frontend && pnpm check && pnpm test`; manual drag-pin smoke\n\n**Steps:** Full code in plan doc → Task 4 (complete LocationPicker.svelte + modal wiring). Verify + commit.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/detail/LocationPicker.svelte\", \"frontend/src/lib/detail/SuggestEditModal.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"toggleable Leaflet picker with draggable marker + map click\", \"two-way sync with lat/lng inputs at 5 decimals\", \"lat/lng in changes only when moved, always together\", \"map init effect untracked (no per-keystroke recreation)\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: Backend schema — delete_suggestions + facilities.is_deleted",
+      "status": "completed",
+      "blockedBy": [1],
+      "description": "**Goal:** Add the `delete_suggestions` moderation table (mirroring `merge_suggestions`) and the `is_deleted` tombstone flag on `facilities`; apply migrations locally.\n\n**Files:**\n- Modify: `backend/teenybase.ts`\n- Modify: `frontend/src/lib/types.ts` (Facility)\n\n**Acceptance Criteria:**\n- `is_deleted` bool on facilities; `delete_suggestions` with facility_id SET NULL, user_id CASCADE, moderationFields, ALL rules 'false'\n- `cd backend && pnpm generate && pnpm migrate` clean on LOCAL dev DB (never --remote)\n- `Facility` gains `is_deleted?: boolean`\n\n**Verify:** migrate clean + curl delete_suggestions/list with service token → {\"items\":[]}\n\n**Steps:** Full code in plan doc → Task 5. Schema edits, generate+migrate, type, verify + commit (migrations/ gitignored — don't force-add).\n\n```json:metadata\n{\"files\": [\"backend/teenybase.ts\", \"frontend/src/lib/types.ts\"], \"verifyCommand\": \"cd backend && pnpm generate && pnpm migrate\", \"acceptanceCriteria\": [\"is_deleted bool on facilities\", \"delete_suggestions table with SET NULL facility relation and all-false rules\", \"local migration applies clean\", \"Facility type updated\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: ETL respects tombstones",
+      "status": "completed",
+      "blockedBy": [5],
+      "description": "**Goal:** ETL syncs skip updates to tombstoned facilities so approved deletions are never refreshed or resurrected.\n\n**Files:**\n- Modify: `etl/src/teenybase.ts`\n- Create: `etl/tests/tombstone.test.ts`\n\n**Acceptance Criteria:**\n- `listAllWithMerged` surfaces `is_deleted` (boolean-coerced)\n- No PATCH for tombstoned rows, including via `merged_ridb_ids` resolution; no duplicate insert\n- `cd etl && pnpm test` green (127 existing + 3 new)\n\n**Verify:** `cd etl && pnpm test`\n\n**Steps:** Full code in plan doc → Task 6. TDD with fetch-mock pattern from upsertOptions.test.ts; deletedIds Set threaded into upsertFacilityWithIndex. Verify + commit.\n\n```json:metadata\n{\"files\": [\"etl/src/teenybase.ts\", \"etl/tests/tombstone.test.ts\"], \"verifyCommand\": \"cd etl && pnpm test\", \"acceptanceCriteria\": [\"listAllWithMerged returns is_deleted\", \"no edit calls for tombstoned rows (direct or via merged_ridb_ids)\", \"live rows still update/insert\", \"all etl tests green\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: Public API tombstone filter + user deletion-flag route",
+      "status": "completed",
+      "blockedBy": [5],
+      "description": "**Goal:** Hide tombstoned facilities from the public bbox endpoint; add authenticated `POST /api/deletions` (required reason, rate-limited, per-facility pending dedupe).\n\n**Files:**\n- Modify: `frontend/src/routes/api/facilities/+server.ts`\n- Create: `frontend/src/routes/api/deletions/+server.ts`\n\n**Acceptance Criteria:**\n- `is_deleted` rows never in `GET /api/facilities`\n- POST: 401 unauth; 400 missing facility_id/blank reason; 200 {duplicate:true} for pending dupe; 201 insert\n- user_id from locals.user, TB_SERVICE_TOKEN writes, reason in `note` trimmed ≤1000\n- `pnpm check` 0/0, tests green\n\n**Verify:** `cd frontend && pnpm check && pnpm test`\n\n**Steps:** Full code in plan doc → Task 7. Filter line + new route modeled on /api/duplicates. Verify + commit.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/api/facilities/+server.ts\", \"frontend/src/routes/api/deletions/+server.ts\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"bbox endpoint filters is_deleted\", \"deletions route: 401/400/duplicate/201 semantics\", \"reason required and trimmed to 1000 chars\", \"check 0/0 and tests green\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 8: FlagDeletionModal + DetailPanel entry point",
+      "status": "completed",
+      "blockedBy": [7],
+      "description": "**Goal:** Give users a \"flag for deletion\" action next to report-duplicate, with a required-reason modal.\n\n**Files:**\n- Create: `frontend/src/lib/detail/FlagDeletionModal.svelte`\n- Modify: `frontend/src/lib/detail/DetailPanel.svelte`\n\n**Acceptance Criteria:**\n- Link \"Not a real campground? Flag for deletion\" under report-duplicate, auth-gated via widened `pendingAction` union\n- Non-empty reason required to enable submit; success/already-flagged/error states\n- Styles copied from ReportDuplicateModal with rust accent; Svelte 5 runes only; `pnpm check` 0/0\n\n**Verify:** `cd frontend && pnpm check && pnpm test`; manual flag + re-flag smoke\n\n**Steps:** Full code in plan doc → Task 8. Verify + commit.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/detail/FlagDeletionModal.svelte\", \"frontend/src/lib/detail/DetailPanel.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"entry link next to report-duplicate, auth-gated via pendingAction\", \"reason required to enable submit\", \"success/already-flagged/error states\", \"styles match design language (rust accent)\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 9: Admin deletions API + /admin review queue",
+      "status": "completed",
+      "blockedBy": [7],
+      "description": "**Goal:** Admins see pending deletion flags on `/admin` and approve (tombstone) or reject them.\n\n**Files:**\n- Create: `frontend/src/routes/api/admin/deletions/+server.ts`\n- Modify: `frontend/src/routes/admin/+page.server.ts`\n- Modify: `frontend/src/routes/admin/+page.svelte`\n\n**Acceptance Criteria:**\n- GET (requireAdmin) joins facility name/ridb_id + user email\n- Approve patches `is_deleted: true` (soft-delete, never facilities/delete) + resolves flag with reviewer fields; reject resolves only; 409/404 semantics\n- \"Deletion flags\" queue with danger-styled approve, reject-with-note, busy/error, \"Removed\" success banner (no view link)\n- Approved campground gone from public map on next search\n\n**Verify:** `cd frontend && pnpm check && pnpm test` + manual end-to-end incl. `etl pnpm sync` non-resurrection\n\n**Steps:** Full code in plan doc → Task 9. Verify + commit.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/api/admin/deletions/+server.ts\", \"frontend/src/routes/admin/+page.server.ts\", \"frontend/src/routes/admin/+page.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"admin GET joins facility + user\", \"approve soft-deletes via is_deleted:true patch\", \"409/404 semantics match sibling routes\", \"deletion queue UI matches existing queues\", \"tombstoned facility gone from public bbox results\"], \"modelTier\": \"standard\"}\n```"
+    }
+  ],
+  "lastUpdated": "2026-07-11T00:00:00Z"
+}
