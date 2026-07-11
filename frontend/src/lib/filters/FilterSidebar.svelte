@@ -266,7 +266,10 @@
   }
   .result-list li {
     animation: fade-up 0.4s var(--ease) backwards;
-    animation-delay: calc(var(--i) * 22ms);
+    /* Cap the cumulative stagger so a long results list finishes animating in
+       ~0.3s instead of rippling for many seconds (22ms × hundreds of items),
+       which made the list feel stuck and un-collapsible on mobile. */
+    animation-delay: min(calc(var(--i) * 22ms), 0.3s);
   }
   .result-item {
     width: 100%;
