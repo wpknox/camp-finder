@@ -13,6 +13,16 @@
     current: Facility | null;
   }
 
+  interface DeletionRow {
+    id: string;
+    facility_id: string | null;
+    facility_name: string;
+    facility_ridb_id: string;
+    user_email: string;
+    note: string;
+    created: string;
+  }
+
   interface MergeRow {
     id: string;
     facility_a: string;
@@ -80,7 +90,8 @@
     return String(v);
   }
 
-  let { data }: { data: { edits: EditRow[]; merges: MergeRow[] } } = $props();
+  let { data }: { data: { edits: EditRow[]; merges: MergeRow[]; deletions: DeletionRow[] } } =
+    $props();
 
   // Admin-generated password reset link.
   let resetEmail = $state("");
@@ -132,6 +143,7 @@
   // be untracked (see SuggestEditModal.svelte for the established pattern).
   let edits = $state(untrack(() => [...data.edits]));
   let merges = $state(untrack(() => [...data.merges]));
+  let deletions = $state(untrack(() => [...data.deletions]));
 
   const AMENITY_LABELS: Record<string, string> = {
     potableWater: "Potable Water",
@@ -221,10 +233,12 @@
   }
   let mergeSuccesses = $state<SuccessNotice[]>([]);
   let editSuccesses = $state<SuccessNotice[]>([]);
+  let deletionSuccesses = $state<SuccessNotice[]>([]);
 
   function dismissSuccess(id: string) {
     mergeSuccesses = mergeSuccesses.filter((s) => s.id !== id);
     editSuccesses = editSuccesses.filter((s) => s.id !== id);
+    deletionSuccesses = deletionSuccesses.filter((s) => s.id !== id);
   }
 
   function useAllOfSide(rowId: string, side: Side) {
@@ -338,6 +352,39 @@
               facility_id: body.winner_id ?? "",
               facility_name: body.winner_name ?? "the surviving campground",
             },
+          ];
+        }
+      } else {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        errors = { ...errors, [row.id]: body.error ?? "Something went wrong" };
+      }
+    } catch {
+      errors = { ...errors, [row.id]: "Something went wrong" };
+    } finally {
+      busy = { ...busy, [row.id]: false };
+    }
+  }
+
+  async function resolveDeletion(row: DeletionRow, action: "approve" | "reject") {
+    if (busy[row.id]) return;
+    busy = { ...busy, [row.id]: true };
+    errors = { ...errors, [row.id]: "" };
+    try {
+      const res = await fetch("/api/admin/deletions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: row.id,
+          action,
+          admin_note: notes[row.id] ?? "",
+        }),
+      });
+      if (res.ok) {
+        deletions = deletions.filter((d) => d.id !== row.id);
+        if (action === "approve") {
+          deletionSuccesses = [
+            ...deletionSuccesses,
+            { id: row.id, facility_id: "", facility_name: row.facility_name },
           ];
         }
       } else {
@@ -671,6 +718,93 @@
                   onclick={() => resolveMerge(row, "approve")}
                 >
                   Approve merge
+                </button>
+              </div>
+            {/if}
+          </article>
+        {/each}
+      </div>
+    {/if}
+  </section>
+
+  <section class="queue">
+    <h2>Deletion flags <span class="count">{deletions.length}</span></h2>
+
+    {#each deletionSuccesses as success (success.id)}
+      {@render successBanner(success, "Removed")}
+    {/each}
+
+    {#if deletions.length === 0}
+      <p class="empty">No pending deletion flags — the queue is clear.</p>
+    {:else}
+      <div class="cards">
+        {#each deletions as row (row.id)}
+          <article class="card">
+            <div class="card-head">
+              <h3>{row.facility_name}</h3>
+              <span class="meta">
+                {#if row.facility_ridb_id}
+                  <span class="badge">{ridbSourceBadge(row.facility_ridb_id)}</span> ·
+                {/if}
+                {row.user_email} · {fmtDate(row.created)}
+              </span>
+            </div>
+
+            <p class="note">"{row.note}"</p>
+
+            {#if !row.facility_id}
+              <p class="winner-hint error-hint">
+                This facility was already removed (merge or prior deletion) — reject to clear the flag.
+              </p>
+            {/if}
+
+            {#if errors[row.id]}
+              <p class="error" role="alert">{errors[row.id]}</p>
+            {/if}
+
+            {#if rejecting[row.id]}
+              <div class="reject-form">
+                <input
+                  type="text"
+                  placeholder="Optional note to the submitter…"
+                  bind:value={notes[row.id]}
+                  maxlength="1000"
+                />
+                <div class="actions">
+                  <button
+                    class="cancel"
+                    type="button"
+                    onclick={() => (rejecting = { ...rejecting, [row.id]: false })}
+                  >
+                    Back
+                  </button>
+                  <button
+                    class="danger"
+                    type="button"
+                    disabled={busy[row.id]}
+                    onclick={() => resolveDeletion(row, "reject")}
+                  >
+                    Confirm reject
+                  </button>
+                </div>
+              </div>
+            {:else}
+              <div class="actions">
+                <button
+                  class="cancel"
+                  type="button"
+                  disabled={busy[row.id]}
+                  onclick={() => (rejecting = { ...rejecting, [row.id]: true })}
+                >
+                  Reject
+                </button>
+                <button
+                  class="danger"
+                  type="button"
+                  disabled={busy[row.id] || !row.facility_id}
+                  onclick={() => resolveDeletion(row, "approve")}
+                >
+                  Delete campground
                 </button>
               </div>
             {/if}
