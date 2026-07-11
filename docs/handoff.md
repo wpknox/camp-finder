@@ -4,7 +4,11 @@
 
 CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
 
-## Current status (2026-07-07): DEPLOYED TO PRODUCTION 🎉
+## Current status (2026-07-11): DEPLOYED + SOFT-LAUNCHED 🎉
+
+The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Current focus: collect user feedback and improve from there** — see "Wishlist: post-launch" below for the known future work (domain + real email, notifications, submitter attribution).
+
+## Deploy status (2026-07-07)
 
 The release-readiness plan (`docs/superpowers/plans/2026-07-05-release-readiness.md`) is **complete — all 16 tasks done**, branch merged to `main`. `main` is live and auto-deploys.
 
@@ -53,9 +57,9 @@ The old RIDB sync (`state=CO&activity=CAMPING`) silently missed ~80 real campgro
 - fs.usda.gov rate-limits the scraper (HTTP 429); multi-pass `pnpm discover` with 10–15 min cooldowns converges.
 - SonarQube (sonarjs) repo scan 2026-07-08 left unfixed: super-linear regexes in `auth/validate.ts` (email — hit by public auth routes), `auth/tokens.ts`, `api/alerts/[id]`, `etl fsScraper/normalize`; plus minor hygiene (unused import in filterStore, nested ternary in ratings route, `Math.random()` in username.ts). Re-run with `eslint.sonar.config.mjs` (repo root, untracked).
 
-### Session 2026-07-11 — moderation wishlist built (`feat/moderation-wishlist`, PR open)
+### Session 2026-07-11 — moderation wishlist built (merged to `main` as PR #2)
 
-Both wishlist items below are **implemented** on `feat/moderation-wishlist` (11 commits, plan: `docs/superpowers/plans/2026-07-11-moderation-wishlist.md`), awaiting owner code review + merge.
+Both wishlist items below are **implemented** on `feat/moderation-wishlist` (11 commits, plan: `docs/superpowers/plans/2026-07-11-moderation-wishlist.md`) and **merged to `main`** later the same day.
 
 - **Expanded suggest-an-edit**: site counts (`fcfs_total`/`reservable_total`, derived FCFS flags recomputed on approval via shared `$lib/fcfs.ts`), closed status, and location via a draggable-pin Leaflet picker (`LocationPicker.svelte`). New fields validated in `/api/suggestions`.
 - **Suggest-a-deletion**: `delete_suggestions` table (all rules `'false'`), required reason, `FlagDeletionModal` entry next to report-duplicate, `/admin` "Deletion flags" queue. Approval **tombstones** (`facilities.is_deleted`) — public bbox route filters tombstones, ETL never updates/resurrects them (`etl/tests/tombstone.test.ts`).
@@ -79,6 +83,24 @@ Users should be able to flag a facility for **deletion** — some records aren't
 - Surface the flag entry point next to the existing report-duplicate action; approve/reject from `/admin` alongside edits and merges.
 
 ~~Also: **favicon + PWA icons**~~ — **DONE 2026-07-08**: owner-supplied icon set (mountain-ridge logo, Folded Field Map palette) lives in `frontend/static/icons/` (16/32 favicons, 180 apple-touch, 48/192/512 + `site.webmanifest`); wired into `app.html` head, `theme-color` now `#44542f`.
+
+### Session 2026-07-11 (later) — merged, icon unified, soft launch
+
+- **PR #2 merged to `main`** and auto-deployed; prod smoke-checked after merge (main page 200, bbox API 200 with data — the `/api/deletions` schema was already live in prod).
+- **Brand icon unified** (`989b217`): the header mark in `+layout.svelte` was a generic tent triangle that didn't match the favicon set. Redrawn as the same mountain-range + clay-sun mark on a cream (`--paper-2`) tile, so the browser tab and the top-left brand are now the same icon.
+- **GitHub "Cannot update the protected ref" (resolved)**: the repo ruleset `main` (id 18509008) had picked up a `update` ("Restrict updates") rule — that rule blocks ALL ref updates including PR merges, not just direct pushes. If the error recurs, edit https://github.com/wpknox/camp-finder/rules/18509008 and keep only `deletion` + `non_fast_forward` (add `pull_request` if we want to require PRs).
+
+### Wishlist: post-launch (owner, 2026-07-11)
+
+Deliberately deferred until user feedback justifies them:
+
+1. **Domain + real email**: buy a domain, then wire up Resend for real email verification and password reset (the code paths exist but are disabled — `RESEND_API_KEY`/`EMAIL_FROM` deliberately unset in prod; reset links are currently admin-generated from `/admin`).
+2. **Submitter notifications**: the admin review UI has a "note to submitter" box on suggestions, but **it does nothing today** — the note is stored with the review and is never delivered to the user. Wiring it up probably depends on email (item 1), or an in-app inbox/banner.
+3. **Submitter attribution for admins**: it would be cool if the admin queues showed WHO made each edit suggestion / deletion flag / duplicate-merge request. All three tables (`edit_suggestions`, `merge_suggestions`, `delete_suggestions`) already store `user_id` — this is purely a display gap: resolve the username/email server-side (service token, `users/view/{id}`) in the `/api/admin/*` list routes and show it in the three `/admin` queues.
+
+### Feedback-driven from here
+
+The app is now being shared with real users. **The next round of work should be driven by their feedback** — collect what campers actually ask for (pain points, missing data, confusing UI) rather than speculating. Revisit the wishlist above as feedback confirms demand.
 
 ## How to run locally
 
