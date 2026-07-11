@@ -11,7 +11,7 @@
   import ReportDuplicateModal from './ReportDuplicateModal.svelte'
   import FlagDeletionModal from './FlagDeletionModal.svelte'
   import AuthModal from '$lib/auth/AuthModal.svelte'
-  import { isLoggedIn } from '$lib/auth/authStore'
+  import { isLoggedIn, currentUser } from '$lib/auth/authStore'
   import { page } from '$app/stores'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
@@ -40,6 +40,27 @@
     else if (pendingAction === 'deletion') deletionOpen = true
     pendingAction = null
   }
+
+  // Admin-only shortcut: pending moderation counts for this facility. The
+  // role check is display convenience — the /api/admin/pending route itself
+  // is gated by requireAdmin.
+  const isAdmin = $derived($currentUser?.role === 'admin')
+  let pendingCounts = $state<{ edits: number; merges: number; deletions: number } | null>(null)
+  const pendingTotal = $derived(
+    pendingCounts ? pendingCounts.edits + pendingCounts.merges + pendingCounts.deletions : 0,
+  )
+
+  $effect(() => {
+    const id = facility.id
+    if (!isAdmin) { pendingCounts = null; return }
+    pendingCounts = null
+    let stale = false
+    fetch(`/api/admin/pending/${id}`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => { if (!stale) pendingCounts = c })
+      .catch(() => {})
+    return () => { stale = true }
+  })
 
   // Desktop-only resizable width (panel is anchored to the right edge).
   let panelWidth = $state(420)
@@ -147,6 +168,15 @@
       <button class="report-duplicate-link" type="button" onclick={onFlagDeletionClick}>
         Not a real campground? Flag for deletion
       </button>
+      {#if isAdmin && pendingTotal > 0}
+        <a
+          class="admin-pending"
+          href="/admin"
+          title={`${pendingCounts?.edits ?? 0} edit(s) · ${pendingCounts?.merges ?? 0} duplicate(s) · ${pendingCounts?.deletions ?? 0} deletion flag(s)`}
+        >
+          ⚑ {pendingTotal} pending review{pendingTotal === 1 ? '' : 's'} — open Ranger's desk →
+        </a>
+      {/if}
     </header>
 
     <FCFSBadge fcfs_total={facility.fcfs_total} reservable_total={facility.reservable_total}
@@ -286,6 +316,23 @@
   .suggest-btn { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: .45rem .9rem; cursor: pointer; font-size: .85rem; font-weight: 600; margin-left: .5rem; transition: background 0.13s var(--ease); }
   .suggest-btn:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
   .report-duplicate-link { display: block; background: none; border: none; padding: 0; margin-top: 0.5rem; font-size: 0.78rem; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: inherit; }
+  .admin-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+    margin-top: 0.6rem;
+    padding: 0.28rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--rust);
+    background: color-mix(in srgb, var(--rust) 10%, var(--paper-2));
+    border: 1px solid color-mix(in srgb, var(--rust) 40%, var(--line));
+    border-radius: 999px;
+    text-decoration: none;
+    transition: background 0.13s var(--ease);
+  }
+  .admin-pending:hover { background: color-mix(in srgb, var(--rust) 16%, var(--paper-2)); }
   .report-duplicate-link:hover { color: var(--ink-soft); }
   .closed-banner {
     position: sticky;
