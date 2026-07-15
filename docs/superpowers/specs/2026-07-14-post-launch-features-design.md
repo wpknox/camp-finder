@@ -157,8 +157,12 @@ Verizon / AT&T / T-Mobile, computed offline from FCC Broadband Data Collection
 **Schema:** new nullable `cell_coverage` (json) column on `facilities`:
 
 ```json
-{ "verizon": true, "att": false, "tmobile": true, "as_of": "2026-06" }
+{ "verizon": true, "att": false, "tmobile": true, "as_of": "2026-06", "user_edited": ["att"] }
 ```
+
+`user_edited` lists carriers whose value came from an admin-approved user
+suggestion (see "Crowdsourced carrier overrides" below); `enrich-cell` never
+overwrites those keys — real-world reports beat FCC propagation modeling.
 
 **ETL:** new script `etl` → `pnpm enrich-cell`:
 - **Input:** FCC BDC mobile-coverage hex exports for Colorado — one file per
@@ -185,6 +189,28 @@ Verizon / AT&T / T-Mobile, computed offline from FCC Broadband Data Collection
 
 **Testing:** Vitest for the H3 lookup wiring (fixture hex set + known
 coordinates) and the chips component render states (null / partial / full).
+
+### Crowdsourced carrier overrides (owner request, 2026-07-14)
+
+Users can suggest what carriers actually work at a campground, through the
+existing suggest-an-edit → admin-approval flow:
+
+- `EditChanges` gains `cell_coverage?: Partial<Record<'verizon'|'att'|'tmobile',
+  boolean | null>>`.
+- `SuggestEditModal` gets a "Cell coverage — your experience" group of three
+  tri-state selectors (yes / no / unknown), same pattern as amenities.
+- `/api/suggestions` validates the new key (carrier whitelist, boolean|null).
+- Admin approval merges the carrier values into the facility's `cell_coverage`
+  JSON and appends the changed carriers to `user_edited` so `enrich-cell`
+  skips them on future FCC refreshes. `/admin` diff view labels the field.
+
+### Deferred: road conditions & trail status reports (owner request, 2026-07-14)
+
+Road conditions and nearby-trail status are **ephemeral** — they don't fit the
+facility-edit model (approved edits sit as permanent facts). They need a
+timestamped condition-report model (like ratings, with age display and
+staleness). Deliberately deferred to its own brainstorm/spec; not part of this
+plan.
 
 ---
 
