@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { Facility } from '$lib/types'
+  import { formatElevationFt } from '$lib/weather'
 
   let { facilities }: { facilities: Facility[] } = $props()
 
   const rows: Array<{ label: string; key: (f: Facility) => string }> = [
     { label: 'Forest',       key: f => f.forest || '—' },
+    { label: 'Elevation',    key: f => formatElevationFt(f.elevation_m) ?? '?' },
     { label: 'FCFS Sites',   key: f => f.fcfs_total > 0 ? `${f.fcfs_total}/${f.fcfs_total + f.reservable_total}` : 'None' },
     { label: 'Fee/night',    key: f => f.fee_min == null ? '?' : f.fee_min === 0 ? 'Free' : `$${f.fee_min}` },
     { label: 'Water',        key: f => f.amenities.potableWater ? '✓' : '—' },

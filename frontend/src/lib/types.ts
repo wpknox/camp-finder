@@ -40,6 +40,7 @@ export interface Facility {
   is_closed: boolean;
   merged_ridb_ids?: string[];
   is_deleted?: boolean;
+  elevation_m?: number | null;
 }
 
 export interface Alert {

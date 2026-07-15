@@ -15,6 +15,7 @@
   import { page } from '$app/stores'
   import { browser } from '$app/environment'
   import { isIOS } from '$lib/platform'
+  import { formatElevationFt } from '$lib/weather'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -110,6 +111,7 @@
   const onIOS = browser && isIOS(navigator.userAgent)
   let googleDirectionsUrl = $derived(`https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`)
   let appleDirectionsUrl  = $derived(`https://maps.apple.com/?daddr=${facility.lat},${facility.lng}`)
+  let elevationFt = $derived(formatElevationFt(facility.elevation_m))
   let feeStr = $derived(
     facility.fee_min === 0   ? 'Free'
     : facility.fee_min != null && facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
@@ -155,7 +157,7 @@
   <div class="panel-content">
     <header>
       <h2>{facility.name}</h2>
-      <p class="meta">{facility.forest}{facility.district ? ` · ${facility.district}` : ''}</p>
+      <p class="meta">{facility.forest}{facility.district ? ` · ${facility.district}` : ''}{elevationFt ? ` · ${elevationFt}` : ''}</p>
       {#if feeStr}
         <p class="fee">{feeStr}</p>
       {:else}
