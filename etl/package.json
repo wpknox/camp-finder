@@ -5,6 +5,7 @@
     "sync": "tsx src/index.ts",
     "discover": "tsx src/discover.ts",
     "sync-nps": "tsx src/sync-nps.ts",
+    "enrich-elevation": "tsx src/enrich-elevation.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
