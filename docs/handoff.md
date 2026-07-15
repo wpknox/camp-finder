@@ -90,6 +90,37 @@ Users should be able to flag a facility for **deletion** — some records aren't
 - **Brand icon unified** (`989b217`): the header mark in `+layout.svelte` was a generic tent triangle that didn't match the favicon set. Redrawn as the same mountain-range + clay-sun mark on a cream (`--paper-2`) tile, so the browser tab and the top-left brand are now the same icon.
 - **GitHub "Cannot update the protected ref" (resolved)**: the repo ruleset `main` (id 18509008) had picked up a `update` ("Restrict updates") rule — that rule blocks ALL ref updates including PR merges, not just direct pushes. If the error recurs, edit https://github.com/wpknox/camp-finder/rules/18509008 and keep only `deletion` + `non_fast_forward` (add `pull_request` if we want to require PRs).
 
+### Session 2026-07-14 — post-launch features: spec + plan written, execution NOT started
+
+Researched and designed four post-launch feature tiers; spec and implementation
+plan are committed, **no implementation code exists yet**.
+
+- **Spec:** `docs/superpowers/specs/2026-07-14-post-launch-features-design.md`
+- **Plan:** `docs/superpowers/plans/2026-07-14-post-launch-features.md` (+ co-located `.tasks.json`, 13 tasks with dependencies)
+- **Branch:** `feat/post-launch-features` (created from `main`, this session)
+
+The four tiers, each independently shippable, in order: (1) directions
+deep-links (Google everywhere + Apple Maps on iOS), (2) `elevation_m` column +
+ETL `enrich-elevation` (Open-Meteo) + 7-day elevation-corrected weather strip,
+(3) "things nearby" — Overpass trailheads/grocery/fuel cached in a new
+`nearby_pois` table like alerts, (4) FCC cell-coverage enrichment
+(`enrich-cell`, h3-js) + carrier chips + **crowdsourced carrier overrides**
+through the existing suggest-an-edit flow (`user_edited` carriers are never
+clobbered by the FCC refresh).
+
+**Key ordering constraint (in the plan):** backend schema deploy (`cd backend
+&& pnpm deploy`) must land in prod BEFORE the frontend merge to `main`; local
+schema DDL is applied by hand per the known miniflare trap.
+
+**⏭ Next session: execute the plan with subagent-driven development** — invoke
+`superpowers-extended-cc:subagent-driven-development` against the plan file (or
+`/superpowers-extended-cc:executing-plans docs/superpowers/plans/2026-07-14-post-launch-features.md`
+in a fresh session); the `.tasks.json` carries full per-task briefs.
+
+**Deferred (needs its own brainstorm/spec):** road-conditions & trail-status
+reports — ephemeral timestamped condition-report model, not facility edits
+(owner request 2026-07-14; see spec's "Deferred" section).
+
 ### Wishlist: post-launch (owner, 2026-07-11)
 
 Deliberately deferred until user feedback justifies them:
