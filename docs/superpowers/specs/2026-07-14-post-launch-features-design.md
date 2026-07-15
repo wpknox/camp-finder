@@ -88,6 +88,12 @@ campground's altitude.
   fog / rain / snow / thunderstorm / …).
 - `metersToFeet` + display formatting (`9,800 ft`).
 
+**Mobile:** 7 columns may be too compact on a phone. Styling-first: try 7 days
+with tighter type / horizontal scroll inside the strip; if it still reads as
+cramped, drop to 5 (or 3) visible days on narrow viewports via the existing
+`max-width: 640px` breakpoint — the fetch stays 7 days either way, only the
+rendered columns change.
+
 **Error handling:** fetch failure or non-200 hides the section entirely (no
 error banner — same graceful-degradation stance as alerts).
 
