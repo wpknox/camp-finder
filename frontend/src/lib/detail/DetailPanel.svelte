@@ -13,6 +13,8 @@
   import AuthModal from '$lib/auth/AuthModal.svelte'
   import { isLoggedIn, currentUser } from '$lib/auth/authStore'
   import { page } from '$app/stores'
+  import { browser } from '$app/environment'
+  import { isIOS } from '$lib/platform'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -105,6 +107,9 @@
 
   let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
   let reserveUrl    = $derived(`https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`)
+  const onIOS = browser && isIOS(navigator.userAgent)
+  let googleDirectionsUrl = $derived(`https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`)
+  let appleDirectionsUrl  = $derived(`https://maps.apple.com/?daddr=${facility.lat},${facility.lng}`)
   let feeStr = $derived(
     facility.fee_min === 0   ? 'Free'
     : facility.fee_min != null && facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
@@ -209,6 +214,10 @@
     {/if}
 
     <div class="links">
+      <a href={googleDirectionsUrl} target="_blank" rel="noopener">Get directions (Google Maps) ↗</a>
+      {#if onIOS}
+        <a href={appleDirectionsUrl} target="_blank" rel="noopener">Get directions (Apple Maps) ↗</a>
+      {/if}
       {#if facility.fs_url}
         <a href={facility.fs_url} target="_blank" rel="noopener">View on fs.usda.gov ↗</a>
       {/if}
