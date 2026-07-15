@@ -6,11 +6,13 @@
     "discover": "tsx src/discover.ts",
     "sync-nps": "tsx src/sync-nps.ts",
     "enrich-elevation": "tsx src/enrich-elevation.ts",
+    "enrich-cell": "tsx src/enrich-cell.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "dotenv": "^16.0.0",
+    "h3-js": "^4.5.0",
     "node-html-parser": "^7.1.0"
   },
   "devDependencies": {

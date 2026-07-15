@@ -48,3 +48,6 @@ Thumbs.db
 .superpowers/
 
 .playwright-mcp/
+
+# Data
+etl/data/
