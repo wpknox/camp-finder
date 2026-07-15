@@ -3,6 +3,7 @@
   import FCFSBadge from './FCFSBadge.svelte'
   import AmenityGrid from './AmenityGrid.svelte'
   import AlertsSection from './AlertsSection.svelte'
+  import NearbySection from './NearbySection.svelte'
   import DataQualityWarning from './DataQualityWarning.svelte'
   import { compareList } from '$lib/compare/compareStore'
   import SaveButton from '$lib/saved/SaveButton.svelte'
@@ -213,6 +214,8 @@
     {/if}
 
     <AlertsSection facilityId={facility.id} />
+
+    <NearbySection facilityId={facility.id} />
 
     {#if facility.ridb_data_quality !== 'rich' && facility.fs_url}
       <DataQualityWarning quality={facility.ridb_data_quality} fsUrl={facility.fs_url} />
