@@ -16,6 +16,7 @@
   import { browser } from '$app/environment'
   import { isIOS } from '$lib/platform'
   import { formatElevationFt } from '$lib/weather'
+  import WeatherStrip from './WeatherStrip.svelte'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -204,6 +205,8 @@
     </button>
 
     <AmenityGrid amenities={facility.amenities} />
+
+    <WeatherStrip lat={facility.lat} lng={facility.lng} elevationM={facility.elevation_m} />
 
     {#if facility.description}
       <div class="description">{@html facility.description}</div>
