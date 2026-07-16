@@ -12,7 +12,7 @@
 
 {#if coverage}
   <section class="cell">
-    <h3>Cell signal</h3>
+    <h3>Cell Signal</h3>
     <div class="chips">
       {#each CARRIERS as c}
         <span class="chip" class:on={coverage[c.key] === true}>

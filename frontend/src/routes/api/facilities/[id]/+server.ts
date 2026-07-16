@@ -14,5 +14,8 @@ export const GET: RequestHandler = async ({ params }) => {
   if (typeof f.amenities === 'string') {
     try { f.amenities = JSON.parse(f.amenities) } catch { /* leave as-is */ }
   }
+  if (typeof f.cell_coverage === 'string') {
+    try { f.cell_coverage = JSON.parse(f.cell_coverage) } catch { f.cell_coverage = null }
+  }
   return json(f)
 }
