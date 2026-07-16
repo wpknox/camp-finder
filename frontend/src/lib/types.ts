@@ -17,6 +17,14 @@ export interface Amenities {
   accessible: boolean;
 }
 
+export interface CellCoverage {
+  verizon: boolean | null;
+  att: boolean | null;
+  tmobile: boolean | null;
+  as_of: string | null;
+  user_edited?: string[];
+}
+
 export interface Facility {
   id: string;
   ridb_id: string;
@@ -41,6 +49,7 @@ export interface Facility {
   merged_ridb_ids?: string[];
   is_deleted?: boolean;
   elevation_m?: number | null;
+  cell_coverage?: CellCoverage | null;
 }
 
 export interface Alert {

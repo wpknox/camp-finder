@@ -7,6 +7,12 @@
   const rows: Array<{ label: string; key: (f: Facility) => string }> = [
     { label: 'Forest',       key: f => f.forest || '—' },
     { label: 'Elevation',    key: f => formatElevationFt(f.elevation_m) ?? '?' },
+    { label: 'Cell Signal',  key: f => {
+        const c = f.cell_coverage
+        if (!c) return '?'
+        const on = [c.verizon && 'V', c.att && 'A', c.tmobile && 'T'].filter(Boolean)
+        return on.length ? on.join(' · ') : 'None'
+      } },
     { label: 'FCFS Sites',   key: f => f.fcfs_total > 0 ? `${f.fcfs_total}/${f.fcfs_total + f.reservable_total}` : 'None' },
     { label: 'Fee/night',    key: f => f.fee_min == null ? '?' : f.fee_min === 0 ? 'Free' : `$${f.fee_min}` },
     { label: 'Water',        key: f => f.amenities.potableWater ? '✓' : '—' },

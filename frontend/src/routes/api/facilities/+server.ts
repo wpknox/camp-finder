@@ -35,6 +35,10 @@ export const GET: RequestHandler = async ({ url }) => {
       ...f,
       amenities:
         typeof f.amenities === "string" ? JSON.parse(f.amenities) : f.amenities,
+      cell_coverage:
+        typeof f.cell_coverage === "string"
+          ? JSON.parse(f.cell_coverage)
+          : (f.cell_coverage ?? null),
     }));
   return json(items);
 };
