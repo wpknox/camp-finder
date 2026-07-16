@@ -23,6 +23,7 @@ interface RawFacility {
   id: string;
   name: string;
   amenities: string | Record<string, unknown>;
+  cell_coverage: string | Record<string, unknown> | null;
   fcfs_total: number | null;
   reservable_total: number | null;
 }
@@ -105,14 +106,27 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     if (!facRes.ok) return json({ error: "Facility not found" }, { status: 404 });
     const facility = (await facRes.json()) as RawFacility;
 
-    const { amenities: amenityChanges, ...scalarChanges } = changes as {
+    const { amenities: amenityChanges, cell_coverage: carrierChanges, ...scalarChanges } = changes as {
       amenities?: Partial<Amenities>;
+      cell_coverage?: Record<string, boolean | null>;
     } & Record<string, unknown>;
 
     const patch: Record<string, unknown> = { ...scalarChanges };
     if (amenityChanges && typeof amenityChanges === "object") {
       const current = parseJson<Record<string, unknown>>(facility.amenities, {});
       patch.amenities = JSON.stringify({ ...current, ...amenityChanges });
+    }
+    if (carrierChanges && typeof carrierChanges === "object") {
+      const current = parseJson<Record<string, unknown>>(facility.cell_coverage, {
+        verizon: null, att: null, tmobile: null, as_of: null,
+      });
+      const userEdited = new Set((current.user_edited as string[] | undefined) ?? []);
+      for (const k of Object.keys(carrierChanges)) userEdited.add(k);
+      patch.cell_coverage = JSON.stringify({
+        ...current,
+        ...carrierChanges,
+        user_edited: [...userEdited],
+      });
     }
 
     // Site counts drive derived flags (and marker colors) — recompute whenever

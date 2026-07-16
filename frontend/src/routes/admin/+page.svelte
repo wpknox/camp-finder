@@ -156,6 +156,12 @@
     accessible: "Accessible",
   };
 
+  const CARRIER_LABELS: Record<string, string> = {
+    verizon: "Verizon coverage",
+    att: "AT&T coverage",
+    tmobile: "T-Mobile coverage",
+  };
+
   const FIELD_LABELS: Record<string, string> = {
     fee_min: "Fee min ($/night)",
     fee_max: "Fee max ($/night)",
@@ -166,6 +172,7 @@
     is_closed: "Closed",
     lat: "Latitude",
     lng: "Longitude",
+    cell_coverage: "Cell coverage",
   };
 
   function fieldLabel(key: string): string {
@@ -504,6 +511,17 @@
                       </span>
                       <span class="diff-arrow">→</span>
                       <span class="diff-proposed">{fmtValue(aVal)}</span>
+                    </div>
+                  {/each}
+                {:else if key === "cell_coverage" && value && typeof value === "object"}
+                  {#each Object.entries(value as Record<string, unknown>) as [cKey, cVal]}
+                    <div class="diff-row">
+                      <span class="diff-field">{CARRIER_LABELS[cKey] ?? cKey}</span>
+                      <span class="diff-current">
+                        {fmtValue(row.current?.cell_coverage?.[cKey as "verizon" | "att" | "tmobile"])}
+                      </span>
+                      <span class="diff-arrow">→</span>
+                      <span class="diff-proposed">{fmtValue(cVal)}</span>
                     </div>
                   {/each}
                 {:else}

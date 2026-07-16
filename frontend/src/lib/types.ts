@@ -78,6 +78,7 @@ export interface EditChanges {
   lat?: number;
   lng?: number;
   amenities?: Partial<Amenities>;
+  cell_coverage?: Partial<Record<"verizon" | "att" | "tmobile", boolean | null>>;
 }
 
 export interface EditSuggestion {
