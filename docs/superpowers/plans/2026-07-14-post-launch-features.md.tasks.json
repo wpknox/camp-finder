@@ -4,80 +4,80 @@
     {
       "id": 6,
       "subject": "Task 1: Directions deep-links (Tier 1)",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** \"Get directions\" links in the detail panel — Google Maps everywhere, plus Apple Maps on iOS.\n\n**Files:**\n- Create: frontend/src/lib/platform.ts\n- Create: frontend/src/lib/platform.test.ts\n- Modify: frontend/src/lib/detail/DetailPanel.svelte (.links block ~211)\n\n**Acceptance Criteria:**\n- isIOS() true for iPhone/iPad/iPod UAs, false otherwise\n- Google directions link always present\n- Apple Maps link renders only on iOS\n- pnpm check 0/0, pnpm test green\n\n**Verify:** cd frontend && pnpm test -- platform && pnpm check\n\n**Steps:** TDD isIOS; googleDirectionsUrl=https://www.google.com/maps/dir/?api=1&destination={lat},{lng}; appleDirectionsUrl=https://maps.apple.com/?daddr={lat},{lng}; onIOS = browser && isIOS(navigator.userAgent). Full code: plan Task 1. Branch feat/post-launch-features.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/platform.ts\", \"frontend/src/lib/platform.test.ts\", \"frontend/src/lib/detail/DetailPanel.svelte\"], \"verifyCommand\": \"cd frontend && pnpm test -- platform && pnpm check\", \"acceptanceCriteria\": [\"isIOS correct\", \"Google link always\", \"Apple link iOS-only\", \"check 0/0\"], \"modelTier\": \"mechanical\"}\n```"
     },
     {
       "id": 7,
       "subject": "Task 2: Backend schema — elevation_m, cell_coverage, nearby_pois",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** One schema change for Tiers 2–4: nullable elevation_m (real) + cell_coverage (json) on facilities, plus nearby_pois cache table; local dev D1 DDL applied BY HAND (miniflare trap).\n\n**Files:**\n- Modify: backend/teenybase.ts (facilities ~115; new table after alerts ~158)\n\n**Acceptance Criteria:**\n- elevation_m + cell_coverage columns exist\n- nearby_pois: facility_id relation CASCADE, pois json, fetched_at timestamp; public read, writes 'false'\n- Local D1 verified via real request (NOT the ledger)\n\n**Verify:** curl -s -X POST http://localhost:8787/api/v1/table/nearby_pois/list -H 'Content-Type: application/json' -d '{\"limit\":1}' → {\"items\":[]}\n\n**Steps:** Field defs + table per plan Task 2; pnpm generate; apply generated DDL via sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/da240ff2*.sqlite. Prod deploy in Task 13.\n\n```json:metadata\n{\"files\": [\"backend/teenybase.ts\"], \"verifyCommand\": \"curl -s -X POST http://localhost:8787/api/v1/table/nearby_pois/list -H 'Content-Type: application/json' -d '{\\\"limit\\\":1}'\", \"acceptanceCriteria\": [\"columns exist\", \"nearby_pois exists\", \"real-request verified\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 8,
       "subject": "Task 3: ETL pnpm enrich-elevation",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [7],
       "description": "**Goal:** Backfill elevation_m via Open-Meteo batch elevation API (keyless, 100 coords/request).\n\n**Files:**\n- Create: etl/src/enrich-elevation.ts, etl/tests/elevation.test.ts\n- Modify: etl/package.json (script), etl/src/teenybase.ts (listForEnrichment)\n\n**Acceptance Criteria:**\n- chunk ≤100; fetchElevations comma-separated URL, parses {elevation:[…]}, throws non-ok\n- only elevation_m==null && !is_deleted patched; rounded meters\n- local run fills rows; etl tests green\n\n**Verify:** cd etl && pnpm test -- elevation; pnpm enrich-elevation prints patched N\n\n**Steps:** TDD per plan Task 3 (full code there); listForEnrichment returns {id,lat,lng,elevation_m,cell_coverage parsed,is_deleted}.\n\n```json:metadata\n{\"files\": [\"etl/src/enrich-elevation.ts\", \"etl/tests/elevation.test.ts\", \"etl/package.json\", \"etl/src/teenybase.ts\"], \"verifyCommand\": \"cd etl && pnpm test -- elevation\", \"acceptanceCriteria\": [\"batching+URL tested\", \"null-only patch\", \"local run ok\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 9,
       "subject": "Task 4: $lib/weather.ts — WMO mapping + elevation formatting",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Pure helpers: WMO weather-code → icon/label; meters→feet formatting.\n\n**Files:**\n- Create: frontend/src/lib/weather.ts, frontend/src/lib/weather.test.ts\n\n**Acceptance Criteria:**\n- WMO groups mapped (0 ☀️, 1 🌤️, 2 ⛅, 3 ☁️, 45/48 🌫️, 51–57 🌦️, 61–67+80–82 🌧️, 71–77+85–86 🌨️, ≥95 ⛈️; unknown ☁️)\n- formatElevationFt(2987) → \"9,800 ft\"; null/undefined → null\n- tests green\n\n**Verify:** cd frontend && pnpm test -- weather\n\n**Steps:** TDD per plan Task 4 (full code there): wmoToWeather, metersToFeet, formatElevationFt.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/weather.ts\", \"frontend/src/lib/weather.test.ts\"], \"verifyCommand\": \"cd frontend && pnpm test -- weather\", \"acceptanceCriteria\": [\"WMO mapping + fallback\", \"formatting correct\"], \"modelTier\": \"mechanical\"}\n```"
     },
     {
       "id": 10,
       "subject": "Task 5: Elevation in the UI (types, detail header, Compare)",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [7, 9],
       "description": "**Goal:** Surface elevation in detail-panel meta line + Compare row.\n\n**Files:**\n- Modify: frontend/src/lib/types.ts (elevation_m?: number | null)\n- Modify: frontend/src/lib/detail/DetailPanel.svelte (meta ~153)\n- Modify: frontend/src/lib/compare/CompareView.svelte (rows ~6)\n\n**Acceptance Criteria:**\n- meta shows \"· 9,800 ft\" when present, nothing when null\n- Compare Elevation row ('?' when null)\n- check 0/0, tests green\n\n**Verify:** cd frontend && pnpm check && pnpm test\n\n**Steps:** elevationFt = $derived(formatElevationFt(facility.elevation_m)); Compare row per plan Task 5.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/types.ts\", \"frontend/src/lib/detail/DetailPanel.svelte\", \"frontend/src/lib/compare/CompareView.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"meta conditional feet\", \"Compare row\", \"check 0/0\"], \"modelTier\": \"mechanical\"}\n```"
     },
     {
       "id": 11,
       "subject": "Task 6: WeatherStrip component",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [9, 10],
       "description": "**Goal:** 7-day forecast strip in detail panel — client-side Open-Meteo, elevation-corrected, 5 days ≤480px.\n\n**Files:**\n- Create: frontend/src/lib/detail/WeatherStrip.svelte\n- Modify: frontend/src/lib/detail/DetailPanel.svelte (after AmenityGrid ~199)\n\n**Acceptance Criteria:**\n- forecast request: daily weather_code/temp max+min °F/precip prob, timezone=America/Denver, forecast_days=7, &elevation= when set\n- day name/icon/hi/lo/precip per day; header \"Weather at 9,800 ft\" or \"Weather\"; Open-Meteo credit\n- failure → renders nothing; ≤480px shows 5 days (nth-child hide); horizontal scroll, no panel overflow\n- check 0/0\n\n**Verify:** cd frontend && pnpm check; manual: strip renders, 390px shows 5 days, offline hides\n\n**Steps:** $effect re-fetch with stale guard; full component in plan Task 6.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/detail/WeatherStrip.svelte\", \"frontend/src/lib/detail/DetailPanel.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check\", \"acceptanceCriteria\": [\"correct request incl elevation\", \"7-day render + credit\", \"graceful failure\", \"mobile 5-day\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 12,
       "subject": "Task 7: Overpass server module",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Pure server helpers: Overpass query builder, normalizer (categorize/sort/cap), haversine.\n\n**Files:**\n- Create: frontend/src/lib/server/overpass.ts, frontend/src/lib/server/overpass.test.ts\n\n**Acceptance Criteria:**\n- haversineMeters within 1%\n- normalizeOverpass: node + way/relation center coords; trailhead/grocery/fuel; sort by distance; cap 6/1/1; skip unnamed trailheads; fuel name→brand→\"Gas station\"\n- buildOverpassQuery: around:8000 trailheads named, around:25000 shop supermarket|convenience + amenity=fuel, [out:json][timeout:10], out center 200\n- tests green\n\n**Verify:** cd frontend && pnpm test -- overpass\n\n**Steps:** TDD with fixture in plan Task 7 (full code there).\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/server/overpass.ts\", \"frontend/src/lib/server/overpass.test.ts\"], \"verifyCommand\": \"cd frontend && pnpm test -- overpass\", \"acceptanceCriteria\": [\"haversine accurate\", \"normalizer caps/sorts/names\", \"query radii\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 13,
       "subject": "Task 8: /api/nearby/[id] cached route",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [7, 12],
       "description": "**Goal:** Route serving nearby POIs from nearby_pois cache (7-day TTL), live Overpass on miss, serve-stale on failure.\n\n**Files:**\n- Create: frontend/src/routes/api/nearby/[id]/+server.ts\n\n**Acceptance Criteria:**\n- fresh cache → {pois, fetched_at, cached:true} without Overpass\n- miss → POST overpass-api.de (form data=, CampFinder UA, 10s timeout), normalize, upsert stringified via service token, cached:false\n- failure + stale row → stale:true; no row → {pois:null}; never 500\n- check 0/0\n\n**Verify:** curl /api/nearby/<id> twice → cached:false then cached:true\n\n**Steps:** Clone api/alerts/[id]; full route code in plan Task 8.\n\n```json:metadata\n{\"files\": [\"frontend/src/routes/api/nearby/[id]/+server.ts\"], \"verifyCommand\": \"cd frontend && pnpm check\", \"acceptanceCriteria\": [\"TTL honored\", \"fetch+upsert\", \"serve-stale, never 500\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 14,
       "subject": "Task 9: NearbySection component",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [13],
       "description": "**Goal:** \"Nearby\" list in detail panel: icon, name, miles, Google-directions links, OSM credit.\n\n**Files:**\n- Create: frontend/src/lib/detail/NearbySection.svelte\n- Modify: frontend/src/lib/detail/DetailPanel.svelte (after AlertsSection ~205)\n\n**Acceptance Criteria:**\n- rows ⛰️/🛒/⛽ + name + X.X mi (m/1609.34) + outbound dir links\n- loading state; hidden when pois null/empty\n- \"Data © OpenStreetMap contributors\" credit\n- check 0/0\n\n**Verify:** cd frontend && pnpm check && pnpm test; manual near a town\n\n**Steps:** Model on AlertsSection; full component in plan Task 9.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/detail/NearbySection.svelte\", \"frontend/src/lib/detail/DetailPanel.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"rows with links\", \"hidden when empty\", \"OSM credit\"], \"modelTier\": \"mechanical\"}\n```"
     },
     {
       "id": 15,
       "subject": "Task 10: ETL pnpm enrich-cell (FCC BDC + h3-js)",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [7, 8],
       "description": "**Goal:** Offline cell_coverage enrichment from FCC H3 res-9 hex data; never overwrites user_edited carriers.\n\n**Files:**\n- Create: etl/src/enrich-cell.ts, etl/tests/cell.test.ts\n- Create/Modify: etl/README.md (FCC runbook)\n- Modify: etl/package.json (h3-js dep, script), .gitignore (etl/data/)\n\n**Acceptance Criteria:**\n- parseHexFile: /h3/i header else first column → Set\n- coverageFor: latLngToCell(lat,lng,9) membership per carrier\n- mergeCoverage: preserves user_edited; null when unchanged\n- script reads etl/data/fcc/{verizon,att,tmobile}.csv, requires --as-of YYYY-MM, patches only changed, skips tombstoned\n- etl/data/ gitignored; README click-path\n- etl tests green\n\n**Verify:** cd etl && pnpm test -- cell (live run in Task 13)\n\n**Steps:** pnpm add h3-js; TDD with latLngToCell fixtures; full code + README text in plan Task 10.\n\n```json:metadata\n{\"files\": [\"etl/src/enrich-cell.ts\", \"etl/tests/cell.test.ts\", \"etl/README.md\", \"etl/package.json\", \".gitignore\"], \"verifyCommand\": \"cd etl && pnpm test -- cell\", \"acceptanceCriteria\": [\"hex parsing tolerant\", \"H3 lookup\", \"user_edited protected\", \"runbook + gitignore\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 16,
       "subject": "Task 11: Cell-coverage UI (chips + Compare + API parse)",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [7],
       "description": "**Goal:** Carrier chips in detail panel, Compare row, cell_coverage JSON parse in facilities API.\n\n**Files:**\n- Modify: frontend/src/lib/types.ts (CellCoverage + Facility field)\n- Modify: frontend/src/routes/api/facilities/+server.ts (parse like amenities)\n- Create: frontend/src/lib/detail/CellCoverageChips.svelte\n- Modify: frontend/src/lib/detail/DetailPanel.svelte (after WeatherStrip)\n- Modify: frontend/src/lib/compare/CompareView.svelte (Cell Signal row)\n\n**Acceptance Criteria:**\n- Facility.cell_coverage?: CellCoverage | null, parsed in bbox API\n- chips ● / ○ per carrier; caption \"FCC-reported 4G data coverage · as of YYYY-MM\" (+ camper-reports note); nothing when null\n- Compare row V · A · T / None / ?\n- check 0/0, tests green\n\n**Verify:** cd frontend && pnpm check && pnpm test; manual with hand-set sqlite row (plan Task 11)\n\n**Steps:** Full type/API/component/row code in plan Task 11.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/types.ts\", \"frontend/src/routes/api/facilities/+server.ts\", \"frontend/src/lib/detail/CellCoverageChips.svelte\", \"frontend/src/lib/detail/DetailPanel.svelte\", \"frontend/src/lib/compare/CompareView.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"API parse\", \"chips + caption, hidden on null\", \"Compare row\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 17,
       "subject": "Task 12: Crowdsourced carrier overrides (suggest-an-edit)",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [16],
       "description": "**Goal:** Carrier availability reports via suggest-edit → admin approval; approved carriers become user_edited so enrich-cell never clobbers.\n\n**Files:**\n- Modify: frontend/src/lib/types.ts (EditChanges.cell_coverage)\n- Modify: frontend/src/lib/detail/SuggestEditModal.svelte (tri-state carriers + diff)\n- Modify: frontend/src/routes/api/suggestions/+server.ts (ALLOWED_KEYS + validation)\n- Modify: frontend/src/routes/api/admin/suggestions/+server.ts (approval merge + user_edited)\n- Modify: frontend/src/routes/admin/+page.svelte (labels + diff branch)\n\n**Acceptance Criteria:**\n- cell_coverage suggestion works end-to-end (modal → validation → store → admin diff → approval)\n- approval merges only suggested carriers, dedupes user_edited, preserves as_of, stringifies\n- /api/suggestions 400s on unknown carriers / non-bool values\n- admin diff per-carrier rows, not [object Object]\n- check 0/0, tests green\n\n**Verify:** cd frontend && pnpm check && pnpm test; manual round trip → chips update + user_edited in sqlite\n\n**Steps:** Mirror amenities tri-state pattern; all code in plan Task 12.\n\n```json:metadata\n{\"files\": [\"frontend/src/lib/types.ts\", \"frontend/src/lib/detail/SuggestEditModal.svelte\", \"frontend/src/routes/api/suggestions/+server.ts\", \"frontend/src/routes/api/admin/suggestions/+server.ts\", \"frontend/src/routes/admin/+page.svelte\"], \"verifyCommand\": \"cd frontend && pnpm check && pnpm test\", \"acceptanceCriteria\": [\"end-to-end flow\", \"user_edited merge\", \"validation 400s\", \"legible diff\"], \"modelTier\": \"standard\"}\n```"
     },
@@ -89,5 +89,5 @@
       "description": "**Goal:** Ship safely: backend schema deploy → prod enrichment → PR merge → smoke → docs.\n\n**Files:**\n- Modify: docs/handoff.md\n\n**Acceptance Criteria:**\n- prod D1 has new columns/table (verified by request)\n- prod elevation_m populated; cell_coverage populated if FCC download done (else noted pending)\n- PR merged, auto-deploy green, prod smoke passes\n- handoff documents session, runbooks, deferred road/trail-conditions wishlist\n\n**Verify:** curl prod bbox API → \"elevation_m\":<numbers>; manual prod smoke\n\n**Steps:** cd backend && pnpm deploy (X-TB-Key quirk); prod pnpm enrich-elevation (+ enrich-cell --as-of if ready); push, gh pr create, merge, smoke; handoff section per plan Task 13.\n\n```json:metadata\n{\"files\": [\"docs/handoff.md\"], \"verifyCommand\": \"curl -s \\\"https://camp-finder.pages.dev/api/facilities?north=39.2&south=38.8&east=-106.3&west=-107.1\\\" | grep -o '\\\"elevation_m\\\":[0-9]*' | head -3\", \"acceptanceCriteria\": [\"prod schema live\", \"elevation enriched\", \"PR merged + smoke\", \"handoff updated\"], \"modelTier\": \"standard\"}\n```"
     }
   ],
-  "lastUpdated": "2026-07-14T00:00:00Z"
+  "lastUpdated": "2026-07-16T15:04:00Z"
 }
