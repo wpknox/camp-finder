@@ -120,8 +120,13 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       const current = parseJson<Record<string, unknown>>(facility.cell_coverage, {
         verizon: null, att: null, tmobile: null, as_of: null,
       });
-      const userEdited = new Set((current.user_edited as string[] | undefined) ?? []);
-      for (const k of Object.keys(carrierChanges)) userEdited.add(k);
+      const existing = Array.isArray(current.user_edited) ? (current.user_edited as string[]) : [];
+      const userEdited = new Set(existing);
+      // null = "unknown" relinquishes user ownership so enrich-cell can repopulate from FCC data
+      for (const k of Object.keys(carrierChanges)) {
+        if (carrierChanges[k] === null) userEdited.delete(k);
+        else userEdited.add(k);
+      }
       patch.cell_coverage = JSON.stringify({
         ...current,
         ...carrierChanges,
