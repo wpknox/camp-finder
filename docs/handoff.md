@@ -4,9 +4,9 @@
 
 CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
 
-## Current status (2026-07-11): DEPLOYED + SOFT-LAUNCHED 🎉
+## Current status (2026-07-16): DEPLOYED + SOFT-LAUNCHED 🎉 — PR #3 awaiting owner review
 
-The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Current focus: collect user feedback and improve from there** — see "Wishlist: post-launch" below for the known future work (domain + real email, notifications, submitter attribution).
+The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are built and reviewed on PR #3** — owner is reviewing; merge must follow the backend schema deploy (see session 2026-07-16). See "Wishlist: post-launch" below for the known future work.
 
 ## Deploy status (2026-07-07)
 
@@ -68,6 +68,22 @@ Both wishlist items below are **implemented** on `feat/moderation-wishlist` (11 
 - **⚠ Local dev DB trap (root-caused & fixed)**: commit `b8e4073` (7/7 prod deploy) changed `database_id` in `wrangler.jsonc`, which re-keys miniflare's local D1 storage — every dev run since bound a NEW empty DB ("no such table" everywhere). Fixed by copying the old sqlite over the new object and hand-applying the new DDL. The served file is now `da240ff2…sqlite` (use THIS hash for the sqlite promote command below). `pnpm migrate` (`teeny deploy --local`) proved unreliable locally (ledger-only writes, empty `migrations/`) — for local schema changes prefer direct SQL against the served sqlite + verify with a real request.
 - Tests now: frontend 44 (`pnpm check` 0/0), etl 130.
 
+### Session 2026-07-16 — post-launch features built (PR #3 open, NOT merged)
+
+All four feature tiers from `docs/superpowers/plans/2026-07-14-post-launch-features.md` (spec: `docs/superpowers/specs/2026-07-14-post-launch-features-design.md`) are **implemented and reviewed** on `feat/post-launch-features` — 22 commits, subagent-driven with two-stage review per task plus a final whole-branch review (verdict: ready to merge). **PR #3 is open; owner reviews and decides the merge.**
+
+- **Directions deep-links**: Google Maps universal link everywhere, Apple Maps added on iOS (`$lib/platform.ts`).
+- **Elevation + weather**: `facilities.elevation_m` backfilled by `cd etl && pnpm enrich-elevation` (Open-Meteo, keyless; already run against local). Shown in detail header + Compare. `WeatherStrip.svelte` fetches a 7-day elevation-corrected forecast client-side.
+- **Things nearby**: `nearby_pois` cache table + `/api/nearby/[id]` (Overpass on miss, 7-day TTL, serve-stale on failure) + `NearbySection`. **Field note:** the section hides entirely when Overpass fails and no cache exists — during this session overpass-api.de 504'd under load, then 429'd our IP (timeouts stack a cooldown penalty). Normal usage (1 query/campground/week) is fine; if chronic, add a mirror fallback (kumi.systems) and a short server-side no-retry window on 429/504.
+- **Cell coverage**: `facilities.cell_coverage` JSON (Verizon/AT&T/T-Mobile + `as_of` + `user_edited`), offline enrichment via `cd etl && pnpm enrich-cell --as-of YYYY-MM` from FCC BDC H3 res-9 CSVs (download runbook: `etl/README.md`). Chips in detail panel, Cell Signal row in Compare. **Not yet populated anywhere — FCC download pending** (UI hides on null, so shipping without it is safe).
+- **Crowdsourced carrier overrides**: suggest-an-edit now has a carrier tri-state group; admin approval merges only suggested carriers and appends them to `user_edited` (never clobbered by `enrich-cell`). **Semantic decision:** suggesting "Unknown" (null) *relinquishes* ownership — the key is removed from `user_edited` so FCC data can repopulate it.
+- Tests now: frontend 64 (`pnpm check` 0/0), etl 143. Local D1 got the new DDL by hand (miniflare trap, see 2026-07-11 note); all 588 local facilities have `elevation_m`.
+
+**⚠ Remaining rollout steps (in order — deploy order matters, `main` auto-deploys the frontend):**
+1. Backend schema deploy: `cd backend && npx wrangler secret delete TB_SHARED_SECRET` → `pnpm deploy` → `pnpm secrets-upload` (the X-TB-Key settings-sync quirk, see 2026-07-07). Verify `nearby_pois` with a real request, not the ledger.
+2. Prod enrichment: `cd etl && pnpm enrich-elevation` with prod env values (`enrich-cell` waits on the FCC download).
+3. Merge PR #3 → Pages auto-deploy → smoke (detail panel: directions/elevation/weather/nearby; Compare rows).
+
 ### ~~Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)~~ — DONE 2026-07-11 (see session note above)
 
 Users should additionally be able to suggest edits for:
@@ -128,6 +144,9 @@ Deliberately deferred until user feedback justifies them:
 1. **Domain + real email**: buy a domain, then wire up Resend for real email verification and password reset (the code paths exist but are disabled — `RESEND_API_KEY`/`EMAIL_FROM` deliberately unset in prod; reset links are currently admin-generated from `/admin`).
 2. **Submitter notifications**: the admin review UI has a "note to submitter" box on suggestions, but **it does nothing today** — the note is stored with the review and is never delivered to the user. Wiring it up probably depends on email (item 1), or an in-app inbox/banner.
 3. **Submitter attribution for admins**: it would be cool if the admin queues showed WHO made each edit suggestion / deletion flag / duplicate-merge request. All three tables (`edit_suggestions`, `merge_suggestions`, `delete_suggestions`) already store `user_id` — this is purely a display gap: resolve the username/email server-side (service token, `users/view/{id}`) in the `/api/admin/*` list routes and show it in the three `/admin` queues.
+4. **Automate the FCC cell-coverage download (`pnpm fetch-fcc`)** (owner request, 2026-07-16): the BDC Public Data API can replace the manual `etl/README.md` click-path — `listAsOfDates` → `listAvailabilityData/{as_of_date}?category=Provider&subcategory=Hexagon Coverage&technology_type=Mobile Broadband` (filter state_fips 08, 4G LTE, Verizon/AT&T Mobility/T-Mobile) → `downloadFile/availability/{file_id}` → unzip into `etl/data/fcc/`, then chain `enrich-cell --as-of`. Auth is a free FCC User Registration account + self-service token (broadbandmap.fcc.gov login → username menu → Manage API Access → Generate); headers `username` + `hash_value`; rate limit 10 calls/min (we need ~5). Owner still needs to register + generate the token (`FCC_USERNAME`/`FCC_HASH_VALUE` in `etl/.env`). Reference docs in owner's Downloads: `bdc-public-data-api-swagger.yaml`, `bdc-public-data-api-specifications.pdf`.
+5. **Road conditions & trail status reports** (deferred 2026-07-14): ephemeral timestamped camper reports ("road washed out", "trail snowed in") — different data model from permanent facility facts (needs expiry/decay), so it needs its own spec before any build.
+6. **WeatherStrip timezone** (final-review note, 2026-07-16): `timezone=America/Denver` is hardcoded — fine for CO, wrong day-bucketing if the app ever covers other states; Open-Meteo supports `timezone=auto`. Same review noted chips render `false` (FCC says no) and `null` (unknown) identically as ○.
 
 ### Feedback-driven from here
 
@@ -142,7 +161,7 @@ cd etl && pnpm sync       # RIDB; pnpm discover (fs.usda.gov); pnpm sync-nps (NP
 cd backend && pnpm generate && pnpm migrate   # after schema changes
 ```
 
-Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (40); `etl pnpm test` (127).
+Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (64); `etl pnpm test` (143).
 
 **Teenybase regenerated `backend/migrations/` as a squashed 0000–0006 set during the prod deploy** (gitignored; old 0001–0012 history is gone — local dev DB predates the squash and is fine).
 
