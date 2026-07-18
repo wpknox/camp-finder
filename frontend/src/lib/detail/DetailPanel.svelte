@@ -324,7 +324,7 @@
   .fee { margin: .7rem 0 .6rem; font-family: var(--font-mono); font-weight: 600; font-size: 1.05rem; color: var(--pine); }
   .fee-unknown { color: var(--ink-faint); font-size: .85rem; font-weight: 500; }
   .fee-unknown a { color: var(--clay); text-decoration: underline; }
-  .description { font-size: .86rem; color: var(--ink-soft); line-height: 1.6; margin: .9rem 0; }
+  .description { font-size: .86rem; color: var(--ink-soft); line-height: 1.6; margin: 1.2rem 0 .9rem; padding-top: 1rem; border-top: 1px solid var(--line); }
   .description :global(h2) { font-family: var(--font-display); font-size: 1rem; color: var(--ink); margin: .9rem 0 .25rem; }
   .description :global(p)  { margin: 0 0 .55rem; }
   .description :global(a) { color: var(--pine); }

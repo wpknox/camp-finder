@@ -58,7 +58,7 @@
       ><input type="checkbox" bind:checked={$filters.bearBoxes} /> Bear Boxes</label
     >
     <label
-      ><input type="checkbox" bind:checked={$filters.petsAllowed} /> Pets Allowed</label
+      ><input type="checkbox" bind:checked={$filters.hasCellService} /> Has Cell Service</label
     >
 
     <div class="field">

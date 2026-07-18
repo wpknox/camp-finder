@@ -8,7 +8,7 @@ export interface FilterState {
   water: boolean;
   toilets: boolean;
   bearBoxes: boolean;
-  petsAllowed: boolean;
+  hasCellService: boolean;
   maxFee: number | null;
   sortBy: "name" | "fee" | "fcfs_count";
 }
@@ -18,7 +18,7 @@ export const filters = writable<FilterState>({
   water: false,
   toilets: false,
   bearBoxes: false,
-  petsAllowed: false,
+  hasCellService: false,
   maxFee: null,
   sortBy: "name",
 });
@@ -32,7 +32,15 @@ export const filteredFacilities = derived(
       if ($filters.water && !f.amenities.potableWater) return false;
       if ($filters.toilets && f.amenities.toiletType === "none") return false;
       if ($filters.bearBoxes && !f.amenities.bearBoxes) return false;
-      if ($filters.petsAllowed && !f.amenities.petsAllowed) return false;
+      if (
+        $filters.hasCellService &&
+        !(
+          f.cell_coverage?.verizon ||
+          f.cell_coverage?.att ||
+          f.cell_coverage?.tmobile
+        )
+      )
+        return false;
       if (
         $filters.maxFee != null &&
         f.fee_min != null &&
