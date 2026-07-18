@@ -84,10 +84,10 @@
     {
       "id": 18,
       "subject": "Task 13: Prod rollout + handoff update",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [6, 8, 11, 14, 15, 17],
       "description": "**Goal:** Ship safely: backend schema deploy → prod enrichment → PR merge → smoke → docs.\n\n**Files:**\n- Modify: docs/handoff.md\n\n**Acceptance Criteria:**\n- prod D1 has new columns/table (verified by request)\n- prod elevation_m populated; cell_coverage populated if FCC download done (else noted pending)\n- PR merged, auto-deploy green, prod smoke passes\n- handoff documents session, runbooks, deferred road/trail-conditions wishlist\n\n**Verify:** curl prod bbox API → \"elevation_m\":<numbers>; manual prod smoke\n\n**Steps:** cd backend && pnpm deploy (X-TB-Key quirk); prod pnpm enrich-elevation (+ enrich-cell --as-of if ready); push, gh pr create, merge, smoke; handoff section per plan Task 13.\n\n```json:metadata\n{\"files\": [\"docs/handoff.md\"], \"verifyCommand\": \"curl -s \\\"https://camp-finder.pages.dev/api/facilities?north=39.2&south=38.8&east=-106.3&west=-107.1\\\" | grep -o '\\\"elevation_m\\\":[0-9]*' | head -3\", \"acceptanceCriteria\": [\"prod schema live\", \"elevation enriched\", \"PR merged + smoke\", \"handoff updated\"], \"modelTier\": \"standard\"}\n```"
     }
   ],
-  "lastUpdated": "2026-07-16T15:04:00Z"
+  "lastUpdated": "2026-07-16T22:55:00Z"
 }
