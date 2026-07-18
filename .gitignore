@@ -51,3 +51,4 @@ Thumbs.db
 
 # Data
 etl/data/
+eslint.sonar.config.mjs
