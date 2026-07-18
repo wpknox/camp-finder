@@ -4,9 +4,9 @@
 
 CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
 
-## Current status (2026-07-16): DEPLOYED + SOFT-LAUNCHED 🎉 — PR #3 awaiting owner review
+## Current status (2026-07-17): DEPLOYED + SOFT-LAUNCHED 🎉 — PR #3 awaiting owner review
 
-The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are built and reviewed on PR #3** — owner is reviewing; merge must follow the backend schema deploy (see session 2026-07-16). See "Wishlist: post-launch" below for the known future work.
+The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are built and reviewed on PR #3** — owner is reviewing; merge must follow the backend schema deploy. **Cell-coverage data is downloaded, extracted, and enriched locally (2026-07-17)** — prod rollout steps are in `docs/rollout-pr3.md`. See "Wishlist: post-launch" below for the known future work.
 
 ## Deploy status (2026-07-07)
 
@@ -75,14 +75,21 @@ All four feature tiers from `docs/superpowers/plans/2026-07-14-post-launch-featu
 - **Directions deep-links**: Google Maps universal link everywhere, Apple Maps added on iOS (`$lib/platform.ts`).
 - **Elevation + weather**: `facilities.elevation_m` backfilled by `cd etl && pnpm enrich-elevation` (Open-Meteo, keyless; already run against local). Shown in detail header + Compare. `WeatherStrip.svelte` fetches a 7-day elevation-corrected forecast client-side.
 - **Things nearby**: `nearby_pois` cache table + `/api/nearby/[id]` (Overpass on miss, 7-day TTL, serve-stale on failure) + `NearbySection`. **Field note:** the section hides entirely when Overpass fails and no cache exists — during this session overpass-api.de 504'd under load, then 429'd our IP (timeouts stack a cooldown penalty). Normal usage (1 query/campground/week) is fine; if chronic, add a mirror fallback (kumi.systems) and a short server-side no-retry window on 429/504.
-- **Cell coverage**: `facilities.cell_coverage` JSON (Verizon/AT&T/T-Mobile + `as_of` + `user_edited`), offline enrichment via `cd etl && pnpm enrich-cell --as-of YYYY-MM` from FCC BDC H3 res-9 CSVs (download runbook: `etl/README.md`). Chips in detail panel, Cell Signal row in Compare. **Not yet populated anywhere — FCC download pending** (UI hides on null, so shipping without it is safe).
+- **Cell coverage**: `facilities.cell_coverage` JSON (Verizon/AT&T/T-Mobile + `as_of` + `user_edited`), offline enrichment via `cd etl && pnpm enrich-cell --as-of YYYY-MM` from FCC BDC H3 res-9 CSVs (download runbook: `etl/README.md`). Chips in detail panel, Cell Signal row in Compare. **Populated locally 2026-07-17 (see that session note); prod waits on `docs/rollout-pr3.md`** (UI hides on null, so shipping without it is safe).
 - **Crowdsourced carrier overrides**: suggest-an-edit now has a carrier tri-state group; admin approval merges only suggested carriers and appends them to `user_edited` (never clobbered by `enrich-cell`). **Semantic decision:** suggesting "Unknown" (null) *relinquishes* ownership — the key is removed from `user_edited` so FCC data can repopulate it.
 - Tests now: frontend 64 (`pnpm check` 0/0), etl 143. Local D1 got the new DDL by hand (miniflare trap, see 2026-07-11 note); all 588 local facilities have `elevation_m`.
 
-**⚠ Remaining rollout steps (in order — deploy order matters, `main` auto-deploys the frontend):**
-1. Backend schema deploy: `cd backend && npx wrangler secret delete TB_SHARED_SECRET` → `pnpm deploy` → `pnpm secrets-upload` (the X-TB-Key settings-sync quirk, see 2026-07-07). Verify `nearby_pois` with a real request, not the ledger.
-2. Prod enrichment: `cd etl && pnpm enrich-elevation` with prod env values (`enrich-cell` waits on the FCC download).
-3. Merge PR #3 → Pages auto-deploy → smoke (detail panel: directions/elevation/weather/nearby; Compare rows).
+**⚠ Remaining rollout steps: superseded by `docs/rollout-pr3.md` (2026-07-17) — the FCC download is no longer a blocker.**
+
+### Session 2026-07-17 — FCC cell data ingested locally + has-cell filter (on PR #3)
+
+Commit `410758a` on `feat/post-launch-features` (pushed, part of PR #3).
+
+- **FCC data downloaded & enriched (local only)**: the FCC dropped the per-provider H3 CSV download the runbook assumed. New flow (documented in `etl/README.md`): By Provider tab → Verizon 131425 / AT&T Mobility 130077 / T-Mobile 130403 → Colorado, 4G LTE → **Hexagon Coverage - GeoPackage**. A GeoPackage is SQLite; hex IDs are extracted with `sqlite3` into `etl/data/fcc/{verizon,att,tmobile}.csv` (gitignored, currently on the owner's machine — .gpkg sources in `~/Downloads/bdc_08_*.gpkg`). Data vintage **Dec 31 2025** → `--as-of 2025-12`.
+- **⚠ `environmnt` trap (root-caused after a bad first pass)**: each hex appears under exactly ONE `environmnt` value — 1 = covered even in-vehicle (strong), 0 = outdoor-only fringe; the sets are disjoint. Coverage = the union; do NOT filter. First extraction kept only `environmnt=0`, which inverted reality (wilderness "covered", Cherry Creek/Chatfield/Bear Creek "no service"). Verified fixed: Denver-metro parks show all three carriers; 231/588 local facilities have some coverage.
+- **"Has Cell Service" filter** (owner request): replaces the Pets Allowed checkbox in `FilterSidebar`/`filterStore` — matches facilities with ANY carrier true in `cell_coverage` (FCC or camper-reported). One-for-one checkbox swap, mobile collapse layout untouched. Pets data still shown in detail/suggest-edit/admin.
+- **Detail-panel divider**: `.description` now has the same top rule as the Cell Signal section, separating Cell Signal from the Overview text.
+- Verified live via Playwright (filter 537→231; computed border on `.description`). Tests: frontend 64 pass, `pnpm check` 0/0.
 
 ### ~~Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)~~ — DONE 2026-07-11 (see session note above)
 
