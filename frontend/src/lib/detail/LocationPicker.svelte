@@ -1,5 +1,10 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  // Leaflet derives its default marker PNGs from the CSS at runtime, which Vite's
+  // asset hashing breaks (blank icon). Import them so the bundler resolves real URLs.
+  import markerIconUrl from 'leaflet/dist/images/marker-icon.png'
+  import markerIcon2xUrl from 'leaflet/dist/images/marker-icon-2x.png'
+  import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png'
 
   let { lat, lng, onchange }: {
     lat: number
@@ -32,7 +37,16 @@
         maxZoom: 17,
         attribution: '© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)',
       }).addTo(map)
-      marker = L.marker([initLat, initLng], { draggable: true }).addTo(map)
+      const icon = L.icon({
+        iconUrl: markerIconUrl,
+        iconRetinaUrl: markerIcon2xUrl,
+        shadowUrl: markerShadowUrl,
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
+      })
+      marker = L.marker([initLat, initLng], { draggable: true, icon }).addTo(map)
       marker.on('dragend', () => report(marker!.getLatLng()))
       map.on('click', (e: import('leaflet').LeafletMouseEvent) => {
         marker!.setLatLng(e.latlng)
