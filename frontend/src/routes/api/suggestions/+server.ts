@@ -19,7 +19,7 @@ const headers = {
 // admin review is the gate, and malformed submissions get rejected there.
 const ALLOWED_KEYS = new Set([
   'fee_min', 'fee_max', 'season_start', 'season_end', 'amenities',
-  'fcfs_total', 'reservable_total', 'is_closed', 'lat', 'lng',
+  'fcfs_total', 'reservable_total', 'is_closed', 'lat', 'lng', 'cell_coverage',
 ])
 
 /** Light shape validation for the new structured fields. Returns an error
@@ -39,6 +39,14 @@ function validateChanges(changes: EditChanges): string | null {
   // lat/lng travel together — a half-updated location is never intended.
   if ((changes.lat === undefined) !== (changes.lng === undefined))
     return 'lat and lng must be provided together'
+  if (changes.cell_coverage !== undefined) {
+    if (typeof changes.cell_coverage !== 'object' || changes.cell_coverage === null)
+      return 'cell_coverage must be an object'
+    for (const [k, v] of Object.entries(changes.cell_coverage)) {
+      if (!['verizon', 'att', 'tmobile'].includes(k)) return `Unknown carrier: ${k}`
+      if (v !== null && typeof v !== 'boolean') return 'carrier values must be boolean or null'
+    }
+  }
   return null
 }
 

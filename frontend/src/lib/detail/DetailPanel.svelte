@@ -3,6 +3,7 @@
   import FCFSBadge from './FCFSBadge.svelte'
   import AmenityGrid from './AmenityGrid.svelte'
   import AlertsSection from './AlertsSection.svelte'
+  import NearbySection from './NearbySection.svelte'
   import DataQualityWarning from './DataQualityWarning.svelte'
   import { compareList } from '$lib/compare/compareStore'
   import SaveButton from '$lib/saved/SaveButton.svelte'
@@ -13,6 +14,11 @@
   import AuthModal from '$lib/auth/AuthModal.svelte'
   import { isLoggedIn, currentUser } from '$lib/auth/authStore'
   import { page } from '$app/stores'
+  import { browser } from '$app/environment'
+  import { isIOS } from '$lib/platform'
+  import { formatElevationFt } from '$lib/weather'
+  import WeatherStrip from './WeatherStrip.svelte'
+  import CellCoverageChips from './CellCoverageChips.svelte'
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
@@ -105,6 +111,10 @@
 
   let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
   let reserveUrl    = $derived(`https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`)
+  const onIOS = browser && isIOS(navigator.userAgent)
+  let googleDirectionsUrl = $derived(`https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`)
+  let appleDirectionsUrl  = $derived(`https://maps.apple.com/?daddr=${facility.lat},${facility.lng}`)
+  let elevationFt = $derived(formatElevationFt(facility.elevation_m))
   let feeStr = $derived(
     facility.fee_min === 0   ? 'Free'
     : facility.fee_min != null && facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
@@ -150,7 +160,7 @@
   <div class="panel-content">
     <header>
       <h2>{facility.name}</h2>
-      <p class="meta">{facility.forest}{facility.district ? ` · ${facility.district}` : ''}</p>
+      <p class="meta">{facility.forest}{facility.district ? ` · ${facility.district}` : ''}{elevationFt ? ` · ${elevationFt}` : ''}</p>
       {#if feeStr}
         <p class="fee">{feeStr}</p>
       {:else}
@@ -198,17 +208,27 @@
 
     <AmenityGrid amenities={facility.amenities} />
 
+    <WeatherStrip lat={facility.lat} lng={facility.lng} elevationM={facility.elevation_m} />
+
+    <CellCoverageChips coverage={facility.cell_coverage} />
+
     {#if facility.description}
       <div class="description">{@html facility.description}</div>
     {/if}
 
     <AlertsSection facilityId={facility.id} />
 
+    <NearbySection facilityId={facility.id} />
+
     {#if facility.ridb_data_quality !== 'rich' && facility.fs_url}
       <DataQualityWarning quality={facility.ridb_data_quality} fsUrl={facility.fs_url} />
     {/if}
 
     <div class="links">
+      <a href={googleDirectionsUrl} target="_blank" rel="noopener">Get directions (Google Maps) ↗</a>
+      {#if onIOS}
+        <a href={appleDirectionsUrl} target="_blank" rel="noopener">Get directions (Apple Maps) ↗</a>
+      {/if}
       {#if facility.fs_url}
         <a href={facility.fs_url} target="_blank" rel="noopener">View on fs.usda.gov ↗</a>
       {/if}
@@ -304,7 +324,7 @@
   .fee { margin: .7rem 0 .6rem; font-family: var(--font-mono); font-weight: 600; font-size: 1.05rem; color: var(--pine); }
   .fee-unknown { color: var(--ink-faint); font-size: .85rem; font-weight: 500; }
   .fee-unknown a { color: var(--clay); text-decoration: underline; }
-  .description { font-size: .86rem; color: var(--ink-soft); line-height: 1.6; margin: .9rem 0; }
+  .description { font-size: .86rem; color: var(--ink-soft); line-height: 1.6; margin: 1.2rem 0 .9rem; padding-top: 1rem; border-top: 1px solid var(--line); }
   .description :global(h2) { font-family: var(--font-display); font-size: 1rem; color: var(--ink); margin: .9rem 0 .25rem; }
   .description :global(p)  { margin: 0 0 .55rem; }
   .description :global(a) { color: var(--pine); }

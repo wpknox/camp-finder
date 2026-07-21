@@ -15,6 +15,12 @@
     { key: 'accessible', label: 'Accessible sites' },
   ]
 
+  const CARRIERS: Array<{ key: 'verizon' | 'att' | 'tmobile'; label: string }> = [
+    { key: 'verizon', label: 'Verizon' },
+    { key: 'att', label: 'AT&T' },
+    { key: 'tmobile', label: 'T-Mobile' },
+  ]
+
   function triState(v: boolean | null | undefined): 'yes' | 'no' | 'unknown' {
     return v === true ? 'yes' : v === false ? 'no' : 'unknown'
   }
@@ -47,6 +53,9 @@
   }
   let amenityValues = $state(Object.fromEntries(
     EDITABLE_AMENITIES.map(({ key }) => [key, triState(initial.amenities?.[key] as boolean | null)]),
+  ) as Record<string, 'yes' | 'no' | 'unknown'>)
+  let carrierValues = $state(Object.fromEntries(
+    CARRIERS.map(({ key }) => [key, triState(initial.cell_coverage?.[key])]),
   ) as Record<string, 'yes' | 'no' | 'unknown'>)
   let note = $state('')
   let submitting = $state(false)
@@ -107,6 +116,15 @@
       }
     }
     if (Object.keys(amenityDiff).length) c.amenities = amenityDiff
+    const carrierDiff: NonNullable<EditChanges['cell_coverage']> = {}
+    for (const { key } of CARRIERS) {
+      const original = triState(facility.cell_coverage?.[key])
+      const current = carrierValues[key]
+      if (current !== original) {
+        carrierDiff[key] = current === 'yes' ? true : current === 'no' ? false : null
+      }
+    }
+    if (Object.keys(carrierDiff).length) c.cell_coverage = carrierDiff
     return c
   })
   let hasChanges = $derived(Object.keys(changes).length > 0)
@@ -269,6 +287,23 @@
                         onclick={() => (amenityValues = { ...amenityValues, [key]: 'no' })}>No</button>
                 <button type="button" class:active={amenityValues[key] === 'unknown'}
                         onclick={() => (amenityValues = { ...amenityValues, [key]: 'unknown' })}>Unknown</button>
+              </div>
+            </div>
+          {/each}
+        </div>
+
+        <div class="amenities">
+          <span class="section-label">Cell coverage — your experience</span>
+          {#each CARRIERS as { key, label } (key)}
+            <div class="amenity-row">
+              <span class="amenity-label">{label}</span>
+              <div class="segmented">
+                <button type="button" class:active={carrierValues[key] === 'yes'}
+                        onclick={() => (carrierValues = { ...carrierValues, [key]: 'yes' })}>Yes</button>
+                <button type="button" class:active={carrierValues[key] === 'no'}
+                        onclick={() => (carrierValues = { ...carrierValues, [key]: 'no' })}>No</button>
+                <button type="button" class:active={carrierValues[key] === 'unknown'}
+                        onclick={() => (carrierValues = { ...carrierValues, [key]: 'unknown' })}>Unknown</button>
               </div>
             </div>
           {/each}

@@ -110,6 +110,23 @@ export class TbClient {
   async patchFacility(id: string, patch: Record<string, unknown>): Promise<void> {
     await this.tbFetch(`/table/facilities/edit/${id}`, patch);
   }
+
+  async listForEnrichment(): Promise<
+    Array<{ id: string; lat: number; lng: number; elevation_m: number | null; cell_coverage: Record<string, unknown> | null; is_deleted: boolean }>
+  > {
+    const res = (await this.tbFetch("/table/facilities/list", { limit: 10000 })) as {
+      items: Array<{ id: string; lat: number; lng: number; elevation_m?: number | null; cell_coverage?: string | Record<string, unknown> | null; is_deleted?: boolean | null }>;
+    };
+    return res.items.map((f) => ({
+      id: f.id,
+      lat: f.lat,
+      lng: f.lng,
+      elevation_m: f.elevation_m ?? null,
+      cell_coverage:
+        typeof f.cell_coverage === "string" ? JSON.parse(f.cell_coverage) : (f.cell_coverage ?? null),
+      is_deleted: !!f.is_deleted,
+    }));
+  }
 }
 
 // Maps every ridb_id — including ones absorbed via an admin duplicate-merge

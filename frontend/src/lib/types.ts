@@ -17,6 +17,14 @@ export interface Amenities {
   accessible: boolean;
 }
 
+export interface CellCoverage {
+  verizon: boolean | null;
+  att: boolean | null;
+  tmobile: boolean | null;
+  as_of: string | null;
+  user_edited?: string[];
+}
+
 export interface Facility {
   id: string;
   ridb_id: string;
@@ -40,6 +48,8 @@ export interface Facility {
   is_closed: boolean;
   merged_ridb_ids?: string[];
   is_deleted?: boolean;
+  elevation_m?: number | null;
+  cell_coverage?: CellCoverage | null;
 }
 
 export interface Alert {
@@ -68,6 +78,7 @@ export interface EditChanges {
   lat?: number;
   lng?: number;
   amenities?: Partial<Amenities>;
+  cell_coverage?: Partial<Record<"verizon" | "att" | "tmobile", boolean | null>>;
 }
 
 export interface EditSuggestion {

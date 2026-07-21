@@ -2,6 +2,15 @@ import { json } from "@sveltejs/kit";
 import { tbFetch } from "$lib/server/tbFetch";
 import type { RequestHandler } from "./$types";
 
+function parseCellCoverage(v: unknown): unknown {
+  if (typeof v !== "string") return v ?? null;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
+}
+
 export const GET: RequestHandler = async ({ url }) => {
   const north = Number.parseFloat(url.searchParams.get("north") ?? "");
   const south = Number.parseFloat(url.searchParams.get("south") ?? "");
@@ -35,6 +44,7 @@ export const GET: RequestHandler = async ({ url }) => {
       ...f,
       amenities:
         typeof f.amenities === "string" ? JSON.parse(f.amenities) : f.amenities,
+      cell_coverage: parseCellCoverage(f.cell_coverage),
     }));
   return json(items);
 };

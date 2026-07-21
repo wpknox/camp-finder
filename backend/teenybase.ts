@@ -113,6 +113,13 @@ export default {
         // stays so the ETL's ridb_id index keeps resolving it (never
         // resurrected); the public facilities route filters it out.
         { name: "is_deleted", type: "bool", sqlType: "boolean" },
+        // Meters above sea level, enriched by etl `pnpm enrich-elevation`
+        // (Open-Meteo). Sync never touches it.
+        { name: "elevation_m", type: "number", sqlType: "real" },
+        // {verizon,att,tmobile: bool|null, as_of: string|null, user_edited?: string[]}
+        // Written by etl `pnpm enrich-cell` (FCC BDC) and admin-approved user
+        // overrides; carriers in user_edited are never clobbered by enrich-cell.
+        { name: "cell_coverage", type: "json", sqlType: "json" },
       ],
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
@@ -143,6 +150,37 @@ export default {
         },
         { name: "content", type: "text", sqlType: "text" },
         { name: "scraped_at", type: "date", sqlType: "timestamp" },
+      ],
+      triggers: [createdTrigger, updatedTrigger],
+      extensions: [
+        {
+          name: "rules",
+          listRule: "true",
+          viewRule: "true",
+          createRule: "false",
+          updateRule: "false",
+          deleteRule: "false",
+        } satisfies TableRulesExtensionData,
+      ],
+    },
+    {
+      name: "nearby_pois",
+      autoSetUid: true,
+      fields: [
+        ...baseFields,
+        {
+          name: "facility_id",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: {
+            table: "facilities",
+            column: "id",
+            onDelete: "CASCADE",
+          },
+        },
+        // Array<{name, category: 'trailhead'|'grocery'|'fuel', lat, lng, distance_m}>
+        { name: "pois", type: "json", sqlType: "json" },
+        { name: "fetched_at", type: "date", sqlType: "timestamp" },
       ],
       triggers: [createdTrigger, updatedTrigger],
       extensions: [
