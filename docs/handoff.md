@@ -4,9 +4,9 @@
 
 CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
 
-## Current status (2026-07-17): DEPLOYED + SOFT-LAUNCHED 🎉 — PR #3 awaiting owner review
+## Current status (2026-07-21): DEPLOYED + SOFT-LAUNCHED 🎉 — PR #3 MERGED & ROLLED OUT TO PROD
 
-The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are built and reviewed on PR #3** — owner is reviewing; merge must follow the backend schema deploy. **Cell-coverage data is downloaded, extracted, and enriched locally (2026-07-17)** — prod rollout steps are in `docs/rollout-pr3.md`. See "Wishlist: post-launch" below for the known future work.
+The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are now live in prod** — PR #3 merged 2026-07-21 following the `docs/rollout-pr3.md` runbook (backend schema deployed, both enrichments run against prod, frontend auto-deployed). See "Session 2026-07-21" below for the rollout log and "Wishlist: post-launch" for remaining future work.
 
 ## Deploy status (2026-07-07)
 
@@ -90,6 +90,19 @@ Commit `410758a` on `feat/post-launch-features` (pushed, part of PR #3).
 - **"Has Cell Service" filter** (owner request): replaces the Pets Allowed checkbox in `FilterSidebar`/`filterStore` — matches facilities with ANY carrier true in `cell_coverage` (FCC or camper-reported). One-for-one checkbox swap, mobile collapse layout untouched. Pets data still shown in detail/suggest-edit/admin.
 - **Detail-panel divider**: `.description` now has the same top rule as the Cell Signal section, separating Cell Signal from the Overview text.
 - Verified live via Playwright (filter 537→231; computed border on `.description`). Tests: frontend 64 pass, `pnpm check` 0/0.
+
+### Session 2026-07-21 — PR #3 rolled out to prod (merge commit `febc72b`)
+
+Executed `docs/rollout-pr3.md` end to end. PR #3 (`feat/post-launch-features`) is **merged to `main`** and the post-launch features are live.
+
+- **Backend schema deployed** (step 1): `nearby_pois` table + `facilities.cell_coverage` / `facilities.elevation_m` columns are on prod. Verified with a real request, not the ledger: `GET /api/v1/table/nearby_pois/list?limit=1` → `HTTP 200 {"items":[],"total":0}`.
+- **Enrichments run against prod** (step 2): `enrich-elevation` (Open-Meteo, keyless) + `enrich-cell --as-of 2025-12` (FCC CSVs from `etl/data/fcc/`).
+- **Merged** (step 3): `gh pr merge 3 --merge` → merge commit `febc72b` at 23:36 UTC. No protected-ref error (ruleset 18509008 was already correct). Cloudflare Pages auto-built `main` → `camp-finder.pages.dev`.
+- **Cleanups done** (step 5): stray `~/Downloads/bdc_us_*` folders deleted; `etl/.env` reverted to local values (backup was `etl/.env.local.bak`).
+
+**Gotcha logged for future prod ETL runs:** the `X-TB-Key` guard 403s any request with an empty/missing header. `etl/.env` has no `TB_SHARED_SECRET` line locally (local backend doesn't enforce the guard); for prod runs it must be **added** — the ETL only sends the header when the var is present (`etl/src/teenybase.ts:26`). Also note the name mismatch: the ETL's `TB_SERVICE_TOKEN` is the same value as the backend's `ADMIN_SERVICE_TOKEN` in `backend/.prod.vars`. Cloudflare Worker secrets are write-only — the readable source of truth for these values is `backend/.prod.vars` / the owner's worksheet, not the CF dashboard.
+
+**Left to the owner:** step 4 prod smoke checks on `camp-finder.pages.dev` (elevation/weather/cell on a Denver-area detail panel, Has Cell Service filter, directions links, Things Nearby, Compare rows, mobile filter collapse).
 
 ### ~~Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)~~ — DONE 2026-07-11 (see session note above)
 

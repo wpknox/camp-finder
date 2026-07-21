@@ -15,8 +15,8 @@ backend/.prod.vars
 backend/migrations/*.sql
 .wrangler/
 
-# ETL secrets
-etl/.env
+# ETL secrets (incl. local/prod .bak backups)
+etl/.env*
 
 # SvelteKit
 frontend/.env
