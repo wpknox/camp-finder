@@ -1,6 +1,14 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { Facility, Amenities } from "$lib/types";
+  import type { Facility, Amenities, CampgroundSubmission } from "$lib/types";
+  import CampgroundForm from "$lib/campground/CampgroundForm.svelte";
+  import {
+    draftFromSubmission,
+    draftErrors,
+    draftToSubmission,
+    validateSourceUrl,
+    type CampgroundDraft,
+  } from "$lib/campgroundSubmission";
   import LocationDiffMap from "$lib/admin/LocationDiffMap.svelte";
 
   interface EditRow {
@@ -22,6 +30,17 @@
     user_email: string;
     note: string;
     created: string;
+  }
+
+  interface CampgroundRow {
+    id: string;
+    user_id: string;
+    submission: CampgroundSubmission | null;
+    source_url: string | null;
+    note: string;
+    created: string;
+    user_email: string;
+    nearby: { id: string; name: string; km: number }[];
   }
 
   interface MergeRow {
@@ -91,8 +110,16 @@
     return String(v);
   }
 
-  let { data }: { data: { edits: EditRow[]; merges: MergeRow[]; deletions: DeletionRow[] } } =
-    $props();
+  let {
+    data,
+  }: {
+    data: {
+      edits: EditRow[];
+      merges: MergeRow[];
+      deletions: DeletionRow[];
+      campgrounds: CampgroundRow[];
+    };
+  } = $props();
 
   // Admin-generated password reset link.
   let resetEmail = $state("");
@@ -145,6 +172,22 @@
   let edits = $state(untrack(() => [...data.edits]));
   let merges = $state(untrack(() => [...data.merges]));
   let deletions = $state(untrack(() => [...data.deletions]));
+  let campgrounds = $state(untrack(() => [...data.campgrounds]));
+
+  // Editable per-row copies of each suggested campground. Rows whose stored
+  // submission couldn't be parsed get no draft (only Reject is available).
+  let drafts = $state<Record<string, CampgroundDraft>>(
+    untrack(() =>
+      Object.fromEntries(
+        data.campgrounds
+          .filter((c) => c.submission !== null)
+          .map((c) => [c.id, draftFromSubmission(c.submission as CampgroundSubmission)]),
+      ),
+    ),
+  );
+  let sourceUrls = $state<Record<string, string>>(
+    untrack(() => Object.fromEntries(data.campgrounds.map((c) => [c.id, c.source_url ?? ""]))),
+  );
 
   const AMENITY_LABELS: Record<string, string> = {
     potableWater: "Potable Water",
@@ -200,6 +243,7 @@
   function ridbSourceBadge(ridbId: string): string {
     if (ridbId.startsWith("fs-")) return "USFS";
     if (ridbId.startsWith("nps-")) return "NPS";
+    if (ridbId.startsWith("user-")) return "User";
     return "RIDB";
   }
 
@@ -242,11 +286,13 @@
   let mergeSuccesses = $state<SuccessNotice[]>([]);
   let editSuccesses = $state<SuccessNotice[]>([]);
   let deletionSuccesses = $state<SuccessNotice[]>([]);
+  let campgroundSuccesses = $state<SuccessNotice[]>([]);
 
   function dismissSuccess(id: string) {
     mergeSuccesses = mergeSuccesses.filter((s) => s.id !== id);
     editSuccesses = editSuccesses.filter((s) => s.id !== id);
     deletionSuccesses = deletionSuccesses.filter((s) => s.id !== id);
+    campgroundSuccesses = campgroundSuccesses.filter((s) => s.id !== id);
   }
 
   function useAllOfSide(rowId: string, side: Side) {
@@ -405,6 +451,61 @@
       busy = { ...busy, [row.id]: false };
     }
   }
+
+  async function resolveCampground(row: CampgroundRow, action: "approve" | "reject") {
+    if (busy[row.id]) return;
+    if (action === "approve" && !drafts[row.id]) return;
+    busy = { ...busy, [row.id]: true };
+    errors = { ...errors, [row.id]: "" };
+    try {
+      const res = await fetch("/api/admin/campground-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          action === "approve"
+            ? {
+                id: row.id,
+                action,
+                submission: draftToSubmission(drafts[row.id]),
+                source_url: (sourceUrls[row.id] ?? "").trim(),
+              }
+            : { id: row.id, action, admin_note: notes[row.id] ?? "" },
+        ),
+      });
+      if (res.ok) {
+        campgrounds = campgrounds.filter((c) => c.id !== row.id);
+        if (action === "approve") {
+          const body = (await res.json().catch(() => ({}))) as {
+            facility_id?: string;
+            facility_name?: string;
+          };
+          campgroundSuccesses = [
+            ...campgroundSuccesses,
+            {
+              id: row.id,
+              facility_id: body.facility_id ?? "",
+              facility_name:
+                body.facility_name ?? drafts[row.id]?.name ?? row.submission?.name ?? "campground",
+            },
+          ];
+        }
+      } else {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          facility_id?: string;
+        };
+        const msg = body.error ?? "Something went wrong";
+        errors = {
+          ...errors,
+          [row.id]: body.facility_id ? `${msg} (facility ${body.facility_id})` : msg,
+        };
+      }
+    } catch {
+      errors = { ...errors, [row.id]: "Something went wrong" };
+    } finally {
+      busy = { ...busy, [row.id]: false };
+    }
+  }
 </script>
 
 <svelte:head>
@@ -471,6 +572,142 @@
         </div>
       {/if}
     </div>
+  </section>
+
+  <section class="queue">
+    <h2>Suggested campgrounds <span class="count">{campgrounds.length}</span></h2>
+
+    {#each campgroundSuccesses as success (success.id)}
+      {@render successBanner(success, "Added")}
+    {/each}
+
+    {#if campgrounds.length === 0}
+      <p class="empty">No suggested campgrounds — the queue is clear.</p>
+    {:else}
+      <div class="cards">
+        {#each campgrounds as row (row.id)}
+          {@const draft = drafts[row.id]}
+          {@const draftErrs = draft ? draftErrors(draft) : {}}
+          {@const srcErr = validateSourceUrl((sourceUrls[row.id] ?? "").trim())}
+          {@const invalid = !draft || Object.keys(draftErrs).length > 0 || srcErr !== null}
+          <article class="card">
+            <div class="card-head">
+              <h3>{draft?.name?.trim() || row.submission?.name || "(unnamed)"}</h3>
+              <span class="meta">
+                <span class="badge">User</span> · {row.user_email} · {fmtDate(row.created)}
+              </span>
+            </div>
+
+            {#if row.nearby.length > 0}
+              <div class="dup-warning" role="note">
+                <strong>Possible duplicate — within 1.5 km:</strong>
+                <ul>
+                  {#each row.nearby as n (n.id)}
+                    <li>
+                      <span>{n.name} — {n.km.toFixed(2)} km</span>
+                      <a class="map-link" href={`/?facility=${n.id}`} target="_blank" rel="noopener">
+                        View on map ↗
+                      </a>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+
+            {#if row.source_url}
+              <a
+                class="map-link"
+                href={row.source_url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+              >
+                Submitter's source link ↗
+              </a>
+            {/if}
+            {#if row.note}
+              <p class="note">"{row.note}"</p>
+            {/if}
+
+            {#if draft}
+              <CampgroundForm
+                bind:draft={drafts[row.id]}
+                errors={draftErrs}
+                showAdminFields
+                showAllErrors
+                idPrefix={`card-${row.id}`}
+              />
+              <div class="source-field">
+                <label for={`card-${row.id}-source`}>Source link</label>
+                <input
+                  id={`card-${row.id}-source`}
+                  type="url"
+                  placeholder="https://…"
+                  bind:value={sourceUrls[row.id]}
+                />
+                {#if srcErr}
+                  <p class="error" role="alert">{srcErr}</p>
+                {/if}
+              </div>
+            {:else}
+              <p class="winner-hint error-hint">
+                This submission couldn't be read — reject it to clear it from the queue.
+              </p>
+            {/if}
+
+            {#if errors[row.id]}
+              <p class="error" role="alert">{errors[row.id]}</p>
+            {/if}
+
+            {#if rejecting[row.id]}
+              <div class="reject-form">
+                <input
+                  type="text"
+                  placeholder="Optional note to the submitter…"
+                  bind:value={notes[row.id]}
+                  maxlength="1000"
+                />
+                <div class="actions">
+                  <button
+                    class="cancel"
+                    type="button"
+                    onclick={() => (rejecting = { ...rejecting, [row.id]: false })}
+                  >
+                    Back
+                  </button>
+                  <button
+                    class="danger"
+                    type="button"
+                    disabled={busy[row.id]}
+                    onclick={() => resolveCampground(row, "reject")}
+                  >
+                    Confirm reject
+                  </button>
+                </div>
+              </div>
+            {:else}
+              <div class="actions">
+                <button
+                  class="cancel"
+                  type="button"
+                  disabled={busy[row.id]}
+                  onclick={() => (rejecting = { ...rejecting, [row.id]: true })}
+                >
+                  Reject
+                </button>
+                <button
+                  class="primary"
+                  type="button"
+                  disabled={busy[row.id] || invalid}
+                  onclick={() => resolveCampground(row, "approve")}
+                >
+                  Approve &amp; add to map
+                </button>
+              </div>
+            {/if}
+          </article>
+        {/each}
+      </div>
+    {/if}
   </section>
 
   <section class="queue">
@@ -1262,6 +1499,53 @@
   }
   .success-dismiss:hover {
     color: var(--ink);
+  }
+
+  .dup-warning {
+    background: color-mix(in srgb, var(--ochre, #b9852c) 14%, var(--paper-2));
+    border: 1px solid color-mix(in srgb, var(--ochre, #b9852c) 55%, var(--line));
+    border-radius: 10px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+  .dup-warning ul {
+    margin: 0.35rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .dup-warning li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.8rem;
+  }
+  .source-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .source-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .source-field input {
+    background: var(--paper-deep);
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.85rem;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .source-field input:focus {
+    outline: none;
+    border-color: var(--moss);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent);
   }
 
   .reject-form {
