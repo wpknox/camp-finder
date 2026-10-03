@@ -6,7 +6,8 @@
   let {
     onSearch,
     onpick,
-  }: { onSearch: () => void; onpick: (f: Facility) => void } = $props();
+    onsuggest,
+  }: { onSearch: () => void; onpick: (f: Facility) => void; onsuggest: () => void } = $props();
 
   // Mobile-only: filters and the results list each collapse behind a tappable
   // header so the sidebar stays short and the map keeps the room. Desktop CSS
@@ -142,6 +143,9 @@
         </svg>
         Search this area
       {/if}
+    </button>
+    <button class="suggest-btn" type="button" onclick={onsuggest}>
+      ＋ Suggest a missing campground
     </button>
   </div>
 </aside>
@@ -358,6 +362,21 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+  .suggest-btn {
+    width: 100%;
+    background: var(--paper-deep);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.13s var(--ease);
+  }
+  .suggest-btn:hover {
+    background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
+  }
   @media (min-width: 641px) {
     /* Desktop never collapses filters or results; the toggles aren't
        interactive and the list is always shown. */
@@ -436,6 +455,10 @@
     .search-btn {
       padding: 0.42rem;
       font-size: 0.82rem;
+    }
+    .suggest-btn {
+      padding: 0.36rem;
+      font-size: 0.76rem;
     }
     .results {
       order: 3;
