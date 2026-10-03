@@ -46,3 +46,14 @@ export function findDuplicate<T extends { lat: number; lng: number }>(
       Math.abs(r.lng - lng) < PROXIMITY_DEG,
   );
 }
+
+// Rows not sourced from RIDB: fs.usda.gov discoveries ("fs-"), NPS ("nps-")
+// and approved user submissions ("user-"). The ETL absorbs new RIDB ids into
+// these by name+proximity instead of inserting duplicates.
+export function isNonRidbSourceId(ridbId: string): boolean {
+  return (
+    ridbId.startsWith("fs-") ||
+    ridbId.startsWith("nps-") ||
+    ridbId.startsWith("user-")
+  );
+}

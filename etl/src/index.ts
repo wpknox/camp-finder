@@ -9,7 +9,11 @@ import {
   inCoBbox,
   parentOrgToAgency,
 } from "./forests.js";
-import { groupByCanonicalName, findDuplicate } from "./dedupe.js";
+import {
+  groupByCanonicalName,
+  findDuplicate,
+  isNonRidbSourceId,
+} from "./dedupe.js";
 import {
   normalizeAmenities,
   parseDescriptionAmenities,
@@ -155,16 +159,14 @@ async function main() {
     `\nSkipped ${skippedNoCampsites} facilities with no overnight campsites (trailheads/day-use)`,
   );
 
-  // A facility new to the RIDB sync may already exist as an fs.usda.gov- or
-  // NPS-sourced row (those sources ran against the old, smaller RIDB set).
+  // A facility new to the RIDB sync may already exist as an fs.usda.gov-, NPS-
+  // or user-submitted row (those sources ran against the old, smaller RIDB set).
   // Absorb the RIDB id into the existing row's merged_ridb_ids so the upsert
   // below routes to it — enriching the row instead of inserting a duplicate.
-  console.log("Checking new RIDB facilities against fs-/nps- records...");
+  console.log("Checking new RIDB facilities against fs-/nps-/user- records...");
   const rows = await tb.listAllWithMerged();
   const index = buildRidbIndex(rows);
-  const scrapedRows = rows.filter(
-    (r) => r.ridb_id.startsWith("fs-") || r.ridb_id.startsWith("nps-"),
-  );
+  const scrapedRows = rows.filter((r) => isNonRidbSourceId(r.ridb_id));
   const scrapedByName = groupByCanonicalName(scrapedRows);
   let absorbed = 0;
   for (const f of normalized) {
