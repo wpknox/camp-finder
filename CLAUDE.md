@@ -105,6 +105,7 @@ Defined in `backend/teenybase.ts` — the single source of truth for the entire 
 - `saved_campgrounds` — authenticated user favorites. Private: all operations require `auth.uid == user_id`.
 - `edit_suggestions` — crowdsourced facility-edit submissions (`changes` JSON patch, `status` pending|approved|rejected, reviewer fields). **ALL rules `'false'`** — every read/write goes through SvelteKit server routes using `TB_SERVICE_TOKEN` (Teenybase's rule language can't express role checks and can't do compound WHERE).
 - `merge_suggestions` — user-flagged duplicate pairs (`facility_a`/`facility_b`, `status`, reviewer fields). **ALL rules `'false'`**, same service-token-only access pattern.
+- `campground_suggestions` — user-submitted new campgrounds (`submission` JSON patch of facility fields, optional `source_url`, `status`, reviewer fields, `created_facility_id`). **ALL rules `'false'`**, same service-token-only access pattern. Admin approval inserts a facility with `ridb_id = "user-<suggestionId>"`; the ETL treats `user-` like `fs-`/`nps-` (absorbs/enriches, never duplicates).
 
 ## Auth Pattern
 
