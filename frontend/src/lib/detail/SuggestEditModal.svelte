@@ -2,18 +2,9 @@
   import { untrack } from 'svelte'
   import type { Facility, EditChanges, Amenities } from '$lib/types'
   import LocationPicker from './LocationPicker.svelte'
+  import { EDITABLE_AMENITIES } from '$lib/amenityFields'
 
   let { facility, onclose }: { facility: Facility; onclose: () => void } = $props()
-
-  const EDITABLE_AMENITIES: Array<{ key: keyof Amenities; label: string }> = [
-    { key: 'potableWater', label: 'Potable water' },
-    { key: 'bearBoxes', label: 'Bear boxes' },
-    { key: 'petsAllowed', label: 'Pets allowed' },
-    { key: 'electricHookups', label: 'Electric hookups' },
-    { key: 'picnicTables', label: 'Picnic tables' },
-    { key: 'fireRings', label: 'Fire rings' },
-    { key: 'accessible', label: 'Accessible sites' },
-  ]
 
   const CARRIERS: Array<{ key: 'verizon' | 'att' | 'tmobile'; label: string }> = [
     { key: 'verizon', label: 'Verizon' },
