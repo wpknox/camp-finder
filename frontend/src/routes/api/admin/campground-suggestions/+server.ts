@@ -132,30 +132,37 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     // The id comes from Teenybase (autoSetUid), but it goes into a WHERE below.
     if (id.includes("'")) return json({ error: "Invalid id" }, { status: 400 });
 
-    const insertRes = await tbFetch(tb("facilities/insert"), {
-      method: "POST",
-      headers: tbHeaders,
-      body: JSON.stringify({
-        values: buildFacilityValues(
-          finalSubmission as CampgroundSubmission,
-          id,
-          finalSourceUrl,
-          new Date().toISOString(),
-        ),
-      }),
-    });
-    if (!insertRes.ok) {
-      return json(
-        { error: "Failed to create facility", detail: await insertRes.text() },
-        { status: 502 },
-      );
+    // Idempotent: a previous approve may have created the facility and then
+    // failed to mark the suggestion approved — reuse that row on retry rather
+    // than tripping the unique ridb_id constraint forever.
+    const findCreated = () =>
+      tbList<RawFacility>("facilities", {
+        where: `ridb_id == 'user-${id}'`,
+        limit: 1,
+      });
+    let found = await findCreated();
+    if (!found[0]) {
+      const insertRes = await tbFetch(tb("facilities/insert"), {
+        method: "POST",
+        headers: tbHeaders,
+        body: JSON.stringify({
+          values: buildFacilityValues(
+            finalSubmission as CampgroundSubmission,
+            id,
+            finalSourceUrl,
+            new Date().toISOString(),
+          ),
+        }),
+      });
+      if (!insertRes.ok) {
+        return json(
+          { error: "Failed to create facility", detail: await insertRes.text() },
+          { status: 502 },
+        );
+      }
+      // Don't rely on the insert response shape: find the row by its ridb_id.
+      found = await findCreated();
     }
-
-    // Don't rely on the insert response shape: find the row by its ridb_id.
-    const found = await tbList<RawFacility>("facilities", {
-      where: `ridb_id == 'user-${id}'`,
-      limit: 1,
-    });
     if (!found[0]) {
       return json(
         { error: "Facility created but could not be located" },
