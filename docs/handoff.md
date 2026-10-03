@@ -108,6 +108,14 @@ Built on **`feat/suggest-campground`** (plan: Sonnet subagents per task, Opus re
 
 **⚠ Prod rollout order (owner-confirmed, not done):** (1) `cd backend && pnpm deploy` with the `TB_SHARED_SECRET` delete → deploy → `pnpm secrets-upload` dance; (2) verify `POST /api/v1/table/campground_suggestions/list` → 200 with a real request; (3) only then merge the PR — Pages auto-deploys `main` and the new routes 500 without the table.
 
+**⏭ Next session (owner reviewing PR #4 — https://github.com/wpknox/camp-finder/pull/4):**
+1. Owner reviews PR #4 (try it locally: backend + frontend `pnpm dev`; local admin `willis+admin@email.com`, test user `testview@example.com` / `password123`).
+2. Decide the pnpm files (uncommitted on the branch's working tree): commit `pnpm-workspace.yaml` + `pnpm-lock.yaml` separately after confirming Cloudflare Pages builds with lockfile v9 — or discard with `git checkout pnpm-workspace.yaml pnpm-lock.yaml`. Keep them out of PR #4 either way.
+3. Prod rollout in the order above (backend deploy → verify table → merge). Afterwards smoke-check on prod: submit a test campground, approve it in `/admin`, confirm marker + detail panel, then flag it for deletion.
+4. Optional polish noted during E2E: the submit button starts disabled with no explanation until a field is blurred (same as Suggest Edit) — could show all errors on a click attempt instead.
+5. Optional cleanup: delete the local Playwright test data (below) and the `*.bak-suggest-campground` DB/config backups once happy.
+6. Still-open older items: PR #3 prod smoke check (rollout-pr3.md step 4), ~50 fs.usda.gov stragglers (`pnpm discover`), pre-existing duplicate pairs (e.g. South Fork Campground / South Fork Group Site showed up in dup hints), OSM gap-report idea (Overpass `tourism=camp_site` vs our dedupe → admin review list).
+
 **Local test data left behind:** facility "Playwright Edited Meadow" (`user-bqrxpgIFSNK-j9daMGcutA`) + 3 resolved test suggestions in the local DB only.
 
 ### Session 2026-07-21 — PR #3 rolled out to prod (merge commit `febc72b`)
