@@ -110,7 +110,8 @@
   }
 
   let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
-  let reserveUrl    = $derived(`https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`)
+  // Only real RIDB records have a recreation.gov page — fs-/nps-/user- ids would 404.
+  let reserveUrl    = $derived(/^\d+$/.test(facility.ridb_id) ? `https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}` : null)
   const onIOS = browser && isIOS(navigator.userAgent)
   let googleDirectionsUrl = $derived(`https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`)
   let appleDirectionsUrl  = $derived(`https://maps.apple.com/?daddr=${facility.lat},${facility.lng}`)
@@ -165,10 +166,10 @@
         <p class="fee">{feeStr}</p>
       {:else}
         <p class="fee fee-unknown">
-          Fee unknown —
-          <a href={reserveUrl} target="_blank" rel="noopener">
-            check recreation.gov
-          </a>
+          Fee unknown{#if reserveUrl} —
+            <a href={reserveUrl} target="_blank" rel="noopener">
+              check recreation.gov
+            </a>{/if}
         </p>
       {/if}
       <SaveButton facilityId={facility.id} facilityName={facility.name} />
@@ -232,7 +233,9 @@
       {#if facility.fs_url}
         <a href={facility.fs_url} target="_blank" rel="noopener">View on fs.usda.gov ↗</a>
       {/if}
-      <a href={reserveUrl} target="_blank" rel="noopener">Reserve on recreation.gov ↗</a>
+      {#if reserveUrl}
+        <a href={reserveUrl} target="_blank" rel="noopener">Reserve on recreation.gov ↗</a>
+      {/if}
       <a href={nearbyMapsUrl} target="_blank" rel="noopener">Nearby activities (Google Maps) ↗</a>
     </div>
 

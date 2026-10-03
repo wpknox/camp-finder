@@ -534,7 +534,7 @@
   <header class="page-header">
     <span class="eyebrow">Ranger's desk</span>
     <h1>Admin Review</h1>
-    <p class="sub">Crowdsourced edits and duplicate reports awaiting a decision.</p>
+    <p class="sub">New campgrounds, edits, duplicate reports and deletion flags awaiting a decision.</p>
   </header>
 
   <section class="queue">
