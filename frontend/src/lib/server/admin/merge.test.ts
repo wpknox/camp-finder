@@ -21,6 +21,15 @@ describe("pickWinner", () => {
     const b = { ...base, id: "b", ridb_id: "nps-blca-1" };
     expect(pickWinner(a as never, b as never).id).toBe("b");
   });
+  it("ranks user- submitted records below fs- and numeric RIDB records", () => {
+    const user = { ...base, id: "u", ridb_id: "user-abc123" };
+    const fs = { ...base, id: "f", ridb_id: "fs-x-y" };
+    const ridb = { ...base, id: "r", ridb_id: "233847" };
+    expect(pickWinner(user as never, fs as never).id).toBe("f");
+    expect(pickWinner(fs as never, user as never).id).toBe("f");
+    expect(pickWinner(user as never, ridb as never).id).toBe("r");
+    expect(pickWinner(ridb as never, user as never).id).toBe("r");
+  });
 });
 
 describe("mergeFacilityFields", () => {
