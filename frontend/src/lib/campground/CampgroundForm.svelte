@@ -36,7 +36,7 @@
   }
 </script>
 
-<div class="cg-form">
+<div class="form">
   <div class="field">
     <label for="{idPrefix}-name">Campground name <span class="ink-faint">(required)</span></label>
     <input
@@ -181,19 +181,8 @@
 </div>
 
 <style>
-  .cg-form { display: flex; flex-direction: column; gap: 0.9rem; }
   .row-2 { display: flex; gap: 0.75rem; }
   .row-2 .field { flex: 1; min-width: 0; }
-  .field { display: flex; flex-direction: column; gap: 0.3rem; }
-  label { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
-  .ink-faint { font-weight: 400; color: var(--ink-faint); }
-  input, textarea { background: var(--paper-deep); border: 1px solid var(--line-strong); border-radius: 9px; padding: 0.55rem 0.75rem; font-size: 0.9rem; width: 100%; box-sizing: border-box; color: var(--ink); font-family: inherit; transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease); }
-  input::placeholder, textarea::placeholder { color: var(--ink-faint); }
-  input:focus, textarea:focus { outline: none; border-color: var(--moss); box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent); }
-  input.invalid, textarea.invalid { border-color: var(--rust); }
-  input.invalid:focus, textarea.invalid:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--rust) 22%, transparent); }
-  textarea { resize: vertical; }
-  .field-error { color: var(--rust); font-size: 0.78rem; margin: 0; }
   .amenities { display: flex; flex-direction: column; gap: 0.55rem; border-top: 1px solid var(--line); padding-top: 0.8rem; }
   .section-label { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
   .amenity-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }

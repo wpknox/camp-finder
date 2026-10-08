@@ -179,32 +179,185 @@ input[type="checkbox"]:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent);
 }
 
-/* Primary button utility (opt-in via .btn) */
+/* ---- Buttons ----------------------------------------------------------
+   Opt-in: `.btn` (shape) + a tone (`.btn-primary` / `.btn-secondary` /
+   `.btn-danger`) + optional `.btn-sm`. Layout-specific sizing stays local. */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   font-family: var(--font-ui);
   font-weight: 600;
-  font-size: 0.875rem;
-  border: 1px solid var(--pine-deep);
+  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  background: var(--pine);
-  color: #f4ecd6;
-  padding: 0.5rem 0.95rem;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
   transition:
     background 0.15s var(--ease),
-    transform 0.08s var(--ease),
-    box-shadow 0.15s var(--ease);
-}
-.btn:hover {
-  background: var(--pine-deep);
-}
-.btn:active {
-  transform: translateY(1px);
+    transform 0.08s var(--ease);
 }
 .btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  opacity: 0.6;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--pine);
+  color: #f4ecd6;
+  border-color: var(--pine-deep);
+  padding-inline: 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--pine-deep);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn-secondary {
+  background: var(--paper-deep);
+  color: var(--ink);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
+}
+.btn-danger {
+  background: var(--rust);
+  color: #f4ecd6;
+  border-color: #832e12;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #832e12;
+}
+/* Compact size (confirm dialog, reviews). Declared last so it wins the padding. */
+.btn-sm {
+  padding: 0.45rem 0.95rem;
+  font-size: 0.875rem;
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(244, 236, 214, 0.4);
+  border-top-color: #f4ecd6;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Form context ------------------------------------------------------
+   `.form` goes on a <form> (or a wrapper) and styles the fields inside it;
+   `.modal-card` (ModalShell's card) shares the non-input rules so status text
+   outside the form (success/close) matches. `:where()` keeps the specificity
+   low so a component's own scoped rule can still override. Modifier
+   `.form-roomy` is the larger auth/reset variant. Inputs use a real `.form`
+   selector to beat the bare input rules above. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.form.form-roomy {
+  gap: 0.75rem;
+}
+:where(.form) .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+:where(.form-roomy) .field {
+  gap: 0.25rem;
+}
+:where(.form) label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+:where(.form, .modal-card) .ink-faint {
+  font-weight: 400;
+  color: var(--ink-faint);
+}
+.form input:where(:not([type="checkbox"], [type="radio"])),
+.form textarea {
+  background: var(--paper-deep);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--ink);
+  font-family: inherit;
+  transition:
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.form.form-roomy input:where(:not([type="checkbox"], [type="radio"])) {
+  padding: 0.62rem 0.85rem;
+  font-size: 0.95rem;
+}
+.form textarea {
+  resize: vertical;
+}
+.form input:focus,
+.form textarea:focus {
+  outline: none;
+  border-color: var(--moss);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent);
+}
+.form input.invalid,
+.form textarea.invalid {
+  border-color: var(--rust);
+}
+.form input.invalid:focus,
+.form textarea.invalid:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rust) 22%, transparent);
+}
+:where(.form, .modal-card) .field-error {
+  color: var(--rust);
+  font-size: 0.78rem;
+  margin: 0;
+}
+:where(.form, .modal-card) .field-hint {
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  margin: 0;
+}
+:where(.form, .modal-card) .hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+:where(.form, .modal-card) .error {
+  color: var(--rust);
+  font-size: 0.85rem;
+  margin: 0;
+}
+:where(.form, .modal-card) .success {
+  font-size: 0.95rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+:where(.form, .modal-card) .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+/* Full-width submit under roomy (auth/reset) fields. */
+.form-roomy .btn-primary {
+  padding: 0.68rem;
+  font-size: 0.95rem;
+  margin-top: 0.35rem;
+  border-radius: 9px;
+}
+.form-roomy .btn-primary:disabled {
+  opacity: 0.7;
 }
 
 /* ---- Scrollbars (warm, thin) ------------------------------------------ */

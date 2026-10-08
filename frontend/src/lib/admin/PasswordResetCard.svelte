@@ -54,7 +54,7 @@
       />
       <button
         type="button"
-        class="primary"
+        class="btn btn-primary"
         disabled={resetBusy || !resetEmail.trim()}
         onclick={generateResetLink}
       >
@@ -67,7 +67,7 @@
     {#if resetLink}
       <div class="reset-result">
         <input type="text" class="reset-link" readonly value={resetLink} />
-        <button type="button" class="cancel" onclick={copyResetLink}>
+        <button type="button" class="btn btn-secondary" onclick={copyResetLink}>
           {resetCopied ? "Copied ✓" : "Copy"}
         </button>
       </div>
@@ -133,22 +133,6 @@
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
-  }
-  button:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-  .cancel {
-    background: var(--paper-deep);
-    color: var(--ink);
-    border: 1px solid var(--line-strong);
-  }
-  .primary {
-    background: var(--pine);
-    color: #f4ecd6;
-    border: 1px solid var(--pine-deep);
-  }
-  .primary:hover:not(:disabled) {
-    background: var(--pine-deep);
+    box-shadow: none;
   }
 </style>
