@@ -5,7 +5,15 @@
   import { countError, feeError, feeRangeError, latError as checkLat, lngError as checkLng } from '$lib/validation'
   import LocationPicker from './LocationPicker.svelte'
   import ModalShell from '$lib/ui/ModalShell.svelte'
-  import { CARRIERS, EDITABLE_AMENITIES, TOILET_OPTIONS, fromTriState, triState } from '$lib/fields'
+  import SegmentedControl from '$lib/ui/SegmentedControl.svelte'
+  import AmenityTriStates from '$lib/campground/AmenityTriStates.svelte'
+  import { CARRIERS, EDITABLE_AMENITIES, TRI_OPTIONS, fromTriState, triState, type EditableAmenityKey, type CarrierKey } from '$lib/fields'
+  import type { TriState } from '$lib/types'
+
+  const STATUS_OPTIONS = [
+    { value: 'open', label: 'Open' },
+    { value: 'closed', label: 'Closed' },
+  ] as const
 
   let { facility, onclose }: { facility: Facility; onclose: () => void } = $props()
 
@@ -33,11 +41,11 @@
   }
   let amenityValues = $state(Object.fromEntries(
     EDITABLE_AMENITIES.map(({ key }) => [key, triState(initial.amenities?.[key] as boolean | null)]),
-  ) as Record<string, 'yes' | 'no' | 'unknown'>)
+  ) as Record<EditableAmenityKey, TriState>)
   let toiletType = $state<ToiletType>(initial.amenities?.toiletType ?? 'unknown')
   let carrierValues = $state(Object.fromEntries(
     CARRIERS.map(({ key }) => [key, triState(initial.cell_coverage?.[key])]),
-  ) as Record<string, 'yes' | 'no' | 'unknown'>)
+  ) as Record<CarrierKey, TriState>)
   let note = $state('')
   let submitting = $state(false)
   let submitted = $state(false)
@@ -204,12 +212,7 @@
 
       <div class="amenity-row">
         <span class="amenity-label">Campground status</span>
-        <div class="segmented">
-          <button type="button" class:active={closedStatus === 'open'}
-                  onclick={() => (closedStatus = 'open')}>Open</button>
-          <button type="button" class:active={closedStatus === 'closed'}
-                  onclick={() => (closedStatus = 'closed')}>Closed</button>
-        </div>
+        <SegmentedControl options={STATUS_OPTIONS} bind:value={closedStatus} ariaLabel="Campground status" />
       </div>
 
       <div class="field">
@@ -240,28 +243,7 @@
 
       <div class="amenities">
         <span class="section-label">Amenities</span>
-        <div class="amenity-row">
-          <span class="amenity-label">Toilets</span>
-          <div class="segmented">
-            {#each TOILET_OPTIONS as { value, label: optLabel } (value)}
-              <button type="button" class:active={toiletType === value}
-                      onclick={() => (toiletType = value)}>{optLabel}</button>
-            {/each}
-          </div>
-        </div>
-        {#each EDITABLE_AMENITIES as { key, label } (key)}
-          <div class="amenity-row">
-            <span class="amenity-label">{label}</span>
-            <div class="segmented">
-              <button type="button" class:active={amenityValues[key] === 'yes'}
-                      onclick={() => (amenityValues = { ...amenityValues, [key]: 'yes' })}>Yes</button>
-              <button type="button" class:active={amenityValues[key] === 'no'}
-                      onclick={() => (amenityValues = { ...amenityValues, [key]: 'no' })}>No</button>
-              <button type="button" class:active={amenityValues[key] === 'unknown'}
-                      onclick={() => (amenityValues = { ...amenityValues, [key]: 'unknown' })}>Unknown</button>
-            </div>
-          </div>
-        {/each}
+        <AmenityTriStates bind:values={amenityValues} bind:toiletType />
       </div>
 
       <div class="amenities">
@@ -269,14 +251,7 @@
         {#each CARRIERS as { key, label } (key)}
           <div class="amenity-row">
             <span class="amenity-label">{label}</span>
-            <div class="segmented">
-              <button type="button" class:active={carrierValues[key] === 'yes'}
-                      onclick={() => (carrierValues = { ...carrierValues, [key]: 'yes' })}>Yes</button>
-              <button type="button" class:active={carrierValues[key] === 'no'}
-                      onclick={() => (carrierValues = { ...carrierValues, [key]: 'no' })}>No</button>
-              <button type="button" class:active={carrierValues[key] === 'unknown'}
-                      onclick={() => (carrierValues = { ...carrierValues, [key]: 'unknown' })}>Unknown</button>
-            </div>
+            <SegmentedControl options={TRI_OPTIONS} bind:value={carrierValues[key]} ariaLabel={label} />
           </div>
         {/each}
       </div>
@@ -307,11 +282,6 @@
   .section-label { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
   .amenity-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
   .amenity-label { font-size: 0.86rem; color: var(--ink); }
-  .segmented { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
-  .segmented button { background: var(--paper-deep); color: var(--ink-soft); border: none; padding: 0.32rem 0.6rem; font-size: 0.76rem; font-weight: 600; cursor: pointer; border-right: 1px solid var(--line-strong); transition: background 0.13s var(--ease), color 0.13s var(--ease); }
-  .segmented button:last-child { border-right: none; }
-  .segmented button.active { background: var(--pine); color: #f4ecd6; }
-  .segmented button:hover:not(.active) { background: color-mix(in srgb, var(--paper-deep) 70%, var(--line-strong)); }
   .location-toggle { align-self: flex-start; }
   .picker-hint { font-size: 0.78rem; margin: 0; }
 

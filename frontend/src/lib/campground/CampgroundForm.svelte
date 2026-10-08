@@ -1,6 +1,6 @@
 <script lang="ts">
   import LocationPicker from '$lib/detail/LocationPicker.svelte'
-  import { EDITABLE_AMENITIES, TOILET_OPTIONS, TRI_OPTIONS } from '$lib/fields'
+  import AmenityTriStates from './AmenityTriStates.svelte'
   import type { CampgroundDraft } from '$lib/campgroundSubmission'
 
   let {
@@ -128,26 +128,7 @@
 
   <div class="amenities">
     <span class="section-label">Amenities <span class="ink-faint">(optional)</span></span>
-    <div class="amenity-row">
-      <span class="amenity-label">Toilets</span>
-      <div class="segmented">
-        {#each TOILET_OPTIONS as { value, label: optLabel } (value)}
-          <button type="button" class:active={draft.toiletType === value}
-                  onclick={() => (draft.toiletType = value)}>{optLabel}</button>
-        {/each}
-      </div>
-    </div>
-    {#each EDITABLE_AMENITIES as { key, label } (key)}
-      <div class="amenity-row">
-        <span class="amenity-label">{label}</span>
-        <div class="segmented">
-          {#each TRI_OPTIONS as { value, label: optLabel } (value)}
-            <button type="button" class:active={draft.amenities[key] === value}
-                    onclick={() => (draft.amenities[key] = value)}>{optLabel}</button>
-          {/each}
-        </div>
-      </div>
-    {/each}
+    <AmenityTriStates bind:values={draft.amenities} bind:toiletType={draft.toiletType} />
   </div>
 
   {#if showAdminFields}
@@ -185,13 +166,6 @@
   .row-2 .field { flex: 1; min-width: 0; }
   .amenities { display: flex; flex-direction: column; gap: 0.55rem; border-top: 1px solid var(--line); padding-top: 0.8rem; }
   .section-label { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
-  .amenity-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
-  .amenity-label { font-size: 0.86rem; color: var(--ink); }
-  .segmented { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; flex: none; }
-  .segmented button { background: var(--paper-deep); color: var(--ink-soft); border: none; padding: 0.32rem 0.6rem; font-size: 0.76rem; font-weight: 600; cursor: pointer; border-right: 1px solid var(--line-strong); transition: background 0.13s var(--ease), color 0.13s var(--ease); }
-  .segmented button:last-child { border-right: none; }
-  .segmented button.active { background: var(--pine); color: #f4ecd6; }
-  .segmented button:hover:not(.active) { background: color-mix(in srgb, var(--paper-deep) 70%, var(--line-strong)); }
 
   @media (max-width: 640px) {
     .row-2 { flex-direction: column; }
