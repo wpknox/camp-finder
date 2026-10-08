@@ -2,6 +2,7 @@
 import { json } from '@sveltejs/kit'
 import { tbFetch } from '$lib/server/tbFetch'
 import { tbHeaders } from '$lib/server/tb'
+import { isSafeId } from '$lib/server/facilities'
 import { buildOverpassQuery, normalizeOverpass, type NearbyPoi, type OverpassResponse } from '$lib/server/overpass'
 import { parseJson } from '$lib/json'
 import type { RequestHandler } from './$types'
@@ -11,6 +12,7 @@ const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 
 export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id
+  if (!isSafeId(facilityId)) return json({ pois: null })
   const cutoff = Date.now() - CACHE_TTL_MS
 
   const cacheRes = await tbFetch(`/api/v1/table/nearby_pois/list`, {

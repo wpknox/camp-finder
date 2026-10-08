@@ -3,12 +3,14 @@ import { json } from '@sveltejs/kit'
 import { parse } from 'node-html-parser'
 import { tbFetch } from '$lib/server/tbFetch'
 import { tbHeaders } from '$lib/server/tb'
+import { isSafeId } from '$lib/server/facilities'
 import type { RequestHandler } from './$types'
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id
+  if (!isSafeId(facilityId)) return json({ content: null, scraped_at: null })
   const cutoff = Date.now() - CACHE_TTL_MS
 
   const cacheRes = await tbFetch(`/api/v1/table/alerts/list`, {

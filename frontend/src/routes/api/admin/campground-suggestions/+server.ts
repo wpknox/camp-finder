@@ -3,6 +3,7 @@ import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
 import { tb, tbHeaders, tbList } from "$lib/server/tb";
 import { parseJson } from "$lib/json";
+import { isSafeId } from "$lib/server/facilities";
 import { tbFetch } from "$lib/server/tbFetch";
 import {
   validateSubmission,
@@ -122,7 +123,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     if (urlError) return json({ error: urlError }, { status: 400 });
 
     // The id comes from Teenybase (autoSetUid), but it goes into a WHERE below.
-    if (id.includes("'")) return json({ error: "Invalid id" }, { status: 400 });
+    if (!isSafeId(id)) return json({ error: "Invalid id" }, { status: 400 });
 
     // Idempotent: a previous approve may have created the facility and then
     // failed to mark the suggestion approved — reuse that row on retry rather
