@@ -1,7 +1,19 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { Facility, Amenities } from "$lib/types";
+  import type { Facility, Amenities, CampgroundSubmission } from "$lib/types";
+  import CampgroundForm from "$lib/campground/CampgroundForm.svelte";
+  import {
+    draftFromSubmission,
+    draftErrors,
+    draftToSubmission,
+    validateSourceUrl,
+    type CampgroundDraft,
+  } from "$lib/campgroundSubmission";
   import LocationDiffMap from "$lib/admin/LocationDiffMap.svelte";
+  import PasswordResetCard from "$lib/admin/PasswordResetCard.svelte";
+  import QueueSection from "$lib/admin/QueueSection.svelte";
+  import ReviewCard from "$lib/admin/ReviewCard.svelte";
+  import type { SuccessNotice } from "$lib/admin/types";
 
   interface EditRow {
     id: string;
@@ -22,6 +34,17 @@
     user_email: string;
     note: string;
     created: string;
+  }
+
+  interface CampgroundRow {
+    id: string;
+    user_id: string;
+    submission: CampgroundSubmission | null;
+    source_url: string | null;
+    note: string;
+    created: string;
+    user_email: string;
+    nearby: { id: string; name: string; km: number }[];
   }
 
   interface MergeRow {
@@ -91,53 +114,16 @@
     return String(v);
   }
 
-  let { data }: { data: { edits: EditRow[]; merges: MergeRow[]; deletions: DeletionRow[] } } =
-    $props();
-
-  // Admin-generated password reset link.
-  let resetEmail = $state("");
-  let resetLink = $state("");
-  let resetError = $state("");
-  let resetBusy = $state(false);
-  let resetCopied = $state(false);
-
-  async function generateResetLink() {
-    if (resetBusy) return;
-    resetBusy = true;
-    resetError = "";
-    resetLink = "";
-    resetCopied = false;
-    try {
-      const res = await fetch("/api/admin/reset-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail.trim() }),
-      });
-      const body = (await res.json().catch(() => ({}))) as {
-        link?: string;
-        error?: string;
-      };
-      if (res.ok && body.link) {
-        resetLink = body.link;
-      } else {
-        resetError = body.error ?? "Something went wrong";
-      }
-    } catch {
-      resetError = "Something went wrong";
-    } finally {
-      resetBusy = false;
-    }
-  }
-
-  async function copyResetLink() {
-    if (!resetLink) return;
-    try {
-      await navigator.clipboard.writeText(resetLink);
-      resetCopied = true;
-    } catch {
-      resetError = "Couldn't copy — select and copy the link manually.";
-    }
-  }
+  let {
+    data,
+  }: {
+    data: {
+      edits: EditRow[];
+      merges: MergeRow[];
+      deletions: DeletionRow[];
+      campgrounds: CampgroundRow[];
+    };
+  } = $props();
 
   // Snapshot once on load — rows are spliced locally on approve/reject rather
   // than re-derived from `data`, so reading props inside the initializer must
@@ -145,9 +131,26 @@
   let edits = $state(untrack(() => [...data.edits]));
   let merges = $state(untrack(() => [...data.merges]));
   let deletions = $state(untrack(() => [...data.deletions]));
+  let campgrounds = $state(untrack(() => [...data.campgrounds]));
+
+  // Editable per-row copies of each suggested campground. Rows whose stored
+  // submission couldn't be parsed get no draft (only Reject is available).
+  let drafts = $state<Record<string, CampgroundDraft>>(
+    untrack(() =>
+      Object.fromEntries(
+        data.campgrounds
+          .filter((c) => c.submission !== null)
+          .map((c) => [c.id, draftFromSubmission(c.submission as CampgroundSubmission)]),
+      ),
+    ),
+  );
+  let sourceUrls = $state<Record<string, string>>(
+    untrack(() => Object.fromEntries(data.campgrounds.map((c) => [c.id, c.source_url ?? ""]))),
+  );
 
   const AMENITY_LABELS: Record<string, string> = {
     potableWater: "Potable Water",
+    toiletType: "Toilets",
     bearBoxes: "Bear Boxes",
     petsAllowed: "Pets OK",
     electricHookups: "Electric",
@@ -200,12 +203,11 @@
   function ridbSourceBadge(ridbId: string): string {
     if (ridbId.startsWith("fs-")) return "USFS";
     if (ridbId.startsWith("nps-")) return "NPS";
+    if (ridbId.startsWith("user-")) return "User";
     return "RIDB";
   }
 
   // Per-row transient UI state, keyed by suggestion id.
-  let rejecting = $state<Record<string, boolean>>({});
-  let notes = $state<Record<string, string>>({});
   let errors = $state<Record<string, string>>({});
   let busy = $state<Record<string, boolean>>({});
 
@@ -234,19 +236,26 @@
 
   // Dismissible success notices shown above each queue after an approve,
   // keyed by the resolved suggestion id.
-  interface SuccessNotice {
-    id: string;
-    facility_id: string;
-    facility_name: string;
-  }
   let mergeSuccesses = $state<SuccessNotice[]>([]);
   let editSuccesses = $state<SuccessNotice[]>([]);
   let deletionSuccesses = $state<SuccessNotice[]>([]);
+  let campgroundSuccesses = $state<SuccessNotice[]>([]);
+
+  // Card collapse state — cards start expanded; `collapsed` only records overrides.
+  let collapsed = $state<Record<string, boolean>>({});
+  const isOpen = (id: string) => !collapsed[id];
+  function toggleOpen(id: string) {
+    collapsed = { ...collapsed, [id]: !collapsed[id] };
+  }
+  function setAllOpen(ids: string[], open: boolean) {
+    collapsed = { ...collapsed, ...Object.fromEntries(ids.map((id) => [id, !open])) };
+  }
 
   function dismissSuccess(id: string) {
     mergeSuccesses = mergeSuccesses.filter((s) => s.id !== id);
     editSuccesses = editSuccesses.filter((s) => s.id !== id);
     deletionSuccesses = deletionSuccesses.filter((s) => s.id !== id);
+    campgroundSuccesses = campgroundSuccesses.filter((s) => s.id !== id);
   }
 
   function useAllOfSide(rowId: string, side: Side) {
@@ -278,7 +287,7 @@
     expanded = { ...expanded, [rowId]: !expanded[rowId] };
   }
 
-  async function resolveEdit(row: EditRow, action: "approve" | "reject") {
+  async function resolveEdit(row: EditRow, action: "approve" | "reject", note = "") {
     if (busy[row.id]) return;
     busy = { ...busy, [row.id]: true };
     errors = { ...errors, [row.id]: "" };
@@ -289,7 +298,7 @@
         body: JSON.stringify({
           id: row.id,
           action,
-          admin_note: notes[row.id] ?? "",
+          admin_note: note,
         }),
       });
       if (res.ok) {
@@ -319,7 +328,7 @@
     }
   }
 
-  async function resolveMerge(row: MergeRow, action: "approve" | "reject") {
+  async function resolveMerge(row: MergeRow, action: "approve" | "reject", note = "") {
     if (busy[row.id]) return;
     if (action === "approve" && !canApproveMerge(row)) return;
     busy = { ...busy, [row.id]: true };
@@ -341,7 +350,7 @@
         body: JSON.stringify({
           id: row.id,
           action,
-          admin_note: notes[row.id] ?? "",
+          admin_note: note,
           winner_id: action === "approve" ? winnerId : undefined,
           field_choices,
         }),
@@ -373,7 +382,7 @@
     }
   }
 
-  async function resolveDeletion(row: DeletionRow, action: "approve" | "reject") {
+  async function resolveDeletion(row: DeletionRow, action: "approve" | "reject", note = "") {
     if (busy[row.id]) return;
     busy = { ...busy, [row.id]: true };
     errors = { ...errors, [row.id]: "" };
@@ -384,7 +393,7 @@
         body: JSON.stringify({
           id: row.id,
           action,
-          admin_note: notes[row.id] ?? "",
+          admin_note: note,
         }),
       });
       if (res.ok) {
@@ -405,467 +414,419 @@
       busy = { ...busy, [row.id]: false };
     }
   }
+
+  async function resolveCampground(row: CampgroundRow, action: "approve" | "reject", note = "") {
+    if (busy[row.id]) return;
+    if (action === "approve" && !drafts[row.id]) return;
+    busy = { ...busy, [row.id]: true };
+    errors = { ...errors, [row.id]: "" };
+    try {
+      const res = await fetch("/api/admin/campground-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          action === "approve"
+            ? {
+                id: row.id,
+                action,
+                submission: draftToSubmission(drafts[row.id]),
+                source_url: (sourceUrls[row.id] ?? "").trim(),
+              }
+            : { id: row.id, action, admin_note: note },
+        ),
+      });
+      if (res.ok) {
+        campgrounds = campgrounds.filter((c) => c.id !== row.id);
+        if (action === "approve") {
+          const body = (await res.json().catch(() => ({}))) as {
+            facility_id?: string;
+            facility_name?: string;
+          };
+          campgroundSuccesses = [
+            ...campgroundSuccesses,
+            {
+              id: row.id,
+              facility_id: body.facility_id ?? "",
+              facility_name:
+                body.facility_name ?? drafts[row.id]?.name ?? row.submission?.name ?? "campground",
+            },
+          ];
+        }
+      } else {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          facility_id?: string;
+        };
+        const msg = body.error ?? "Something went wrong";
+        errors = {
+          ...errors,
+          [row.id]: body.facility_id ? `${msg} (facility ${body.facility_id})` : msg,
+        };
+      }
+    } catch {
+      errors = { ...errors, [row.id]: "Something went wrong" };
+    } finally {
+      busy = { ...busy, [row.id]: false };
+    }
+  }
 </script>
 
 <svelte:head>
   <title>Admin Review — CampFinder</title>
 </svelte:head>
 
-{#snippet successBanner(success: SuccessNotice, prefix: string)}
-  <div class="success-notice" role="status">
-    <span class="success-text">{prefix} <strong>{success.facility_name}</strong> ✓</span>
-    {#if success.facility_id}
-      <a class="success-link" href={`/?facility=${success.facility_id}`}>View campground →</a>
-    {/if}
-    <button
-      type="button"
-      class="success-dismiss"
-      aria-label="Dismiss"
-      onclick={() => dismissSuccess(success.id)}
-    >
-      ✕
-    </button>
-  </div>
-{/snippet}
-
 <main class="admin">
   <div class="admin-inner">
-  <header class="page-header">
-    <span class="eyebrow">Ranger's desk</span>
-    <h1>Admin Review</h1>
-    <p class="sub">Crowdsourced edits and duplicate reports awaiting a decision.</p>
-  </header>
+    <header class="page-header">
+      <span class="eyebrow">Ranger's desk</span>
+      <h1>Admin Review</h1>
+      <p class="sub">New campgrounds, edits, duplicate reports and deletion flags awaiting a decision.</p>
+    </header>
 
-  <section class="queue">
-    <h2>Password reset link</h2>
-    <div class="card reset-card">
-      <p class="sub">
-        No email is sent in production — generate a fresh reset link here and hand it to the
-        user directly. The link is valid for 30 minutes.
-      </p>
-      <div class="reset-form">
-        <input
-          type="email"
-          placeholder="user@example.com"
-          bind:value={resetEmail}
-          onkeydown={(e) => e.key === "Enter" && generateResetLink()}
-        />
-        <button
-          type="button"
-          class="primary"
-          disabled={resetBusy || !resetEmail.trim()}
-          onclick={generateResetLink}
+    <PasswordResetCard />
+
+    <QueueSection
+      title="Suggested campgrounds"
+      count={campgrounds.length}
+      emptyText="No suggested campgrounds — the queue is clear."
+      successes={campgroundSuccesses}
+      successPrefix="Added"
+      ondismiss={dismissSuccess}
+      onexpandall={() => setAllOpen(campgrounds.map((c) => c.id), true)}
+      oncollapseall={() => setAllOpen(campgrounds.map((c) => c.id), false)}
+    >
+      {#each campgrounds as row (row.id)}
+        {@const draft = drafts[row.id]}
+        {@const draftErrs = draft ? draftErrors(draft) : {}}
+        {@const srcErr = validateSourceUrl((sourceUrls[row.id] ?? "").trim())}
+        {@const invalid = !draft || Object.keys(draftErrs).length > 0 || srcErr !== null}
+        <ReviewCard
+          open={isOpen(row.id)}
+          ontoggle={() => toggleOpen(row.id)}
+          error={errors[row.id]}
+          busy={busy[row.id]}
+          approveLabel="Approve &amp; add to map"
+          approveDisabled={invalid}
+          onapprove={() => resolveCampground(row, "approve")}
+          onreject={(note) => resolveCampground(row, "reject", note)}
         >
-          {resetBusy ? "Generating…" : "Generate link"}
-        </button>
-      </div>
-      {#if resetError}
-        <p class="error" role="alert">{resetError}</p>
-      {/if}
-      {#if resetLink}
-        <div class="reset-result">
-          <input type="text" class="reset-link" readonly value={resetLink} />
-          <button type="button" class="cancel" onclick={copyResetLink}>
-            {resetCopied ? "Copied ✓" : "Copy"}
-          </button>
-        </div>
-      {/if}
-    </div>
-  </section>
+          {#snippet title()}{draft?.name?.trim() || row.submission?.name || "(unnamed)"}{/snippet}
+          {#snippet meta()}
+            <span class="badge">User</span> · {row.user_email} · {fmtDate(row.created)}
+            {#if row.nearby.length > 0}· <span class="dup-tag">possible duplicate</span>{/if}
+          {/snippet}
 
-  <section class="queue">
-    <h2>Edit suggestions <span class="count">{edits.length}</span></h2>
+          {#if row.nearby.length > 0}
+            <div class="dup-warning" role="note">
+              <strong>Possible duplicate — within 1.5 km:</strong>
+              <ul>
+                {#each row.nearby as n (n.id)}
+                  <li>
+                    <span>{n.name} — {n.km.toFixed(2)} km</span>
+                    <a class="map-link" href={`/?facility=${n.id}`} target="_blank" rel="noopener">
+                      View on map ↗
+                    </a>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
 
-    {#each editSuccesses as success (success.id)}
-      {@render successBanner(success, "Edit applied to")}
-    {/each}
+          {#if row.source_url}
+            <a
+              class="map-link"
+              href={row.source_url}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+            >
+              Submitter's source link ↗
+            </a>
+          {/if}
+          {#if row.note}
+            <p class="note">"{row.note}"</p>
+          {/if}
 
-    {#if edits.length === 0}
-      <p class="empty">No pending suggestions — the queue is clear.</p>
-    {:else}
-      <div class="cards">
-        {#each edits as row (row.id)}
-          {@const propLat = row.changes.lat}
-          {@const propLng = row.changes.lng}
-          <article class="card">
-            <div class="card-head">
-              <h3>{row.facility_name}</h3>
-              <span class="meta">
-                {row.user_email} · {fmtDate(row.created)}
-              </span>
-              {#if row.current}
-                <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
-                  View on map ↗
-                </a>
+          {#if draft}
+            <CampgroundForm
+              bind:draft={drafts[row.id]}
+              errors={draftErrs}
+              showAdminFields
+              showAllErrors
+              idPrefix={`card-${row.id}`}
+            />
+            <div class="source-field">
+              <label for={`card-${row.id}-source`}>Source link</label>
+              <input
+                id={`card-${row.id}-source`}
+                type="url"
+                placeholder="https://…"
+                bind:value={sourceUrls[row.id]}
+              />
+              {#if srcErr}
+                <p class="error" role="alert">{srcErr}</p>
               {/if}
             </div>
+          {:else}
+            <p class="winner-hint error-hint">
+              This submission couldn't be read — reject it to clear it from the queue.
+            </p>
+          {/if}
+        </ReviewCard>
+      {/each}
+    </QueueSection>
 
-            <div class="diff">
-              {#each Object.entries(row.changes) as [key, value]}
-                {#if key === "amenities" && value && typeof value === "object"}
-                  {#each Object.entries(value as Record<string, unknown>) as [aKey, aVal]}
-                    <div class="diff-row">
-                      <span class="diff-field">{AMENITY_LABELS[aKey] ?? aKey}</span>
-                      <span class="diff-current">
-                        {fmtValue(row.current?.amenities?.[aKey as keyof Amenities])}
-                      </span>
-                      <span class="diff-arrow">→</span>
-                      <span class="diff-proposed">{fmtValue(aVal)}</span>
-                    </div>
-                  {/each}
-                {:else if key === "cell_coverage" && value && typeof value === "object"}
-                  {#each Object.entries(value as Record<string, unknown>) as [cKey, cVal]}
-                    <div class="diff-row">
-                      <span class="diff-field">{CARRIER_LABELS[cKey] ?? cKey}</span>
-                      <span class="diff-current">
-                        {fmtValue(row.current?.cell_coverage?.[cKey as "verizon" | "att" | "tmobile"])}
-                      </span>
-                      <span class="diff-arrow">→</span>
-                      <span class="diff-proposed">{fmtValue(cVal)}</span>
-                    </div>
-                  {/each}
-                {:else}
+    <QueueSection
+      title="Edit suggestions"
+      count={edits.length}
+      emptyText="No pending suggestions — the queue is clear."
+      successes={editSuccesses}
+      successPrefix="Edit applied to"
+      ondismiss={dismissSuccess}
+      onexpandall={() => setAllOpen(edits.map((e) => e.id), true)}
+      oncollapseall={() => setAllOpen(edits.map((e) => e.id), false)}
+    >
+      {#each edits as row (row.id)}
+        {@const propLat = row.changes.lat}
+        {@const propLng = row.changes.lng}
+        <ReviewCard
+          open={isOpen(row.id)}
+          ontoggle={() => toggleOpen(row.id)}
+          error={errors[row.id]}
+          busy={busy[row.id]}
+          approveLabel="Approve"
+          onapprove={() => resolveEdit(row, "approve")}
+          onreject={(note) => resolveEdit(row, "reject", note)}
+        >
+          {#snippet title()}{row.facility_name}{/snippet}
+          {#snippet meta()}{row.user_email} · {fmtDate(row.created)}{/snippet}
+          {#snippet headExtra()}
+            {#if row.current}
+              <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
+                View on map ↗
+              </a>
+            {/if}
+          {/snippet}
+
+          <div class="diff">
+            {#each Object.entries(row.changes) as [key, value]}
+              {#if key === "amenities" && value && typeof value === "object"}
+                {#each Object.entries(value as Record<string, unknown>) as [aKey, aVal]}
                   <div class="diff-row">
-                    <span class="diff-field">{fieldLabel(key)}</span>
+                    <span class="diff-field">{AMENITY_LABELS[aKey] ?? aKey}</span>
                     <span class="diff-current">
-                      {fmtValue(row.current ? row.current[key as keyof Facility] : undefined)}
+                      {fmtValue(row.current?.amenities?.[aKey as keyof Amenities])}
                     </span>
                     <span class="diff-arrow">→</span>
-                    <span class="diff-proposed">{fmtValue(value)}</span>
-                  </div>
-                {/if}
-              {/each}
-            </div>
-
-            {#if typeof propLat === "number" && typeof propLng === "number" && row.current}
-              <LocationDiffMap
-                fromLat={row.current.lat}
-                fromLng={row.current.lng}
-                toLat={propLat}
-                toLng={propLng}
-              />
-            {/if}
-
-            {#if row.note}
-              <p class="note">"{row.note}"</p>
-            {/if}
-
-            {#if errors[row.id]}
-              <p class="error" role="alert">{errors[row.id]}</p>
-            {/if}
-
-            {#if rejecting[row.id]}
-              <div class="reject-form">
-                <input
-                  type="text"
-                  placeholder="Optional note to the submitter…"
-                  bind:value={notes[row.id]}
-                  maxlength="1000"
-                />
-                <div class="actions">
-                  <button
-                    class="cancel"
-                    type="button"
-                    onclick={() => (rejecting = { ...rejecting, [row.id]: false })}
-                  >
-                    Back
-                  </button>
-                  <button
-                    class="danger"
-                    type="button"
-                    disabled={busy[row.id]}
-                    onclick={() => resolveEdit(row, "reject")}
-                  >
-                    Confirm reject
-                  </button>
-                </div>
-              </div>
-            {:else}
-              <div class="actions">
-                <button
-                  class="cancel"
-                  type="button"
-                  disabled={busy[row.id]}
-                  onclick={() => (rejecting = { ...rejecting, [row.id]: true })}
-                >
-                  Reject
-                </button>
-                <button
-                  class="primary"
-                  type="button"
-                  disabled={busy[row.id]}
-                  onclick={() => resolveEdit(row, "approve")}
-                >
-                  Approve
-                </button>
-              </div>
-            {/if}
-          </article>
-        {/each}
-      </div>
-    {/if}
-  </section>
-
-  <section class="queue">
-    <h2>Duplicate reports <span class="count">{merges.length}</span></h2>
-
-    {#each mergeSuccesses as success (success.id)}
-      {@render successBanner(success, "Merged into")}
-    {/each}
-
-    {#if merges.length === 0}
-      <p class="empty">No pending duplicate reports — the queue is clear.</p>
-    {:else}
-      <div class="cards">
-        {#each merges as row (row.id)}
-          {@const winner = winnerSide[row.id]}
-          {@const deleted = !canApproveMerge(row)}
-          <article class="card">
-            <div class="card-head">
-              <h3>{row.facility_a_name} <span class="vs">vs</span> {row.facility_b_name}</h3>
-              <span class="meta">{row.user_email} · {fmtDate(row.created)}</span>
-              <span class="map-links">
-                {#if row.facility_a_data}
-                  <a class="map-link" href={`/?facility=${row.facility_a}`} target="_blank" rel="noopener">
-                    A on map ↗
-                  </a>
-                {/if}
-                {#if row.facility_b_data}
-                  <a class="map-link" href={`/?facility=${row.facility_b}`} target="_blank" rel="noopener">
-                    B on map ↗
-                  </a>
-                {/if}
-              </span>
-            </div>
-
-            <div class="merge-pair">
-              <button
-                type="button"
-                class="merge-side"
-                class:selected={winner === "a"}
-                onclick={() => useAllOfSide(row.id, "a")}
-              >
-                <span class="side-name">{row.facility_a_name}</span>
-                <span class="badge">{ridbSourceBadge(row.facility_a_ridb_id)}</span>
-                <span class="ridb-id">{row.facility_a_ridb_id}</span>
-                {#if !row.facility_a_data}<span class="deleted-tag">deleted</span>{/if}
-              </button>
-              <button
-                type="button"
-                class="use-all-hint"
-                onclick={() => toggleExpand(row.id)}
-              >
-                {expanded[row.id] ? "Hide field comparison ▾" : "Compare fields ▸"}
-              </button>
-              <button
-                type="button"
-                class="merge-side"
-                class:selected={winner === "b"}
-                onclick={() => useAllOfSide(row.id, "b")}
-              >
-                <span class="side-name">{row.facility_b_name}</span>
-                <span class="badge">{ridbSourceBadge(row.facility_b_ridb_id)}</span>
-                <span class="ridb-id">{row.facility_b_ridb_id}</span>
-                {#if !row.facility_b_data}<span class="deleted-tag">deleted</span>{/if}
-              </button>
-            </div>
-
-            {#if deleted}
-              <p class="winner-hint error-hint">
-                One of these facilities was deleted since the report was filed — this merge
-                can't be approved.
-              </p>
-            {:else if expanded[row.id]}
-              <div class="field-grid">
-                <div class="field-grid-head">
-                  <span></span>
-                  <span>A · {row.facility_a_name}</span>
-                  <span>B · {row.facility_b_name}</span>
-                </div>
-                {#each CHOICE_FIELDS as field (field)}
-                  <div class="field-grid-row">
-                    <span class="field-name">{CHOICE_FIELD_LABELS[field]}</span>
-                    <button
-                      type="button"
-                      class="field-value"
-                      class:selected={fieldSide[row.id][field] === "a"}
-                      onclick={() => setFieldSide(row.id, field, "a")}
-                    >
-                      {fieldDisplay(row.facility_a_data, field)}
-                    </button>
-                    <button
-                      type="button"
-                      class="field-value"
-                      class:selected={fieldSide[row.id][field] === "b"}
-                      onclick={() => setFieldSide(row.id, field, "b")}
-                    >
-                      {fieldDisplay(row.facility_b_data, field)}
-                    </button>
+                    <span class="diff-proposed">{fmtValue(aVal)}</span>
                   </div>
                 {/each}
-              </div>
-              <p class="winner-hint">
-                Winner ({winner === "a" ? "A" : "B"}) keeps its record with the field choices
-                above; amenities deep-merge automatically; the loser is deleted.
-              </p>
-            {:else}
-              <p class="winner-hint">
-                Winner ({winner === "a" ? "A" : "B"}) keeps its record; the loser's data fills
-                gaps for unpicked fields, then is deleted.
-              </p>
-            {/if}
-
-            {#if row.note}
-              <p class="note">"{row.note}"</p>
-            {/if}
-
-            {#if errors[row.id]}
-              <p class="error" role="alert">{errors[row.id]}</p>
-            {/if}
-
-            {#if rejecting[row.id]}
-              <div class="reject-form">
-                <input
-                  type="text"
-                  placeholder="Optional note to the submitter…"
-                  bind:value={notes[row.id]}
-                  maxlength="1000"
-                />
-                <div class="actions">
-                  <button
-                    class="cancel"
-                    type="button"
-                    onclick={() => (rejecting = { ...rejecting, [row.id]: false })}
-                  >
-                    Back
-                  </button>
-                  <button
-                    class="danger"
-                    type="button"
-                    disabled={busy[row.id]}
-                    onclick={() => resolveMerge(row, "reject")}
-                  >
-                    Confirm reject
-                  </button>
+              {:else if key === "cell_coverage" && value && typeof value === "object"}
+                {#each Object.entries(value as Record<string, unknown>) as [cKey, cVal]}
+                  <div class="diff-row">
+                    <span class="diff-field">{CARRIER_LABELS[cKey] ?? cKey}</span>
+                    <span class="diff-current">
+                      {fmtValue(row.current?.cell_coverage?.[cKey as "verizon" | "att" | "tmobile"])}
+                    </span>
+                    <span class="diff-arrow">→</span>
+                    <span class="diff-proposed">{fmtValue(cVal)}</span>
+                  </div>
+                {/each}
+              {:else}
+                <div class="diff-row">
+                  <span class="diff-field">{fieldLabel(key)}</span>
+                  <span class="diff-current">
+                    {fmtValue(row.current ? row.current[key as keyof Facility] : undefined)}
+                  </span>
+                  <span class="diff-arrow">→</span>
+                  <span class="diff-proposed">{fmtValue(value)}</span>
                 </div>
-              </div>
-            {:else}
-              <div class="actions">
-                <button
-                  class="cancel"
-                  type="button"
-                  disabled={busy[row.id]}
-                  onclick={() => (rejecting = { ...rejecting, [row.id]: true })}
-                >
-                  Reject
-                </button>
-                <button
-                  class="primary"
-                  type="button"
-                  disabled={busy[row.id] || !canApproveMerge(row)}
-                  onclick={() => resolveMerge(row, "approve")}
-                >
-                  Approve merge
-                </button>
-              </div>
-            {/if}
-          </article>
-        {/each}
-      </div>
-    {/if}
-  </section>
+              {/if}
+            {/each}
+          </div>
 
-  <section class="queue">
-    <h2>Deletion flags <span class="count">{deletions.length}</span></h2>
+          {#if typeof propLat === "number" && typeof propLng === "number" && row.current}
+            <LocationDiffMap
+              fromLat={row.current.lat}
+              fromLng={row.current.lng}
+              toLat={propLat}
+              toLng={propLng}
+            />
+          {/if}
 
-    {#each deletionSuccesses as success (success.id)}
-      {@render successBanner(success, "Removed")}
-    {/each}
+          {#if row.note}
+            <p class="note">"{row.note}"</p>
+          {/if}
+        </ReviewCard>
+      {/each}
+    </QueueSection>
 
-    {#if deletions.length === 0}
-      <p class="empty">No pending deletion flags — the queue is clear.</p>
-    {:else}
-      <div class="cards">
-        {#each deletions as row (row.id)}
-          <article class="card">
-            <div class="card-head">
-              <h3>{row.facility_name}</h3>
-              <span class="meta">
-                {#if row.facility_ridb_id}
-                  <span class="badge">{ridbSourceBadge(row.facility_ridb_id)}</span> ·
-                {/if}
-                {row.user_email} · {fmtDate(row.created)}
-              </span>
-              {#if row.facility_id}
-                <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
-                  View on map ↗
+    <QueueSection
+      title="Duplicate reports"
+      count={merges.length}
+      emptyText="No pending duplicate reports — the queue is clear."
+      successes={mergeSuccesses}
+      successPrefix="Merged into"
+      ondismiss={dismissSuccess}
+      onexpandall={() => setAllOpen(merges.map((m) => m.id), true)}
+      oncollapseall={() => setAllOpen(merges.map((m) => m.id), false)}
+    >
+      {#each merges as row (row.id)}
+        {@const winner = winnerSide[row.id]}
+        {@const deleted = !canApproveMerge(row)}
+        <ReviewCard
+          open={isOpen(row.id)}
+          ontoggle={() => toggleOpen(row.id)}
+          error={errors[row.id]}
+          busy={busy[row.id]}
+          approveLabel="Approve merge"
+          approveDisabled={deleted}
+          onapprove={() => resolveMerge(row, "approve")}
+          onreject={(note) => resolveMerge(row, "reject", note)}
+        >
+          {#snippet title()}{row.facility_a_name} <span class="vs">vs</span> {row.facility_b_name}{/snippet}
+          {#snippet meta()}{row.user_email} · {fmtDate(row.created)}{/snippet}
+          {#snippet headExtra()}
+            <span class="map-links">
+              {#if row.facility_a_data}
+                <a class="map-link" href={`/?facility=${row.facility_a}`} target="_blank" rel="noopener">
+                  A on map ↗
                 </a>
               {/if}
-            </div>
+              {#if row.facility_b_data}
+                <a class="map-link" href={`/?facility=${row.facility_b}`} target="_blank" rel="noopener">
+                  B on map ↗
+                </a>
+              {/if}
+            </span>
+          {/snippet}
 
-            <p class="note">"{row.note}"</p>
+          <div class="merge-pair">
+            <button
+              type="button"
+              class="merge-side"
+              class:selected={winner === "a"}
+              onclick={() => useAllOfSide(row.id, "a")}
+            >
+              <span class="side-name">{row.facility_a_name}</span>
+              <span class="badge">{ridbSourceBadge(row.facility_a_ridb_id)}</span>
+              <span class="ridb-id">{row.facility_a_ridb_id}</span>
+              {#if !row.facility_a_data}<span class="deleted-tag">deleted</span>{/if}
+            </button>
+            <button type="button" class="use-all-hint" onclick={() => toggleExpand(row.id)}>
+              {expanded[row.id] ? "Hide field comparison ▾" : "Compare fields ▸"}
+            </button>
+            <button
+              type="button"
+              class="merge-side"
+              class:selected={winner === "b"}
+              onclick={() => useAllOfSide(row.id, "b")}
+            >
+              <span class="side-name">{row.facility_b_name}</span>
+              <span class="badge">{ridbSourceBadge(row.facility_b_ridb_id)}</span>
+              <span class="ridb-id">{row.facility_b_ridb_id}</span>
+              {#if !row.facility_b_data}<span class="deleted-tag">deleted</span>{/if}
+            </button>
+          </div>
 
-            {#if !row.facility_id}
-              <p class="winner-hint error-hint">
-                This facility was already removed (merge or prior deletion) — reject to clear the flag.
-              </p>
-            {/if}
-
-            {#if errors[row.id]}
-              <p class="error" role="alert">{errors[row.id]}</p>
-            {/if}
-
-            {#if rejecting[row.id]}
-              <div class="reject-form">
-                <input
-                  type="text"
-                  placeholder="Optional note to the submitter…"
-                  bind:value={notes[row.id]}
-                  maxlength="1000"
-                />
-                <div class="actions">
+          {#if deleted}
+            <p class="winner-hint error-hint">
+              One of these facilities was deleted since the report was filed — this merge
+              can't be approved.
+            </p>
+          {:else if expanded[row.id]}
+            <div class="field-grid">
+              <div class="field-grid-head">
+                <span></span>
+                <span>A · {row.facility_a_name}</span>
+                <span>B · {row.facility_b_name}</span>
+              </div>
+              {#each CHOICE_FIELDS as field (field)}
+                <div class="field-grid-row">
+                  <span class="field-name">{CHOICE_FIELD_LABELS[field]}</span>
                   <button
-                    class="cancel"
                     type="button"
-                    onclick={() => (rejecting = { ...rejecting, [row.id]: false })}
+                    class="field-value"
+                    class:selected={fieldSide[row.id][field] === "a"}
+                    onclick={() => setFieldSide(row.id, field, "a")}
                   >
-                    Back
+                    {fieldDisplay(row.facility_a_data, field)}
                   </button>
                   <button
-                    class="danger"
                     type="button"
-                    disabled={busy[row.id]}
-                    onclick={() => resolveDeletion(row, "reject")}
+                    class="field-value"
+                    class:selected={fieldSide[row.id][field] === "b"}
+                    onclick={() => setFieldSide(row.id, field, "b")}
                   >
-                    Confirm reject
+                    {fieldDisplay(row.facility_b_data, field)}
                   </button>
                 </div>
-              </div>
-            {:else}
-              <div class="actions">
-                <button
-                  class="cancel"
-                  type="button"
-                  disabled={busy[row.id]}
-                  onclick={() => (rejecting = { ...rejecting, [row.id]: true })}
-                >
-                  Reject
-                </button>
-                <button
-                  class="danger"
-                  type="button"
-                  disabled={busy[row.id] || !row.facility_id}
-                  onclick={() => resolveDeletion(row, "approve")}
-                >
-                  Delete campground
-                </button>
-              </div>
+              {/each}
+            </div>
+            <p class="winner-hint">
+              Winner ({winner === "a" ? "A" : "B"}) keeps its record with the field choices
+              above; amenities deep-merge automatically; the loser is deleted.
+            </p>
+          {:else}
+            <p class="winner-hint">
+              Winner ({winner === "a" ? "A" : "B"}) keeps its record; the loser's data fills
+              gaps for unpicked fields, then is deleted.
+            </p>
+          {/if}
+
+          {#if row.note}
+            <p class="note">"{row.note}"</p>
+          {/if}
+        </ReviewCard>
+      {/each}
+    </QueueSection>
+
+    <QueueSection
+      title="Deletion flags"
+      count={deletions.length}
+      emptyText="No pending deletion flags — the queue is clear."
+      successes={deletionSuccesses}
+      successPrefix="Removed"
+      ondismiss={dismissSuccess}
+      onexpandall={() => setAllOpen(deletions.map((d) => d.id), true)}
+      oncollapseall={() => setAllOpen(deletions.map((d) => d.id), false)}
+    >
+      {#each deletions as row (row.id)}
+        <ReviewCard
+          open={isOpen(row.id)}
+          ontoggle={() => toggleOpen(row.id)}
+          error={errors[row.id]}
+          busy={busy[row.id]}
+          approveLabel="Delete campground"
+          approveTone="danger"
+          approveDisabled={!row.facility_id}
+          onapprove={() => resolveDeletion(row, "approve")}
+          onreject={(note) => resolveDeletion(row, "reject", note)}
+        >
+          {#snippet title()}{row.facility_name}{/snippet}
+          {#snippet meta()}
+            {#if row.facility_ridb_id}
+              <span class="badge">{ridbSourceBadge(row.facility_ridb_id)}</span> ·
             {/if}
-          </article>
-        {/each}
-      </div>
-    {/if}
-  </section>
+            {row.user_email} · {fmtDate(row.created)}
+          {/snippet}
+          {#snippet headExtra()}
+            {#if row.facility_id}
+              <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
+                View on map ↗
+              </a>
+            {/if}
+          {/snippet}
+
+          <p class="note">"{row.note}"</p>
+
+          {#if !row.facility_id}
+            <p class="winner-hint error-hint">
+              This facility was already removed (merge or prior deletion) — reject to clear the flag.
+            </p>
+          {/if}
+        </ReviewCard>
+      {/each}
+    </QueueSection>
   </div>
 </main>
 
@@ -926,113 +887,11 @@
     font-size: 0.92rem;
   }
 
-  .queue {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  .queue h2 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: var(--ink);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .count {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--ink-soft);
-    background: var(--paper-deep);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 0.05rem 0.55rem;
-  }
-  .empty {
-    color: var(--ink-faint);
-    font-size: 0.9rem;
-    font-style: italic;
-    margin: 0;
-    padding: 1.25rem;
-    background: var(--paper-2);
-    border: 1px dashed var(--line-strong);
-    border-radius: 12px;
-  }
 
-  .cards {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  .card {
-    background:
-      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 86%, var(--paper)));
-    border: 1px solid var(--line-strong);
-    border-radius: 14px;
-    padding: 1.25rem 1.4rem;
-    box-shadow: var(--shadow-sm);
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-  }
-  .reset-card {
-    gap: 0.85rem;
-  }
-  .reset-form {
-    display: flex;
-    gap: 0.6rem;
-  }
-  .reset-form input {
-    flex: 1;
-    background: var(--paper-deep);
-    border: 1px solid var(--line-strong);
-    border-radius: 9px;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.85rem;
-    color: var(--ink);
-    font-family: inherit;
-  }
-  .reset-form input:focus {
-    outline: none;
-    border-color: var(--moss);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent);
-  }
-  .reset-result {
-    display: flex;
-    gap: 0.6rem;
-  }
-  .reset-link {
-    flex: 1;
-    background: var(--paper-deep);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    padding: 0.5rem 0.7rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--pine-deep);
-  }
-  .card-head {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-  .card-head h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--ink);
-  }
   .vs {
     color: var(--ink-faint);
     font-weight: 400;
     font-size: 0.85em;
-  }
-  .meta {
-    font-size: 0.78rem;
-    color: var(--ink-faint);
   }
 
   .diff {
@@ -1218,58 +1077,40 @@
     margin: 0;
   }
 
-  .success-notice {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: color-mix(in srgb, var(--moss) 10%, var(--paper-2));
-    border: 1px solid color-mix(in srgb, var(--moss) 45%, var(--line));
-    border-radius: 12px;
-    padding: 0.65rem 0.9rem;
-    box-shadow: var(--shadow-sm);
-    font-size: 0.88rem;
-    color: var(--ink);
-  }
-  .success-text {
-    flex: 1;
-  }
-  .success-text strong {
-    font-weight: 600;
-    color: var(--pine-deep);
-  }
-  .success-link {
-    flex-shrink: 0;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--pine-deep);
-    text-decoration: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--pine-deep) 45%, transparent);
-    transition: border-color 0.13s var(--ease);
-  }
-  .success-link:hover {
-    border-bottom-color: var(--pine-deep);
-  }
-  .success-dismiss {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    color: var(--ink-faint);
-    font-size: 0.85rem;
-    line-height: 1;
-    padding: 0.2rem 0.3rem;
-    cursor: pointer;
-    transition: color 0.13s var(--ease);
-  }
-  .success-dismiss:hover {
-    color: var(--ink);
-  }
 
-  .reject-form {
+  .dup-warning {
+    background: color-mix(in srgb, var(--ochre, #b9852c) 14%, var(--paper-2));
+    border: 1px solid color-mix(in srgb, var(--ochre, #b9852c) 55%, var(--line));
+    border-radius: 10px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+  .dup-warning ul {
+    margin: 0.35rem 0 0;
+    padding: 0;
+    list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
-  .reject-form input {
+  .dup-warning li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.8rem;
+  }
+  .source-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .source-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .source-field input {
     background: var(--paper-deep);
     border: 1px solid var(--line-strong);
     border-radius: 9px;
@@ -1278,53 +1119,13 @@
     color: var(--ink);
     font-family: inherit;
   }
-  .reject-form input:focus {
+  .source-field input:focus {
     outline: none;
     border-color: var(--moss);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent);
   }
 
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-  }
-  .actions button {
-    border-radius: var(--radius);
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.13s var(--ease), transform 0.08s var(--ease);
-  }
-  .actions button:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-  .cancel {
-    background: var(--paper-deep);
-    color: var(--ink);
-    border: 1px solid var(--line-strong);
-  }
-  .cancel:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
-  }
-  .primary {
-    background: var(--pine);
-    color: #f4ecd6;
-    border: 1px solid var(--pine-deep);
-  }
-  .primary:hover:not(:disabled) {
-    background: var(--pine-deep);
-  }
-  .danger {
-    background: var(--rust);
-    color: #f4ecd6;
-    border: 1px solid #832e12;
-  }
-  .danger:hover:not(:disabled) {
-    background: #832e12;
-  }
+
 
   @media (max-width: 640px) {
     .diff-row {
@@ -1342,5 +1143,10 @@
     .field-grid-head span:first-child {
       display: none;
     }
+  }
+
+  .dup-tag {
+    color: var(--ochre, #b9852c);
+    font-weight: 600;
   }
 </style>

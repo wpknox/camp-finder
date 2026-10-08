@@ -32,6 +32,7 @@
   function sourceBadge(ridbId: string): string {
     if (ridbId.startsWith('nps-')) return 'NPS'
     if (ridbId.startsWith('fs-')) return 'USFS'
+    if (ridbId.startsWith('user-')) return 'User'
     return 'RIDB'
   }
 

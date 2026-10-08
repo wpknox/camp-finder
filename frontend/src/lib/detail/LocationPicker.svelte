@@ -16,6 +16,7 @@
   // Leaflet handles live outside runes — the map is imperative, not reactive state.
   let map: import('leaflet').Map | null = null
   let marker: import('leaflet').Marker | null = null
+  let resizeObserver: ResizeObserver | null = null
 
   function report(pos: { lat: number; lng: number }) {
     onchange(Number(pos.lat.toFixed(5)), Number(pos.lng.toFixed(5)))
@@ -52,9 +53,19 @@
         marker!.setLatLng(e.latlng)
         report(e.latlng)
       })
+      // The container can still be settling its width when Leaflet measures it
+      // (e.g. inside admin cards), which leaves grey untiled strips and an
+      // off-center pin. Re-measure whenever the container resizes.
+      resizeObserver = new ResizeObserver(() => {
+        map?.invalidateSize()
+        if (marker) map?.panTo(marker.getLatLng(), { animate: false })
+      })
+      resizeObserver.observe(mapEl)
     })()
     return () => {
       cancelled = true
+      resizeObserver?.disconnect()
+      resizeObserver = null
       map?.remove()
       map = null
       marker = null

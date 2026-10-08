@@ -1,3 +1,5 @@
+import type { EditableAmenityKey } from "./amenityFields";
+
 export type ToiletType = "flush" | "vault" | "none" | "unknown";
 export type DataQuality = "rich" | "sparse" | "unknown";
 
@@ -104,5 +106,36 @@ export interface MergeSuggestion {
   reviewed_by: string | null;
   reviewed_at: string | null;
   admin_note: string | null;
+  created: string;
+}
+
+export type TriState = "yes" | "no" | "unknown";
+
+export interface CampgroundSubmission {
+  name: string;
+  lat: number;
+  lng: number;
+  fee_min?: number | null;
+  fee_max?: number | null;
+  season_start?: string | null;
+  season_end?: string | null;
+  fcfs_total?: number | null;
+  reservable_total?: number | null;
+  amenities?: Partial<Record<EditableAmenityKey, boolean | null>>;
+  toiletType?: ToiletType;
+  // Admin-only on review (description is public; submitter notes are not)
+  description?: string | null;
+  forest?: string | null;
+  district?: string | null;
+}
+
+export interface CampgroundSuggestion {
+  id: string;
+  user_id: string;
+  submission: CampgroundSubmission;
+  source_url: string | null;
+  note: string | null;
+  status: SuggestionStatus;
+  created_facility_id: string | null;
   created: string;
 }

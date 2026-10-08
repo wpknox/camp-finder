@@ -4,7 +4,7 @@
 
 CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
 
-## Current status (2026-07-21): DEPLOYED + SOFT-LAUNCHED 🎉 — PR #3 MERGED & ROLLED OUT TO PROD
+## Current status (2026-10-03): "Suggest a campground" built on `feat/suggest-campground` (PR open, NOT deployed) — prod still = PR #3 rollout (2026-07-21)
 
 The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are now live in prod** — PR #3 merged 2026-07-21 following the `docs/rollout-pr3.md` runbook (backend schema deployed, both enrichments run against prod, frontend auto-deployed). See "Session 2026-07-21" below for the rollout log and "Wishlist: post-launch" for remaining future work.
 
@@ -90,6 +90,33 @@ Commit `410758a` on `feat/post-launch-features` (pushed, part of PR #3).
 - **"Has Cell Service" filter** (owner request): replaces the Pets Allowed checkbox in `FilterSidebar`/`filterStore` — matches facilities with ANY carrier true in `cell_coverage` (FCC or camper-reported). One-for-one checkbox swap, mobile collapse layout untouched. Pets data still shown in detail/suggest-edit/admin.
 - **Detail-panel divider**: `.description` now has the same top rule as the Cell Signal section, separating Cell Signal from the Overview text.
 - Verified live via Playwright (filter 537→231; computed border on `.description`). Tests: frontend 64 pass, `pnpm check` 0/0.
+
+### Session 2026-10-03 — "Suggest a campground" (user-submitted campgrounds)
+
+Owner got back after ~2 months away. Prod admin password reset via the forgot-password flow + `wrangler pages deployment tail` (link logged since email is off); local admin `willis+admin@email.com` reset the same way (link prints in the frontend dev terminal as `[email:dev]`).
+
+Built on **`feat/suggest-campground`** (plan: Sonnet subagents per task, Opus review). Scrapers still miss some campgrounds, so signed-in users can now submit one:
+
+- **Entry point:** "＋ Suggest a missing campground" under "Search this area" in the sidebar (logged-out → sign-in modal). `SubmitCampgroundModal` → shared `lib/campground/CampgroundForm.svelte`: name (required), map pin (`LocationPicker`) + lat/lng, optional fee min/max, FCFS/reservable counts, season, amenity tri-states, source link, reviewer notes.
+- **Table `campground_suggestions`** (ALL rules `'false'`, service-token only): `user_id`, `submission` JSON (`CampgroundSubmission`), `source_url`, `created_facility_id`, + moderation fields (`note` = submitter notes). Routes: `POST /api/campground-suggestions`, `GET/POST /api/admin/campground-suggestions`.
+- **Admin queue** "Suggested campgrounds" (top of `/admin`): every field editable (same form + description/forest/district), "Possible duplicate — within 1.5 km" list, submitter email. **Approve** inserts a `facilities` row built by `buildFacilityValues` (`$lib/campgroundSubmission.ts`) — `ridb_id = "user-<suggestionId>"`, amenities defaulted like the ETL, FCFS flags via `$lib/fcfs.ts`, `fs_url` only if the source link is on fs.usda.gov — and records the edited submission + `created_facility_id` on the suggestion. Approve is idempotent (reuses an existing `user-<id>` row on retry).
+- **`user-` ridb_id convention:** ETL `isNonRidbSourceId` (dedupe.ts) treats `user-` like `fs-`/`nps-` — RIDB sync absorbs a matching new RIDB id into the user row's `merged_ridb_ids`; `discover` deliberately keeps user rows in its match pool so an fs.usda.gov page enriches them. Merge `sourceRank` puts `user-` lowest (scraped/RIDB record wins a duplicate merge). Source badge "User".
+- **E2E fixes found via Playwright:** `LocationPicker` now `invalidateSize()`s on container resize (admin-card maps rendered half grey); "Reserve on recreation.gov" link now only for numeric RIDB ids (was 404ing for fs-/nps-/user- rows — pre-existing bug).
+- Tests: frontend 87 (was 64), etl 146 (was 143), svelte-check 0/0. Verified end-to-end locally with Playwright (logged-out gate, validation, submit, dup hints, edit+approve → green marker + detail panel, reject, 390px mobile).
+- **Local DB:** table added by hand to the served sqlite + `.local-persist/config.json` (miniflare trap). Backups `*.bak-suggest-campground` next to both. `teeny generate` re-numbered the gitignored `backend/migrations/` (now 0000–0016, new table in `0015_…`) — don't trust that folder's numbering.
+- **⚠ pnpm env:** `pnpm check/test/generate` failed with `ERR_PNPM_IGNORED_BUILDS` (newer pnpm). Owner ran `approve-builds`, which rewrote `pnpm-workspace.yaml` (`allowBuilds`) and `pnpm-lock.yaml` (lockfile v6→v9, wrangler 4.63→4.147, …) — **left uncommitted, not in the feature PR**; decide separately (Pages build uses its own pnpm).
+
+**⚠ Prod rollout order (owner-confirmed, not done):** (1) `cd backend && pnpm deploy` with the `TB_SHARED_SECRET` delete → deploy → `pnpm secrets-upload` dance; (2) verify `POST /api/v1/table/campground_suggestions/list` → 200 with a real request; (3) only then merge the PR — Pages auto-deploys `main` and the new routes 500 without the table.
+
+**⏭ Next session (owner reviewing PR #4 — https://github.com/wpknox/camp-finder/pull/4):**
+1. Owner reviews PR #4 (try it locally: backend + frontend `pnpm dev`; local admin `willis+admin@email.com`, test user `testview@example.com` / `password123`).
+2. Decide the pnpm files (uncommitted on the branch's working tree): commit `pnpm-workspace.yaml` + `pnpm-lock.yaml` separately after confirming Cloudflare Pages builds with lockfile v9 — or discard with `git checkout pnpm-workspace.yaml pnpm-lock.yaml`. Keep them out of PR #4 either way.
+3. Prod rollout in the order above (backend deploy → verify table → merge). Afterwards smoke-check on prod: submit a test campground, approve it in `/admin`, confirm marker + detail panel, then flag it for deletion.
+4. Optional polish noted during E2E: the submit button starts disabled with no explanation until a field is blurred (same as Suggest Edit) — could show all errors on a click attempt instead.
+5. Optional cleanup: delete the local Playwright test data (below) and the `*.bak-suggest-campground` DB/config backups once happy.
+6. Still-open older items: PR #3 prod smoke check (rollout-pr3.md step 4), ~50 fs.usda.gov stragglers (`pnpm discover`), pre-existing duplicate pairs (e.g. South Fork Campground / South Fork Group Site showed up in dup hints), OSM gap-report idea (Overpass `tourism=camp_site` vs our dedupe → admin review list).
+
+**Local test data left behind:** facility "Playwright Edited Meadow" (`user-bqrxpgIFSNK-j9daMGcutA`) + 3 resolved test suggestions in the local DB only.
 
 ### Session 2026-07-21 — PR #3 rolled out to prod (merge commit `febc72b`)
 

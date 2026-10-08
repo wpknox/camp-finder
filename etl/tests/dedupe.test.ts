@@ -3,6 +3,7 @@ import {
   canonicalName,
   groupByCanonicalName,
   findDuplicate,
+  isNonRidbSourceId,
 } from "../src/dedupe.js";
 
 describe("canonicalName", () => {
@@ -63,5 +64,23 @@ describe("findDuplicate", () => {
     expect(
       findDuplicate(byName, "ROSY LANE", 38.6553, -106.8556),
     ).toBeUndefined();
+  });
+});
+
+describe("isNonRidbSourceId", () => {
+  it("is true for fs-, nps- and user- prefixed ids", () => {
+    expect(isNonRidbSourceId("fs-psicc-almont")).toBe(true);
+    expect(isNonRidbSourceId("nps-curecanti-elk-creek")).toBe(true);
+    expect(isNonRidbSourceId("user-abc123")).toBe(true);
+  });
+
+  it("is false for numeric RIDB ids", () => {
+    expect(isNonRidbSourceId("232456")).toBe(false);
+  });
+
+  it("requires the hyphen, so look-alike prefixes are not matched", () => {
+    expect(isNonRidbSourceId("users123")).toBe(false);
+    expect(isNonRidbSourceId("fsx")).toBe(false);
+    expect(isNonRidbSourceId("npsfoo")).toBe(false);
   });
 });

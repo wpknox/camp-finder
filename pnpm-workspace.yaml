@@ -2,5 +2,6 @@ packages:
   - 'frontend'
   - 'backend'
   - 'etl'
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  esbuild: true
+  workerd: true

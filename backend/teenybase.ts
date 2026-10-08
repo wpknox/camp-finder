@@ -407,5 +407,40 @@ export default {
         } satisfies TableRulesExtensionData,
       ],
     },
+    {
+      name: "campground_suggestions",
+      autoSetUid: true,
+      fields: [
+        ...baseFields,
+        {
+          name: "user_id",
+          type: "relation",
+          sqlType: "text",
+          foreignKey: { table: "users", column: "id", onDelete: "CASCADE" },
+        },
+        // Proposed facility fields (CampgroundSubmission, see frontend/src/lib/types.ts).
+        // Stringified on write (Teenybase JSON quirk).
+        { name: "submission", type: "json", sqlType: "json", notNull: true },
+        // Optional "where I found it" link, admin-facing only. Plain text, not the url
+        // type, so validation stays in the server route.
+        { name: "source_url", type: "text", sqlType: "text" },
+        // Set on approval. Loose text (not a relation) so the audit record survives
+        // if the created facility is later merged away or deleted.
+        { name: "created_facility_id", type: "text", sqlType: "text" },
+        // Submitter's free-text notes live in moderationFields' `note`.
+        ...moderationFields,
+      ],
+      triggers: [createdTrigger, updatedTrigger],
+      extensions: [
+        {
+          name: "rules",
+          listRule: "false",
+          viewRule: "false",
+          createRule: "false",
+          updateRule: "false",
+          deleteRule: "false",
+        } satisfies TableRulesExtensionData,
+      ],
+    },
   ],
 } satisfies DatabaseSettings;

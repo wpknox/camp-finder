@@ -1,7 +1,8 @@
 import type { Facility, Amenities } from "$lib/types";
 
-/** Source richness: numeric RIDB record > NPS > fs.usda.gov scrape. */
+/** Source richness: numeric RIDB record > NPS > fs.usda.gov scrape > user-submitted. */
 function sourceRank(ridbId: string): number {
+  if (ridbId.startsWith("user-")) return -1;
   if (ridbId.startsWith("fs-")) return 0;
   if (ridbId.startsWith("nps-")) return 1;
   return 2;

@@ -11,10 +11,16 @@
   } from "$lib/map/mapStore";
   import { filteredFacilities } from "$lib/filters/filterStore";
   import type { Facility } from "$lib/types";
+  import SubmitCampgroundModal from "$lib/campground/SubmitCampgroundModal.svelte";
+  import AuthModal from "$lib/auth/AuthModal.svelte";
+  import { isLoggedIn } from "$lib/auth/authStore";
   import { page } from "$app/stores";
   import { onMount } from "svelte";
 
   let campMap: CampMap = $state(null!);
+  let showSubmit = $state(false);
+  let showAuth = $state(false);
+  let submitCenter = $state({ lat: 39.0, lng: -105.5 });
   let lastRefreshedId: string | null = $state(null);
 
   $effect(() => {
@@ -92,6 +98,18 @@
     campMap?.flyTo(f.lat, f.lng);
   }
 
+  function suggestCampground() {
+    if (!$isLoggedIn) {
+      showAuth = true;
+      return;
+    }
+    const b = campMap?.getMapBounds();
+    submitCenter = b
+      ? { lat: (b.north + b.south) / 2, lng: (b.east + b.west) / 2 }
+      : { lat: 39.0, lng: -105.5 };
+    showSubmit = true;
+  }
+
   async function searchArea() {
     const bounds = campMap?.getMapBounds();
     if (!bounds) return;
@@ -115,7 +133,7 @@
   }
 </script>
 
-<FilterSidebar onSearch={searchArea} onpick={pickFacility} />
+<FilterSidebar onSearch={searchArea} onpick={pickFacility} onsuggest={suggestCampground} />
 
 <div class="map-wrap">
   <CampMap
@@ -140,6 +158,18 @@
     facility={$selectedFacility}
     onclose={() => selectedFacility.set(null)}
   />
+{/if}
+
+{#if showSubmit}
+  <SubmitCampgroundModal
+    lat={submitCenter.lat}
+    lng={submitCenter.lng}
+    onclose={() => (showSubmit = false)}
+  />
+{/if}
+
+{#if showAuth}
+  <AuthModal onclose={() => (showAuth = false)} />
 {/if}
 
 <style>

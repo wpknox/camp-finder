@@ -86,6 +86,8 @@ async function main() {
   console.log("Loading existing RIDB records for dedup...");
   const allRecords = await tb.listAllWithMerged();
   const mergedIndex = buildRidbIndex(allRecords);
+  // user- rows intentionally stay in this match pool so a discovered fs.usda.gov page
+  // enriches a user-submitted row instead of duplicating it.
   const ridbRecords = allRecords.filter(
     (f) => !f.ridb_id.startsWith("fs-") && !f.ridb_id.startsWith("nps-"),
   );
