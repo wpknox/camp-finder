@@ -1,5 +1,6 @@
 import type { Facility, Amenities } from "$lib/types";
 import { sourceOf, type Source } from "../../source";
+import { CHOICE_FIELDS, type ChoiceField, type FieldChoices } from "../../admin/mergeFields";
 
 /** Source richness: numeric RIDB record > NPS > fs.usda.gov scrape > user-submitted. */
 const SOURCE_RANK: Record<Source, number> = { user: -1, fs: 0, nps: 1, ridb: 2 };
@@ -26,35 +27,8 @@ const SCALAR_FIELDS = [
   "fs_url",
 ] as const;
 
-/** Fields the admin can explicitly choose winner/loser for during a merge. */
-export type ChoiceField =
-  | "name"
-  | "location"
-  | "forest"
-  | "district"
-  | "description"
-  | "fee_min"
-  | "fee_max"
-  | "season_start"
-  | "season_end"
-  | "fcfs"
-  | "fs_url";
-
-export const CHOICE_FIELDS: readonly ChoiceField[] = [
-  "name",
-  "location",
-  "forest",
-  "district",
-  "description",
-  "fee_min",
-  "fee_max",
-  "season_start",
-  "season_end",
-  "fcfs",
-  "fs_url",
-];
-
-export type FieldChoices = Partial<Record<ChoiceField, "winner" | "loser">>;
+export { CHOICE_FIELDS };
+export type { ChoiceField, FieldChoices };
 
 /** Winner's data wins; loser fills gaps. `choices` lets the admin explicitly
  * pick a side per field — that choice applies even for empty values, overriding

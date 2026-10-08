@@ -1,13 +1,8 @@
 <script lang="ts">
   import type { CellCoverage } from '$lib/types'
+  import { CARRIERS } from '$lib/fields'
 
   let { coverage }: { coverage: CellCoverage | null | undefined } = $props()
-
-  const CARRIERS: Array<{ key: 'verizon' | 'att' | 'tmobile'; label: string }> = [
-    { key: 'verizon', label: 'Verizon' },
-    { key: 'att', label: 'AT&T' },
-    { key: 'tmobile', label: 'T-Mobile' },
-  ]
 </script>
 
 {#if coverage}

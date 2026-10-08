@@ -2,26 +2,9 @@
   import { untrack } from 'svelte'
   import type { Facility, EditChanges, Amenities, ToiletType } from '$lib/types'
   import LocationPicker from './LocationPicker.svelte'
-  import { EDITABLE_AMENITIES } from '$lib/amenityFields'
+  import { CARRIERS, EDITABLE_AMENITIES, TOILET_OPTIONS, fromTriState, triState } from '$lib/fields'
 
   let { facility, onclose }: { facility: Facility; onclose: () => void } = $props()
-
-  const CARRIERS: Array<{ key: 'verizon' | 'att' | 'tmobile'; label: string }> = [
-    { key: 'verizon', label: 'Verizon' },
-    { key: 'att', label: 'AT&T' },
-    { key: 'tmobile', label: 'T-Mobile' },
-  ]
-
-  const TOILET_OPTIONS: Array<{ value: ToiletType; label: string }> = [
-    { value: 'flush', label: 'Flush' },
-    { value: 'vault', label: 'Vault' },
-    { value: 'none', label: 'None' },
-    { value: 'unknown', label: 'Unknown' },
-  ]
-
-  function triState(v: boolean | null | undefined): 'yes' | 'no' | 'unknown' {
-    return v === true ? 'yes' : v === false ? 'no' : 'unknown'
-  }
 
   // Snapshot the facility once at open — the form edits a copy, not live props.
   const initial = untrack(() => facility)
@@ -110,8 +93,7 @@
       const original = triState(facility.amenities?.[key] as boolean | null)
       const current = amenityValues[key]
       if (current !== original) {
-        (amenityDiff as Record<string, boolean | null>)[key] =
-          current === 'yes' ? true : current === 'no' ? false : null
+        (amenityDiff as Record<string, boolean | null>)[key] = fromTriState(current)
       }
     }
     if (toiletType !== (facility.amenities?.toiletType ?? 'unknown')) amenityDiff.toiletType = toiletType
@@ -121,7 +103,7 @@
       const original = triState(facility.cell_coverage?.[key])
       const current = carrierValues[key]
       if (current !== original) {
-        carrierDiff[key] = current === 'yes' ? true : current === 'no' ? false : null
+        carrierDiff[key] = fromTriState(current)
       }
     }
     if (Object.keys(carrierDiff).length) c.cell_coverage = carrierDiff

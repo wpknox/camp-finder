@@ -2,6 +2,7 @@
 import { writable, derived } from "svelte/store";
 import type { Facility } from "$lib/types";
 import { facilities } from "$lib/map/mapStore";
+import { hasAnyCarrier } from "$lib/fields";
 
 export interface FilterState {
   fcfsOnly: boolean;
@@ -32,15 +33,7 @@ export const filteredFacilities = derived(
       if ($filters.water && !f.amenities.potableWater) return false;
       if ($filters.toilets && f.amenities.toiletType === "none") return false;
       if ($filters.bearBoxes && !f.amenities.bearBoxes) return false;
-      if (
-        $filters.hasCellService &&
-        !(
-          f.cell_coverage?.verizon ||
-          f.cell_coverage?.att ||
-          f.cell_coverage?.tmobile
-        )
-      )
-        return false;
+      if ($filters.hasCellService && !hasAnyCarrier(f.cell_coverage)) return false;
       if (
         $filters.maxFee != null &&
         f.fee_min != null &&

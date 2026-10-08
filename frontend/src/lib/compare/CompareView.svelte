@@ -2,6 +2,7 @@
   import type { Facility } from '$lib/types'
   import { formatElevationFt } from '$lib/weather'
   import { formatFeeShort } from '$lib/format'
+  import { CARRIERS } from '$lib/fields'
 
   let { facilities }: { facilities: Facility[] } = $props()
 
@@ -11,7 +12,7 @@
     { label: 'Cell Signal',  key: f => {
         const c = f.cell_coverage
         if (!c) return '?'
-        const on = [c.verizon && 'V', c.att && 'A', c.tmobile && 'T'].filter(Boolean)
+        const on = CARRIERS.filter((k) => c[k.key]).map((k) => k.label[0])
         return on.length ? on.join(' · ') : 'None'
       } },
     { label: 'FCFS Sites',   key: f => f.fcfs_total > 0 ? `${f.fcfs_total}/${f.fcfs_total + f.reservable_total}` : 'None' },

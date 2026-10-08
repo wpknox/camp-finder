@@ -16,6 +16,8 @@
   import type { SuccessNotice } from "$lib/admin/types";
   import { formatDate } from "$lib/format";
   import { sourceLabel } from "$lib/source";
+  import { CARRIERS, EDITABLE_AMENITIES, type CarrierKey } from "$lib/fields";
+  import { CHOICE_FIELDS, CHOICE_FIELD_LABELS, type ChoiceField } from "$lib/admin/mergeFields";
 
   interface EditRow {
     id: string;
@@ -64,38 +66,7 @@
     created: string;
   }
 
-  /** Fields the admin can pick a side for during a merge. Mirrors the
-   * server-only `ChoiceField` union in `$lib/server/admin/merge.ts` — kept as
-   * a local const list here because that module is server-only. */
-  const CHOICE_FIELDS = [
-    "name",
-    "location",
-    "forest",
-    "district",
-    "description",
-    "fee_min",
-    "fee_max",
-    "season_start",
-    "season_end",
-    "fcfs",
-    "fs_url",
-  ] as const;
-  type ChoiceField = (typeof CHOICE_FIELDS)[number];
   type Side = "a" | "b";
-
-  const CHOICE_FIELD_LABELS: Record<ChoiceField, string> = {
-    name: "Name",
-    location: "Location",
-    forest: "Forest",
-    district: "District",
-    description: "Description",
-    fee_min: "Fee min ($/night)",
-    fee_max: "Fee max ($/night)",
-    season_start: "Season start",
-    season_end: "Season end",
-    fcfs: "FCFS counts",
-    fs_url: "FS URL",
-  };
 
   /** Render a facility's value for a given choice field, for the comparison grid. */
   function fieldDisplay(facility: Facility | null, field: ChoiceField): string {
@@ -151,21 +122,13 @@
   );
 
   const AMENITY_LABELS: Record<string, string> = {
-    potableWater: "Potable Water",
+    ...Object.fromEntries(EDITABLE_AMENITIES.map((a) => [a.key, a.label])),
     toiletType: "Toilets",
-    bearBoxes: "Bear Boxes",
-    petsAllowed: "Pets OK",
-    electricHookups: "Electric",
-    picnicTables: "Picnic Tables",
-    fireRings: "Fire Rings",
-    accessible: "Accessible",
   };
 
-  const CARRIER_LABELS: Record<string, string> = {
-    verizon: "Verizon coverage",
-    att: "AT&T coverage",
-    tmobile: "T-Mobile coverage",
-  };
+  const CARRIER_LABELS: Record<string, string> = Object.fromEntries(
+    CARRIERS.map((c) => [c.key, `${c.label} coverage`]),
+  );
 
   const FIELD_LABELS: Record<string, string> = {
     fee_min: "Fee min ($/night)",
@@ -612,7 +575,7 @@
                   <div class="diff-row">
                     <span class="diff-field">{CARRIER_LABELS[cKey] ?? cKey}</span>
                     <span class="diff-current">
-                      {fmtValue(row.current?.cell_coverage?.[cKey as "verizon" | "att" | "tmobile"])}
+                      {fmtValue(row.current?.cell_coverage?.[cKey as CarrierKey])}
                     </span>
                     <span class="diff-arrow">→</span>
                     <span class="diff-proposed">{fmtValue(cVal)}</span>

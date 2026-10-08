@@ -1,8 +1,7 @@
 <script lang="ts">
   import LocationPicker from '$lib/detail/LocationPicker.svelte'
-  import { EDITABLE_AMENITIES } from '$lib/amenityFields'
+  import { EDITABLE_AMENITIES, TOILET_OPTIONS, TRI_OPTIONS } from '$lib/fields'
   import type { CampgroundDraft } from '$lib/campgroundSubmission'
-  import type { ToiletType, TriState } from '$lib/types'
 
   let {
     draft = $bindable(),
@@ -17,19 +16,6 @@
     showAllErrors?: boolean
     idPrefix?: string
   } = $props()
-
-  const TRI_OPTIONS: Array<{ value: TriState; label: string }> = [
-    { value: 'yes', label: 'Yes' },
-    { value: 'no', label: 'No' },
-    { value: 'unknown', label: 'Unknown' },
-  ]
-
-  const TOILET_OPTIONS: Array<{ value: ToiletType; label: string }> = [
-    { value: 'flush', label: 'Flush' },
-    { value: 'vault', label: 'Vault' },
-    { value: 'none', label: 'None' },
-    { value: 'unknown', label: 'Unknown' },
-  ]
 
   // Inline validation, surfaced after blur or when the parent signals a submit attempt.
   let touched = $state<Partial<Record<keyof CampgroundDraft, boolean>>>({})

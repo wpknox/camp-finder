@@ -1,5 +1,5 @@
 // Shared by browser and server routes: no $env / $lib/server imports here.
-import { EDITABLE_AMENITIES, type EditableAmenityKey } from './amenityFields'
+import { EDITABLE_AMENITIES, TOILET_TYPES, triState, type EditableAmenityKey } from './fields'
 import { deriveFcfsFlags } from './fcfs'
 import type { Amenities, CampgroundSubmission, DataQuality, ToiletType, TriState } from './types'
 
@@ -8,7 +8,6 @@ const SUBMISSION_KEYS = new Set([
   'name', 'lat', 'lng', 'fee_min', 'fee_max', 'season_start', 'season_end',
   'fcfs_total', 'reservable_total', 'amenities', 'toiletType', 'description', 'forest', 'district',
 ])
-const TOILET_TYPES: ToiletType[] = ['flush', 'vault', 'none', 'unknown']
 const NAME_MAX = 120
 const STRING_MAX = 200
 const DESCRIPTION_MAX = 2000
@@ -29,10 +28,6 @@ export interface CampgroundDraft {
   district: string
   toiletType: ToiletType
   amenities: Record<EditableAmenityKey, TriState>
-}
-
-function triState(v: boolean | null | undefined): TriState {
-  return v === true ? 'yes' : v === false ? 'no' : 'unknown'
 }
 
 export function emptyDraft(lat: number, lng: number): CampgroundDraft {

@@ -1,4 +1,4 @@
-import type { EditableAmenityKey } from "./amenityFields";
+import type { EditableAmenityKey } from "./fields";
 
 export type ToiletType = "flush" | "vault" | "none" | "unknown";
 export type DataQuality = "rich" | "sparse" | "unknown";

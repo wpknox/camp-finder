@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { guardSubmission, insertRow } from '$lib/server/moderation'
-import type { EditChanges } from '$lib/types'
+import type { EditChanges, ToiletType } from '$lib/types'
+import { CARRIER_KEYS, TOILET_TYPES, type CarrierKey } from '$lib/fields'
 
 // Deliberately uses the service token (see $lib/server/tb) — don't "fix" this to the
 // per-request user-token pattern of sibling routes (api/saved, api/ratings).
@@ -31,13 +32,13 @@ function validateChanges(changes: EditChanges): string | null {
   if ((changes.lat === undefined) !== (changes.lng === undefined))
     return 'lat and lng must be provided together'
   const toilet = (changes.amenities as { toiletType?: unknown } | undefined)?.toiletType
-  if (toilet !== undefined && !['flush', 'vault', 'none', 'unknown'].includes(toilet as string))
+  if (toilet !== undefined && !TOILET_TYPES.includes(toilet as ToiletType))
     return 'toiletType must be flush, vault, none or unknown'
   if (changes.cell_coverage !== undefined) {
     if (typeof changes.cell_coverage !== 'object' || changes.cell_coverage === null)
       return 'cell_coverage must be an object'
     for (const [k, v] of Object.entries(changes.cell_coverage)) {
-      if (!['verizon', 'att', 'tmobile'].includes(k)) return `Unknown carrier: ${k}`
+      if (!CARRIER_KEYS.includes(k as CarrierKey)) return `Unknown carrier: ${k}`
       if (v !== null && typeof v !== 'boolean') return 'carrier values must be boolean or null'
     }
   }
