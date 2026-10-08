@@ -104,9 +104,12 @@
     {#if header}
       {@render header()}
     {:else}
-      {#if eyebrow}<span class="eyebrow" class:eyebrow-form={variant === "form"}>{eyebrow}</span
-        >{/if}
-      {#if title}<h2 class:h2-auth={variant === "auth"}>{title}</h2>{/if}
+      {#if eyebrow}
+        <span class="eyebrow" class:eyebrow-form={variant === "form"}>{eyebrow}</span>
+      {/if}
+      {#if title}
+        <h2 class:h2-auth={variant === "auth"}>{title}</h2>
+      {/if}
     {/if}
     {@render children()}
   </div>
