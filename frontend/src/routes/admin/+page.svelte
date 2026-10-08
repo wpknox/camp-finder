@@ -359,15 +359,15 @@
         merges = merges.filter((m) => m.id !== row.id);
         if (action === "approve") {
           const body = (await res.json().catch(() => ({}))) as {
-            winner_id?: string;
-            winner_name?: string;
+            facility_id?: string;
+            facility_name?: string;
           };
           mergeSuccesses = [
             ...mergeSuccesses,
             {
               id: row.id,
-              facility_id: body.winner_id ?? "",
-              facility_name: body.winner_name ?? "the surviving campground",
+              facility_id: body.facility_id ?? "",
+              facility_name: body.facility_name ?? "the surviving campground",
             },
           ];
         }

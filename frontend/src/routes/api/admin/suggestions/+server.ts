@@ -1,9 +1,18 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tb, tbHeaders, tbList } from "$lib/server/tb";
+import { tb, tbHeaders, tbView } from "$lib/server/tb";
 import { parseJson } from "$lib/json";
 import { tbFetch } from "$lib/server/tbFetch";
+import { isTombstoned } from "$lib/server/facilities";
+import {
+  listPending,
+  loadLookups,
+  loadPendingRow,
+  parseResolveBody,
+  resolveRow,
+  userEmail,
+} from "$lib/server/moderation";
 import type { Amenities } from "$lib/types";
 import { deriveFcfsFlags } from "$lib/fcfs";
 
@@ -22,41 +31,33 @@ interface RawSuggestion {
 
 interface RawFacility {
   id: string;
-  name: string;
   amenities: string | Record<string, unknown>;
   cell_coverage: string | Record<string, unknown> | null;
   fcfs_total: number | null;
   reservable_total: number | null;
-}
-
-interface RawUser {
-  id: string;
-  email: string;
+  name: string;
 }
 
 /** GET /api/admin/suggestions → pending edit suggestions, joined to facility + user. */
 export const GET: RequestHandler = async ({ locals }) => {
   await requireAdmin(locals);
 
-  const [suggestions, facilities, users] = await Promise.all([
-    tbList<RawSuggestion>("edit_suggestions", {
-      where: "status == 'pending'",
-      order: "created asc",
-      limit: 500,
-    }),
-    tbList<RawFacility>("facilities", { limit: 10000 }),
-    tbList<RawUser>("users", { limit: 10000 }),
+  const [suggestions, { facById, userById }] = await Promise.all([
+    listPending<RawSuggestion>("edit_suggestions", { order: "created asc", limit: 500 }),
+    loadLookups(),
   ]);
 
-  const facById = new Map(facilities.map((f) => [f.id, f]));
-  const userById = new Map(users.map((u) => [u.id, u]));
-
-  const result = suggestions.map((s) => ({
-    ...s,
-    changes: parseJson<Record<string, unknown>>(s.changes, {}),
-    facility_name: facById.get(s.facility_id)?.name ?? "(deleted)",
-    user_email: userById.get(s.user_id)?.email ?? "(deleted)",
-  }));
+  const result = suggestions.map((s) => {
+    const fac = facById.get(s.facility_id);
+    return {
+      ...s,
+      changes: parseJson<Record<string, unknown>>(s.changes, {}),
+      facility_name: fac?.name ?? "(deleted)",
+      // Current values for diffing; tombstoned facilities have none.
+      current: fac && !isTombstoned(fac as unknown as Record<string, unknown>) ? fac : null,
+      user_email: userEmail(userById, s.user_id),
+    };
+  });
 
   return json(result);
 };
@@ -65,35 +66,20 @@ export const GET: RequestHandler = async ({ locals }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
   const admin = await requireAdmin(locals);
 
-  const body = (await request.json()) as {
-    id?: string;
-    action?: string;
-    admin_note?: string;
-  };
+  const body = await parseResolveBody(request);
+  if (body instanceof Response) return body;
   const { id, action } = body;
-  if (!id || (action !== "approve" && action !== "reject")) {
-    return json({ error: "id and action (approve|reject) required" }, { status: 400 });
-  }
 
-  const viewRes = await tbFetch(tb(`edit_suggestions/view/${id}`), {
-    headers: tbHeaders,
-  });
-  if (!viewRes.ok) return json({ error: "Suggestion not found" }, { status: 404 });
-  const suggestion = (await viewRes.json()) as RawSuggestion;
-  if (suggestion.status !== "pending") {
-    return json({ error: "Suggestion already resolved" }, { status: 409 });
-  }
+  const suggestion = await loadPendingRow<RawSuggestion>("edit_suggestions", id, "Suggestion");
+  if (suggestion instanceof Response) return suggestion;
 
   let editedFacility: { id: string; name: string } | null = null;
 
   if (action === "approve") {
     const changes = parseJson<Record<string, unknown>>(suggestion.changes, {});
 
-    const facRes = await tbFetch(tb(`facilities/view/${suggestion.facility_id}`), {
-      headers: tbHeaders,
-    });
-    if (!facRes.ok) return json({ error: "Facility not found" }, { status: 404 });
-    const facility = (await facRes.json()) as RawFacility;
+    const facility = await tbView<RawFacility>("facilities", suggestion.facility_id);
+    if (!facility) return json({ error: "Facility not found" }, { status: 404 });
 
     const { amenities: amenityChanges, cell_coverage: carrierChanges, ...scalarChanges } = changes as {
       amenities?: Partial<Amenities>;
@@ -146,16 +132,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     editedFacility = { id: facility.id, name: facility.name };
   }
 
-  const resolveRes = await tbFetch(tb(`edit_suggestions/edit/${id}`), {
-    method: "POST",
-    headers: tbHeaders,
-    body: JSON.stringify({
-      status: action === "approve" ? "approved" : "rejected",
-      reviewed_by: admin.id,
-      reviewed_at: new Date().toISOString(),
-      admin_note: (body.admin_note ?? "").slice(0, 1000),
-    }),
-  });
+  const resolveRes = await resolveRow("edit_suggestions", id, admin.id, action, body.admin_note);
   if (!resolveRes.ok) {
     return json(
       { error: "Failed to update suggestion", detail: await resolveRes.text() },

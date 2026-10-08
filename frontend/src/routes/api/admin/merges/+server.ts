@@ -1,9 +1,17 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tb, tbHeaders, tbList } from "$lib/server/tb";
-import { parseJson } from "$lib/json";
+import { tb, tbHeaders, tbList, tbView } from "$lib/server/tb";
 import { tbFetch } from "$lib/server/tbFetch";
+import { parseFacility } from "$lib/server/facilities";
+import {
+  listPending,
+  loadLookups,
+  loadPendingRow,
+  parseResolveBody,
+  resolveRow,
+  userEmail,
+} from "$lib/server/moderation";
 import { pickWinner, mergeFacilityFields, CHOICE_FIELDS } from "$lib/server/admin/merge";
 import type { ChoiceField, FieldChoices } from "$lib/server/admin/merge";
 import type { Facility } from "$lib/types";
@@ -36,20 +44,6 @@ interface RawMerge {
   created: string;
 }
 
-interface RawFacility {
-  id: string;
-  name: string;
-  ridb_id: string;
-  amenities: string | Record<string, unknown>;
-  merged_ridb_ids: string | string[] | null;
-  [k: string]: unknown;
-}
-
-interface RawUser {
-  id: string;
-  email: string;
-}
-
 interface ChildRow {
   id: string;
   user_id: string;
@@ -58,32 +52,18 @@ interface ChildRow {
 
 /** Load a facility by id, parsing its JSON fields into a usable Facility. */
 async function loadFacility(id: string): Promise<Facility | null> {
-  const res = await tbFetch(tb(`facilities/view/${id}`), { headers: tbHeaders });
-  if (!res.ok) return null;
-  const raw = (await res.json()) as RawFacility;
-  return {
-    ...(raw as unknown as Facility),
-    amenities: parseJson(raw.amenities, {}) as Facility["amenities"],
-    merged_ridb_ids: parseJson<string[]>(raw.merged_ridb_ids, []),
-  };
+  const raw = await tbView<Record<string, unknown>>("facilities", id);
+  return raw ? parseFacility(raw) : null;
 }
 
 /** GET /api/admin/merges → pending merge suggestions, joined to both facilities + user. */
 export const GET: RequestHandler = async ({ locals }) => {
   await requireAdmin(locals);
 
-  const [suggestions, facilities, users] = await Promise.all([
-    tbList<RawMerge>("merge_suggestions", {
-      where: "status == 'pending'",
-      order: "created asc",
-      limit: 500,
-    }),
-    tbList<RawFacility>("facilities", { limit: 10000 }),
-    tbList<RawUser>("users", { limit: 10000 }),
+  const [suggestions, { facById, userById }] = await Promise.all([
+    listPending<RawMerge>("merge_suggestions", { order: "created asc", limit: 500 }),
+    loadLookups(),
   ]);
-
-  const facById = new Map(facilities.map((f) => [f.id, f]));
-  const userById = new Map(users.map((u) => [u.id, u]));
 
   const result = suggestions.map((s) => {
     const a = facById.get(s.facility_a);
@@ -94,13 +74,9 @@ export const GET: RequestHandler = async ({ locals }) => {
       facility_a_ridb_id: a?.ridb_id ?? "(deleted)",
       facility_b_name: b?.name ?? "(deleted)",
       facility_b_ridb_id: b?.ridb_id ?? "(deleted)",
-      facility_a_data: a
-        ? { ...a, amenities: parseJson(a.amenities, {}) }
-        : null,
-      facility_b_data: b
-        ? { ...b, amenities: parseJson(b.amenities, {}) }
-        : null,
-      user_email: userById.get(s.user_id)?.email ?? "(deleted)",
+      facility_a_data: a ?? null,
+      facility_b_data: b ?? null,
+      user_email: userEmail(userById, s.user_id),
     };
   });
 
@@ -142,31 +118,17 @@ async function repointChildren(
 export const POST: RequestHandler = async ({ locals, request }) => {
   const admin = await requireAdmin(locals);
 
-  const body = (await request.json()) as {
-    id?: string;
-    action?: string;
-    admin_note?: string;
-    winner_id?: string;
-    field_choices?: unknown;
-  };
+  const body = await parseResolveBody<{ winner_id?: string; field_choices?: unknown }>(request);
+  if (body instanceof Response) return body;
   const { id, action, winner_id } = body;
-  if (!id || (action !== "approve" && action !== "reject")) {
-    return json({ error: "id and action (approve|reject) required" }, { status: 400 });
-  }
 
   const fieldChoices = parseFieldChoices(body.field_choices);
   if (fieldChoices === null) {
     return json({ error: "field_choices contains unknown keys or invalid values" }, { status: 400 });
   }
 
-  const viewRes = await tbFetch(tb(`merge_suggestions/view/${id}`), {
-    headers: tbHeaders,
-  });
-  if (!viewRes.ok) return json({ error: "Suggestion not found" }, { status: 404 });
-  const suggestion = (await viewRes.json()) as RawMerge;
-  if (suggestion.status !== "pending") {
-    return json({ error: "Suggestion already resolved" }, { status: 409 });
-  }
+  const suggestion = await loadPendingRow<RawMerge>("merge_suggestions", id, "Suggestion");
+  if (suggestion instanceof Response) return suggestion;
 
   let mergedWinner: { id: string; name: string } | null = null;
 
@@ -239,16 +201,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     mergedWinner = { id: winner.id, name: merged.name };
   }
 
-  const resolveRes = await tbFetch(tb(`merge_suggestions/edit/${id}`), {
-    method: "POST",
-    headers: tbHeaders,
-    body: JSON.stringify({
-      status: action === "approve" ? "approved" : "rejected",
-      reviewed_by: admin.id,
-      reviewed_at: new Date().toISOString(),
-      admin_note: (body.admin_note ?? "").slice(0, 1000),
-    }),
-  });
+  const resolveRes = await resolveRow("merge_suggestions", id, admin.id, action, body.admin_note);
   if (!resolveRes.ok) {
     return json(
       { error: "Failed to update suggestion", detail: await resolveRes.text() },
@@ -258,7 +211,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
   return json(
     mergedWinner
-      ? { ok: true, winner_id: mergedWinner.id, winner_name: mergedWinner.name }
+      ? { ok: true, facility_id: mergedWinner.id, facility_name: mergedWinner.name }
       : { ok: true },
   );
 };

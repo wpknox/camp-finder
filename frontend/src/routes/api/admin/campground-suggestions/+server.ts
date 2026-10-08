@@ -2,6 +2,14 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
 import { tb, tbHeaders, tbList } from "$lib/server/tb";
+import {
+  listPending,
+  loadLookups,
+  loadPendingRow,
+  parseResolveBody,
+  resolveRow,
+  userEmail,
+} from "$lib/server/moderation";
 import { parseJson } from "$lib/json";
 import { isSafeId } from "$lib/server/facilities";
 import { tbFetch } from "$lib/server/tbFetch";
@@ -37,28 +45,17 @@ interface RawFacility {
   is_deleted?: boolean | number | null;
 }
 
-interface RawUser {
-  id: string;
-  email: string;
-}
-
 /** GET /api/admin/campground-suggestions → pending new-campground submissions, with nearby duplicates + user. */
 export const GET: RequestHandler = async ({ locals }) => {
   await requireAdmin(locals);
 
-  const [rows, facilities, users] = await Promise.all([
-    tbList<RawCampground>("campground_suggestions", {
-      where: "status == 'pending'",
-      order: "created asc",
-      limit: 500,
-    }),
-    tbList<RawFacility>("facilities", { limit: 10000 }),
-    tbList<RawUser>("users", { limit: 10000 }),
+  const [rows, { facilities, userById }] = await Promise.all([
+    listPending<RawCampground>("campground_suggestions", { order: "created asc", limit: 500 }),
+    loadLookups(),
   ]);
 
   // Tombstoned facilities aren't real duplicates.
   const live = facilities.filter((f) => !f.is_deleted);
-  const userById = new Map(users.map((u) => [u.id, u]));
 
   const result = rows.map((r) => {
     const submission = parseJson(r.submission, null) as CampgroundSubmission | null;
@@ -69,7 +66,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     return {
       ...r,
       submission,
-      user_email: userById.get(r.user_id)?.email ?? "(deleted)",
+      user_email: userEmail(userById, r.user_id),
       nearby,
     };
   });
@@ -81,26 +78,12 @@ export const GET: RequestHandler = async ({ locals }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
   const admin = await requireAdmin(locals);
 
-  const body = (await request.json()) as {
-    id?: string;
-    action?: string;
-    submission?: unknown;
-    source_url?: unknown;
-    admin_note?: string;
-  };
+  const body = await parseResolveBody<{ submission?: unknown; source_url?: unknown }>(request);
+  if (body instanceof Response) return body;
   const { id, action } = body;
-  if (!id || (action !== "approve" && action !== "reject")) {
-    return json({ error: "id and action (approve|reject) required" }, { status: 400 });
-  }
 
-  const viewRes = await tbFetch(tb(`campground_suggestions/view/${id}`), {
-    headers: tbHeaders,
-  });
-  if (!viewRes.ok) return json({ error: "Suggestion not found" }, { status: 404 });
-  const row = (await viewRes.json()) as RawCampground;
-  if (row.status !== "pending") {
-    return json({ error: "Suggestion already resolved" }, { status: 409 });
-  }
+  const row = await loadPendingRow<RawCampground>("campground_suggestions", id, "Suggestion");
+  if (row instanceof Response) return row;
 
   let created: { id: string; name: string } | null = null;
   let finalSubmission: unknown = null;
@@ -165,24 +148,21 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     created = { id: found[0].id, name: found[0].name };
   }
 
-  const resolveRes = await tbFetch(tb(`campground_suggestions/edit/${id}`), {
-    method: "POST",
-    headers: tbHeaders,
-    body: JSON.stringify({
-      status: action === "approve" ? "approved" : "rejected",
-      reviewed_by: admin.id,
-      reviewed_at: new Date().toISOString(),
-      admin_note: (body.admin_note ?? "").slice(0, 1000),
-      // On approve, record what actually went live (admin edits included).
-      ...(created
-        ? {
-            submission: JSON.stringify(finalSubmission),
-            source_url: finalSourceUrl,
-            created_facility_id: created.id,
-          }
-        : {}),
-    }),
-  });
+  const resolveRes = await resolveRow(
+    "campground_suggestions",
+    id,
+    admin.id,
+    action,
+    body.admin_note,
+    // On approve, record what actually went live (admin edits included).
+    created
+      ? {
+          submission: JSON.stringify(finalSubmission),
+          source_url: finalSourceUrl,
+          created_facility_id: created.id,
+        }
+      : {},
+  );
   if (!resolveRes.ok) {
     return json(
       {

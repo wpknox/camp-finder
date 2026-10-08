@@ -1,11 +1,8 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { tbFetch } from '$lib/server/tbFetch'
-import { tbHeaders } from '$lib/server/tb'
-import { suggestionLimiter } from '$lib/server/auth/limiters'
+import { guardSubmission, insertRow } from '$lib/server/moderation'
 import type { EditChanges } from '$lib/types'
 
-const TB = `/api/v1/table/edit_suggestions`
 // Deliberately uses the service token (see $lib/server/tb) — don't "fix" this to the
 // per-request user-token pattern of sibling routes (api/saved, api/ratings).
 
@@ -48,9 +45,8 @@ function validateChanges(changes: EditChanges): string | null {
 }
 
 export const POST: RequestHandler = async ({ locals, request, getClientAddress }) => {
-  if (!locals.user) return json({ error: 'Unauthenticated' }, { status: 401 })
-  if (!suggestionLimiter.check(getClientAddress()).allowed)
-    return json({ error: 'Too many submissions — try again later' }, { status: 429 })
+  const blocked = guardSubmission(locals, getClientAddress)
+  if (blocked) return blocked
 
   const { facility_id, changes, note } = (await request.json()) as {
     facility_id?: string
@@ -66,19 +62,11 @@ export const POST: RequestHandler = async ({ locals, request, getClientAddress }
   const invalid = validateChanges(changes)
   if (invalid) return json({ error: invalid }, { status: 400 })
 
-  const res = await tbFetch(`${TB}/insert`, {
-    method: 'POST',
-    headers: tbHeaders,
-    body: JSON.stringify({
-      values: {
-        facility_id,
-        user_id: locals.user.id,
-        changes: JSON.stringify(changes), // Teenybase quirk: JSON fields stringified on write
-        note: (note ?? '').slice(0, 1000),
-        status: 'pending',
-      },
-    }),
+  return insertRow('edit_suggestions', {
+    facility_id,
+    user_id: locals.user!.id,
+    changes: JSON.stringify(changes), // Teenybase quirk: JSON fields stringified on write
+    note: (note ?? '').slice(0, 1000),
+    status: 'pending',
   })
-  const data = await res.json()
-  return json(data, { status: res.ok ? 201 : res.status })
 }

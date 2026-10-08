@@ -1,17 +1,13 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { tbFetch } from '$lib/server/tbFetch'
-import { tbHeaders } from '$lib/server/tb'
-import { suggestionLimiter } from '$lib/server/auth/limiters'
+import { guardSubmission, insertRow, listPending } from '$lib/server/moderation'
 
-const TB = `/api/v1/table/merge_suggestions`
 // Deliberately uses the service token (see $lib/server/tb) — don't "fix" this to the
 // per-request user-token pattern of sibling routes (api/saved, api/ratings).
 
 export const POST: RequestHandler = async ({ locals, request, getClientAddress }) => {
-  if (!locals.user) return json({ error: 'Unauthenticated' }, { status: 401 })
-  if (!suggestionLimiter.check(getClientAddress()).allowed)
-    return json({ error: 'Too many submissions — try again later' }, { status: 429 })
+  const blocked = guardSubmission(locals, getClientAddress)
+  if (blocked) return blocked
 
   const { facility_a, facility_b, note } = (await request.json()) as Record<string, string>
   if (!facility_a || !facility_b)
@@ -21,32 +17,17 @@ export const POST: RequestHandler = async ({ locals, request, getClientAddress }
 
   // Dedupe on the unordered pair (no compound WHERE — fetch pending and filter in JS).
   // 1000-row pending ceiling: fine at current scale, revisit if the queue ever grows.
-  const existingRes = await tbFetch(`${TB}/list`, {
-    method: 'POST',
-    headers: tbHeaders,
-    body: JSON.stringify({ where: `status == 'pending'`, limit: 1000 }),
-  })
-  const existing = (await existingRes.json()) as {
-    items?: Array<{ facility_a: string; facility_b: string }>
-  }
+  const existing = await listPending<{ facility_a: string; facility_b: string }>('merge_suggestions')
   // Set pair-check is safe because self-pairs (a === b) are rejected above.
   const pair = new Set([facility_a, facility_b])
-  if (existing.items?.some((s) => pair.has(s.facility_a) && pair.has(s.facility_b)))
+  if (existing.some((s) => pair.has(s.facility_a) && pair.has(s.facility_b)))
     return json({ duplicate: true }, { status: 200 })
 
-  const res = await tbFetch(`${TB}/insert`, {
-    method: 'POST',
-    headers: tbHeaders,
-    body: JSON.stringify({
-      values: {
-        facility_a,
-        facility_b,
-        user_id: locals.user.id,
-        note: (note ?? '').slice(0, 1000),
-        status: 'pending',
-      },
-    }),
+  return insertRow('merge_suggestions', {
+    facility_a,
+    facility_b,
+    user_id: locals.user!.id,
+    note: (note ?? '').slice(0, 1000),
+    status: 'pending',
   })
-  const data = await res.json()
-  return json(data, { status: res.ok ? 201 : res.status })
 }
