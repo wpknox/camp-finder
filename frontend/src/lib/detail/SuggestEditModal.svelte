@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { Facility, EditChanges, Amenities, ToiletType } from '$lib/types'
+  import { countError, feeError, feeRangeError, latError as checkLat, lngError as checkLng } from '$lib/validation'
   import LocationPicker from './LocationPicker.svelte'
   import { CARRIERS, EDITABLE_AMENITIES, TOILET_OPTIONS, fromTriState, triState } from '$lib/fields'
 
@@ -20,12 +21,8 @@
   let lngStr = $state(initial.lng.toFixed(5))
   const latNum = $derived(Number(latStr))
   const lngNum = $derived(Number(lngStr))
-  const latError = $derived(
-    latStr !== '' && (Number.isNaN(latNum) || latNum < -90 || latNum > 90) ? 'Latitude must be -90 to 90.' : '',
-  )
-  const lngError = $derived(
-    lngStr !== '' && (Number.isNaN(lngNum) || lngNum < -180 || lngNum > 180) ? 'Longitude must be -180 to 180.' : '',
-  )
+  const latError = $derived(checkLat(latStr, { required: false }))
+  const lngError = $derived(checkLng(lngStr, { required: false }))
   const locationValid = $derived(!latError && !lngError && latStr !== '' && lngStr !== '')
 
   function onPinMove(newLat: number, newLng: number) {
@@ -49,19 +46,10 @@
   function touch(field: keyof typeof touched) {
     touched = { ...touched, [field]: true }
   }
-  const feeMinError = $derived(
-    feeMin !== '' && Number.isNaN(Number(feeMin)) ? 'Enter a valid number.' : '',
-  )
-  const feeMaxError = $derived(
-    feeMax !== '' && Number.isNaN(Number(feeMax)) ? 'Enter a valid number.' : '',
-  )
+  const feeMinError = $derived(feeError(feeMin))
+  const feeMaxError = $derived(feeError(feeMax) || feeRangeError(feeMin, feeMax))
   const feesValid = $derived(!feeMinError && !feeMaxError)
 
-  function countError(v: string): string {
-    if (v === '') return ''
-    const n = Number(v)
-    return !Number.isInteger(n) || n < 0 ? 'Enter a whole number (0 or more).' : ''
-  }
   const fcfsTotalError = $derived(countError(fcfsTotal))
   const reservableTotalError = $derived(countError(reservableTotal))
   const countsValid = $derived(!fcfsTotalError && !reservableTotalError)

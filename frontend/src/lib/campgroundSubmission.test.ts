@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   emptyDraft, draftFromSubmission, draftErrors, draftToSubmission, validateSubmission,
-  validateSourceUrl, buildFacilityValues, scoreDataQuality,
+  validateSourceUrl, buildFacilityValues,
 } from './campgroundSubmission'
 
 const valid = () => ({ ...emptyDraft(44.12345678, -110.5), name: 'Pine Flat' })
@@ -160,18 +160,5 @@ describe('buildFacilityValues', () => {
     expect(buildFacilityValues(s, 'x', 'https://example.com/fs.usda.gov', now).fs_url).toBeNull()
     expect(buildFacilityValues(s, 'x', 'https://notfs.usda.gov.evil.com', now).fs_url).toBeNull()
     expect(buildFacilityValues(s, 'x', null, now).fs_url).toBeNull()
-  })
-})
-
-describe('scoreDataQuality', () => {
-  it('matches ETL thresholds', () => {
-    const base = buildFacilityValues({ name: 'a', lat: 0, lng: 0 }, 'x', null, '')
-    expect(base.ridb_data_quality).toBe('unknown')
-    const five = buildFacilityValues({
-      name: 'a', lat: 0, lng: 0,
-      amenities: { potableWater: true, bearBoxes: true, petsAllowed: true, fireRings: true, accessible: true },
-    }, 'x', null, '')
-    expect(five.ridb_data_quality).toBe('rich')
-    expect(scoreDataQuality(JSON.parse(five.amenities))).toBe('rich')
   })
 })

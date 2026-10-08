@@ -1,7 +1,9 @@
 // Shared by browser and server routes: no $env / $lib/server imports here.
 import { EDITABLE_AMENITIES, TOILET_TYPES, triState, type EditableAmenityKey } from './fields'
 import { deriveFcfsFlags } from './fcfs'
-import type { Amenities, CampgroundSubmission, DataQuality, ToiletType, TriState } from './types'
+import { defaultAmenities, scoreDataQuality } from './amenities'
+import { countError, feeError, feeRangeError, latError, lngError } from './validation'
+import type { CampgroundSubmission, ToiletType, TriState } from './types'
 
 const AMENITY_KEYS = EDITABLE_AMENITIES.map((a) => a.key) as EditableAmenityKey[]
 const SUBMISSION_KEYS = new Set([
@@ -67,35 +69,21 @@ export function draftFromSubmission(s: CampgroundSubmission): CampgroundDraft {
   return d
 }
 
-function countError(v: string): string {
-  if (v.trim() === '') return ''
-  const n = Number(v)
-  return !Number.isInteger(n) || n < 0 ? 'Enter a whole number (0 or more).' : ''
-}
-
-function feeError(v: string): string {
-  if (v.trim() === '') return ''
-  const n = Number(v)
-  return Number.isNaN(n) || n < 0 ? 'Enter a valid number.' : ''
-}
-
 export function draftErrors(d: CampgroundDraft): Partial<Record<keyof CampgroundDraft, string>> {
   const e: Partial<Record<keyof CampgroundDraft, string>> = {}
   const name = d.name.trim()
   if (name === '') e.name = 'Name is required.'
   else if (name.length > NAME_MAX) e.name = `Name must be ${NAME_MAX} characters or fewer.`
 
-  const lat = Number(d.latStr)
-  if (d.latStr.trim() === '' || Number.isNaN(lat) || lat < -90 || lat > 90) e.latStr = 'Latitude must be -90 to 90.'
-  const lng = Number(d.lngStr)
-  if (d.lngStr.trim() === '' || Number.isNaN(lng) || lng < -180 || lng > 180) e.lngStr = 'Longitude must be -180 to 180.'
+  const la = latError(d.latStr, { required: true })
+  if (la) e.latStr = la
+  const lo = lngError(d.lngStr, { required: true })
+  if (lo) e.lngStr = lo
 
   const fm = feeError(d.feeMin)
   if (fm) e.feeMin = fm
-  const fx = feeError(d.feeMax)
+  const fx = feeError(d.feeMax) || feeRangeError(d.feeMin, d.feeMax)
   if (fx) e.feeMax = fx
-  if (!fm && !fx && d.feeMin.trim() !== '' && d.feeMax.trim() !== '' && Number(d.feeMax) < Number(d.feeMin))
-    e.feeMax = 'Max fee must be at least the min fee.'
 
   const ft = countError(d.fcfsTotal)
   if (ft) e.fcfsTotal = ft
@@ -202,18 +190,6 @@ export function validateSourceUrl(u: string): string | null {
   return null
 }
 
-/** Copy of etl/src/normalize.ts scoreDataQuality. MUST stay in lockstep with the ETL. */
-export function scoreDataQuality(amenities: Amenities): DataQuality {
-  const populated = Object.entries(amenities).filter(([k, v]) => {
-    if (k === 'toiletType') return v !== 'unknown'
-    if (typeof v === 'boolean') return v === true
-    return v !== null
-  }).length
-  if (populated === 0) return 'unknown'
-  if (populated < 5) return 'sparse'
-  return 'rich'
-}
-
 /** Exact `values` object for a `facilities/insert` from an approved submission. */
 export function buildFacilityValues(
   s: CampgroundSubmission,
@@ -221,22 +197,7 @@ export function buildFacilityValues(
   sourceUrl: string | null,
   nowIso: string,
 ) {
-  // Matches the ETL default (normalizeAmenities([])): everything off/unknown.
-  const full: Amenities = {
-    potableWater: false,
-    toiletType: 'unknown',
-    bearBoxes: false,
-    driveUp: false,
-    maxRvLength: null,
-    electricHookups: false,
-    waterHookups: false,
-    sewerHookups: false,
-    petsAllowed: false,
-    horsesAllowed: false,
-    picnicTables: false,
-    fireRings: false,
-    accessible: false,
-  }
+  const full = defaultAmenities()
   for (const k of AMENITY_KEYS) if (s.amenities?.[k] === true) full[k] = true
   if (s.toiletType) full.toiletType = s.toiletType
 
