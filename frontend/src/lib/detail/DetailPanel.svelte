@@ -1,128 +1,136 @@
 <script lang="ts">
-  import type { Facility } from '$lib/types'
-  import FCFSBadge from './FCFSBadge.svelte'
-  import AmenityGrid from './AmenityGrid.svelte'
-  import AlertsSection from './AlertsSection.svelte'
-  import NearbySection from './NearbySection.svelte'
-  import DataQualityWarning from './DataQualityWarning.svelte'
-  import { compareList } from '$lib/compare/compareStore'
-  import SaveButton from '$lib/saved/SaveButton.svelte'
-  import RatingsSection from './RatingsSection.svelte'
-  import SuggestEditModal from './SuggestEditModal.svelte'
-  import ReportDuplicateModal from './ReportDuplicateModal.svelte'
-  import FlagDeletionModal from './FlagDeletionModal.svelte'
-  import AuthModal from '$lib/auth/AuthModal.svelte'
-  import { isLoggedIn, currentUser } from '$lib/auth/authStore'
-  import { page } from '$app/stores'
-  import { browser } from '$app/environment'
-  import { isIOS } from '$lib/platform'
-  import { formatElevationFt } from '$lib/weather'
-  import WeatherStrip from './WeatherStrip.svelte'
-  import CellCoverageChips from './CellCoverageChips.svelte'
+  import type { Facility } from "$lib/types";
+  import FCFSBadge from "./FCFSBadge.svelte";
+  import AmenityGrid from "./AmenityGrid.svelte";
+  import AlertsSection from "./AlertsSection.svelte";
+  import NearbySection from "./NearbySection.svelte";
+  import DataQualityWarning from "./DataQualityWarning.svelte";
+  import { compareList } from "$lib/compare/compareStore";
+  import { formatFeeRange } from "$lib/format";
+  import { isRidbRecord } from "$lib/source";
+  import SaveButton from "$lib/saved/SaveButton.svelte";
+  import RatingsSection from "./RatingsSection.svelte";
+  import SuggestEditModal from "./SuggestEditModal.svelte";
+  import ReportDuplicateModal from "./ReportDuplicateModal.svelte";
+  import FlagDeletionModal from "./FlagDeletionModal.svelte";
+  import AuthModal from "$lib/auth/AuthModal.svelte";
+  import { isLoggedIn, currentUser } from "$lib/auth/authStore";
+  import { page } from "$app/stores";
+  import { browser } from "$app/environment";
+  import { isIOS } from "$lib/platform";
+  import { formatElevationFt } from "$lib/weather";
+  import WeatherStrip from "./WeatherStrip.svelte";
+  import CellCoverageChips from "./CellCoverageChips.svelte";
 
-  let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
+  let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props();
 
-  let suggestOpen = $state(false)
-  let duplicateOpen = $state(false)
-  let deletionOpen = $state(false)
-  let showAuth = $state(false)
-  let pendingAction: 'suggest' | 'duplicate' | 'deletion' | null = $state(null)
-  function onSuggestClick() {
-    if (!$isLoggedIn) { pendingAction = 'suggest'; showAuth = true; return; }
-    suggestOpen = true
-  }
-  function onReportDuplicateClick() {
-    if (!$isLoggedIn) { pendingAction = 'duplicate'; showAuth = true; return; }
-    duplicateOpen = true
-  }
-  function onFlagDeletionClick() {
-    if (!$isLoggedIn) { pendingAction = 'deletion'; showAuth = true; return; }
-    deletionOpen = true
+  type PanelModal = "suggest" | "duplicate" | "deletion";
+  let openModal = $state<PanelModal | null>(null);
+  let showAuth = $state(false);
+  let pendingAction: PanelModal | null = $state(null);
+  /** Open a contributor modal, routing through sign-in first when logged out. */
+  function openGated(kind: PanelModal) {
+    if (!$isLoggedIn) {
+      pendingAction = kind;
+      showAuth = true;
+      return;
+    }
+    openModal = kind;
   }
   function onAuthSuccess() {
-    showAuth = false
-    if (pendingAction === 'suggest') suggestOpen = true
-    else if (pendingAction === 'duplicate') duplicateOpen = true
-    else if (pendingAction === 'deletion') deletionOpen = true
-    pendingAction = null
+    showAuth = false;
+    openModal = pendingAction;
+    pendingAction = null;
   }
 
   // Admin-only shortcut: pending moderation counts for this facility. The
   // role check is display convenience — the /api/admin/pending route itself
   // is gated by requireAdmin.
-  const isAdmin = $derived($currentUser?.role === 'admin')
-  let pendingCounts = $state<{ edits: number; merges: number; deletions: number } | null>(null)
+  const isAdmin = $derived($currentUser?.role === "admin");
+  let pendingCounts = $state<{ edits: number; merges: number; deletions: number } | null>(null);
   const pendingTotal = $derived(
     pendingCounts ? pendingCounts.edits + pendingCounts.merges + pendingCounts.deletions : 0,
-  )
+  );
 
   $effect(() => {
-    const id = facility.id
-    if (!isAdmin) { pendingCounts = null; return }
-    pendingCounts = null
-    let stale = false
-    fetch(`/api/admin/pending/${id}`, { credentials: 'include' })
+    const id = facility.id;
+    if (!isAdmin) {
+      pendingCounts = null;
+      return;
+    }
+    pendingCounts = null;
+    let stale = false;
+    fetch(`/api/admin/pending/${id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((c) => { if (!stale) pendingCounts = c })
-      .catch(() => {})
-    return () => { stale = true }
-  })
+      .then((c) => {
+        if (!stale) pendingCounts = c;
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  });
 
   // Desktop-only resizable width (panel is anchored to the right edge).
-  let panelWidth = $state(420)
-  let resizing = false
+  let panelWidth = $state(420);
+  let resizing = false;
   function startResize(e: PointerEvent) {
-    resizing = true
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    resizing = true;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function doResize(e: PointerEvent) {
-    if (!resizing) return
-    const w = window.innerWidth - e.clientX
-    panelWidth = Math.min(Math.max(w, 320), Math.min(window.innerWidth, 800))
+    if (!resizing) return;
+    const w = window.innerWidth - e.clientX;
+    panelWidth = Math.min(Math.max(w, 320), Math.min(window.innerWidth, 800));
   }
   function endResize(e: PointerEvent) {
-    if (!resizing) return
-    resizing = false
-    ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
+    if (!resizing) return;
+    resizing = false;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   }
 
   // Mobile-only swipe-down-to-dismiss. The grabber bar drives this; on
   // desktop it's hidden so dragY stays 0 and the transform is a no-op.
-  let dragY = $state(0)
-  let dragging = $state(false)
-  let dragStartY = 0
-  const DISMISS_THRESHOLD = 120
+  let dragY = $state(0);
+  let dragging = $state(false);
+  let dragStartY = 0;
+  const DISMISS_THRESHOLD = 120;
   function startDrag(e: PointerEvent) {
-    dragging = true
-    dragStartY = e.clientY
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    dragging = true;
+    dragStartY = e.clientY;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function moveDrag(e: PointerEvent) {
-    if (!dragging) return
-    dragY = Math.max(0, e.clientY - dragStartY)
+    if (!dragging) return;
+    dragY = Math.max(0, e.clientY - dragStartY);
   }
   function endDrag(e: PointerEvent) {
-    if (!dragging) return
-    dragging = false
-    ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
-    if (dragY > DISMISS_THRESHOLD) onclose?.()
-    else dragY = 0
+    if (!dragging) return;
+    dragging = false;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    if (dragY > DISMISS_THRESHOLD) onclose?.();
+    else dragY = 0;
   }
 
-  let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
+  let nearbyMapsUrl = $derived(
+    `https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`,
+  );
   // Only real RIDB records have a recreation.gov page — fs-/nps-/user- ids would 404.
-  let reserveUrl    = $derived(/^\d+$/.test(facility.ridb_id) ? `https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}` : null)
-  const onIOS = browser && isIOS(navigator.userAgent)
-  let googleDirectionsUrl = $derived(`https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`)
-  let appleDirectionsUrl  = $derived(`https://maps.apple.com/?daddr=${facility.lat},${facility.lng}`)
-  let elevationFt = $derived(formatElevationFt(facility.elevation_m))
-  let feeStr = $derived(
-    facility.fee_min === 0   ? 'Free'
-    : facility.fee_min != null && facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
-    : facility.fee_min != null ? `$${facility.fee_min}–$${facility.fee_max}/night`
-    : null
-  )
-  let isComparing = $derived($compareList.some((c) => c.id === facility.id))
+  let reserveUrl = $derived(
+    isRidbRecord(facility.ridb_id)
+      ? `https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}`
+      : null,
+  );
+  const onIOS = browser && isIOS(navigator.userAgent);
+  let googleDirectionsUrl = $derived(
+    `https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`,
+  );
+  let appleDirectionsUrl = $derived(
+    `https://maps.apple.com/?daddr=${facility.lat},${facility.lng}`,
+  );
+  let elevationFt = $derived(formatElevationFt(facility.elevation_m));
+  let feeStr = $derived(formatFeeRange(facility));
+  let isComparing = $derived($compareList.some((c) => c.id === facility.id));
 </script>
 
 <aside
@@ -161,22 +169,25 @@
   <div class="panel-content">
     <header>
       <h2>{facility.name}</h2>
-      <p class="meta">{facility.forest}{facility.district ? ` · ${facility.district}` : ''}{elevationFt ? ` · ${elevationFt}` : ''}</p>
+      <p class="meta">
+        {facility.forest}{facility.district ? ` · ${facility.district}` : ""}{elevationFt
+          ? ` · ${elevationFt}`
+          : ""}
+      </p>
       {#if feeStr}
         <p class="fee">{feeStr}</p>
       {:else}
         <p class="fee fee-unknown">
-          Fee unknown{#if reserveUrl} —
-            <a href={reserveUrl} target="_blank" rel="noopener">
-              check recreation.gov
-            </a>{/if}
+          Fee unknown{#if reserveUrl}
+            —
+            <a href={reserveUrl} target="_blank" rel="noopener"> check recreation.gov </a>{/if}
         </p>
       {/if}
       <SaveButton facilityId={facility.id} facilityName={facility.name} />
-      <button class="report-duplicate-link" type="button" onclick={onReportDuplicateClick}>
+      <button class="report-duplicate-link" type="button" onclick={() => openGated("duplicate")}>
         Seeing this campground twice? Report a duplicate
       </button>
-      <button class="report-duplicate-link" type="button" onclick={onFlagDeletionClick}>
+      <button class="report-duplicate-link" type="button" onclick={() => openGated("deletion")}>
         Not a real campground? Flag for deletion
       </button>
       {#if isAdmin && pendingTotal > 0}
@@ -185,27 +196,29 @@
           href="/admin"
           title={`${pendingCounts?.edits ?? 0} edit(s) · ${pendingCounts?.merges ?? 0} duplicate(s) · ${pendingCounts?.deletions ?? 0} deletion flag(s)`}
         >
-          ⚑ {pendingTotal} pending review{pendingTotal === 1 ? '' : 's'} — open Ranger's desk →
+          ⚑ {pendingTotal} pending review{pendingTotal === 1 ? "" : "s"} — open Ranger's desk →
         </a>
       {/if}
     </header>
 
-    <FCFSBadge fcfs_total={facility.fcfs_total} reservable_total={facility.reservable_total}
-               is_fully_fcfs={facility.is_fully_fcfs} />
+    <FCFSBadge
+      fcfs_total={facility.fcfs_total}
+      reservable_total={facility.reservable_total}
+      is_fully_fcfs={facility.is_fully_fcfs}
+    />
 
     <button
       class="compare-btn"
       class:active={isComparing}
-      onclick={() => isComparing
-        ? compareList.remove(facility.id)
-        : compareList.add({ id: facility.id, name: facility.name })}
+      onclick={() =>
+        isComparing
+          ? compareList.remove(facility.id)
+          : compareList.add({ id: facility.id, name: facility.name })}
     >
-      {isComparing ? '✓ In Compare' : '+ Compare'}
+      {isComparing ? "✓ In Compare" : "+ Compare"}
     </button>
 
-    <button class="suggest-btn" onclick={onSuggestClick}>
-      ✎ Suggest an edit
-    </button>
+    <button class="suggest-btn" onclick={() => openGated("suggest")}> ✎ Suggest an edit </button>
 
     <AmenityGrid amenities={facility.amenities} />
 
@@ -221,14 +234,16 @@
 
     <NearbySection facilityId={facility.id} />
 
-    {#if facility.ridb_data_quality !== 'rich' && facility.fs_url}
+    {#if facility.ridb_data_quality !== "rich" && facility.fs_url}
       <DataQualityWarning quality={facility.ridb_data_quality} fsUrl={facility.fs_url} />
     {/if}
 
     <div class="links">
-      <a href={googleDirectionsUrl} target="_blank" rel="noopener">Get directions (Google Maps) ↗</a>
+      <a href={googleDirectionsUrl} target="_blank" rel="noopener">Get directions (Google Maps) ↗</a
+      >
       {#if onIOS}
-        <a href={appleDirectionsUrl} target="_blank" rel="noopener">Get directions (Apple Maps) ↗</a>
+        <a href={appleDirectionsUrl} target="_blank" rel="noopener">Get directions (Apple Maps) ↗</a
+        >
       {/if}
       {#if facility.fs_url}
         <a href={facility.fs_url} target="_blank" rel="noopener">View on fs.usda.gov ↗</a>
@@ -239,56 +254,90 @@
       <a href={nearbyMapsUrl} target="_blank" rel="noopener">Nearby activities (Google Maps) ↗</a>
     </div>
 
-    <RatingsSection facilityId={facility.id} facilityName={facility.name} autoOpen={$page.url.searchParams.get('reviews') === '1'} />
+    <RatingsSection
+      facilityId={facility.id}
+      facilityName={facility.name}
+      autoOpen={$page.url.searchParams.get("reviews") === "1"}
+    />
   </div>
 </aside>
 
-{#if suggestOpen}
-  <SuggestEditModal {facility} onclose={() => (suggestOpen = false)} />
+{#if openModal === "suggest"}
+  <SuggestEditModal {facility} onclose={() => (openModal = null)} />
 {/if}
 
-{#if duplicateOpen}
-  <ReportDuplicateModal {facility} onclose={() => (duplicateOpen = false)} />
+{#if openModal === "duplicate"}
+  <ReportDuplicateModal {facility} onclose={() => (openModal = null)} />
 {/if}
 
-{#if deletionOpen}
-  <FlagDeletionModal {facility} onclose={() => (deletionOpen = false)} />
+{#if openModal === "deletion"}
+  <FlagDeletionModal {facility} onclose={() => (openModal = null)} />
 {/if}
 
 {#if showAuth}
-  <AuthModal onclose={() => { showAuth = false; pendingAction = null }} onsuccess={onAuthSuccess} />
+  <AuthModal
+    onclose={() => {
+      showAuth = false;
+      pendingAction = null;
+    }}
+    onsuccess={onAuthSuccess}
+  />
 {/if}
 
 <style>
   .panel {
     position: fixed;
-    background:
-      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 88%, var(--paper)));
+    background: linear-gradient(
+      180deg,
+      var(--paper-2),
+      color-mix(in srgb, var(--paper-2) 88%, var(--paper))
+    );
     color: var(--ink);
     overflow-y: auto;
     z-index: 2000;
     box-shadow: var(--shadow-lg);
     border-left: 1px solid var(--line-strong);
-    top: 0; right: 0; bottom: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
     width: min(var(--panel-width, 420px), 100vw);
     transition: transform 0.2s var(--ease);
   }
-  .panel.dragging { transition: none; }
+  .panel.dragging {
+    transition: none;
+  }
   .resize-handle {
     position: absolute;
-    top: 0; left: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
     width: 6px;
     cursor: ew-resize;
     z-index: 3;
     touch-action: none;
   }
-  .resize-handle:hover { background: color-mix(in srgb, var(--moss) 30%, transparent); }
+  .resize-handle:hover {
+    background: color-mix(in srgb, var(--moss) 30%, transparent);
+  }
   /* Grabber bar for swipe-down dismiss; mobile only. */
-  .drag-handle { display: none; }
+  .drag-handle {
+    display: none;
+  }
   @media (max-width: 640px) {
     /* Full-screen takeover. */
-    .panel { top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100dvh; border-radius: 0; border-left: none; }
-    .resize-handle { display: none; }
+    .panel {
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100dvh;
+      border-radius: 0;
+      border-left: none;
+    }
+    .resize-handle {
+      display: none;
+    }
     .drag-handle {
       display: flex;
       justify-content: center;
@@ -307,38 +356,149 @@
       border-radius: 3px;
       background: var(--line-strong);
     }
-    .close-btn { position: absolute; top: 2px; right: 4px; padding: 0.5rem; }
+    .close-btn {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      padding: 0.5rem;
+    }
   }
   .close-btn {
-    position: sticky; top: 0; float: right;
-    background: none; border: none; font-size: 1.1rem; color: var(--ink-soft); cursor: pointer;
-    padding: 1rem; z-index: 1;
+    position: sticky;
+    top: 0;
+    float: right;
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+    padding: 1rem;
+    z-index: 1;
     transition: color 0.13s var(--ease);
   }
-  .close-btn:hover { color: var(--ink); }
-  .panel-content { padding: 1rem 1.4rem 2.4rem; }
+  .close-btn:hover {
+    color: var(--ink);
+  }
+  .panel-content {
+    padding: 1rem 1.4rem 2.4rem;
+  }
   header {
     border-bottom: 1px solid var(--line);
     padding-bottom: 0.9rem;
     margin-bottom: 0.4rem;
   }
-  h2 { margin: 0 0 .3rem; font-family: var(--font-display); font-size: 1.55rem; font-weight: 600; line-height: 1.08; }
-  .meta { margin: 0; font-family: var(--font-mono); color: var(--ink-soft); font-size: .76rem; letter-spacing: 0.01em; }
-  .fee { margin: .7rem 0 .6rem; font-family: var(--font-mono); font-weight: 600; font-size: 1.05rem; color: var(--pine); }
-  .fee-unknown { color: var(--ink-faint); font-size: .85rem; font-weight: 500; }
-  .fee-unknown a { color: var(--clay); text-decoration: underline; }
-  .description { font-size: .86rem; color: var(--ink-soft); line-height: 1.6; margin: 1.2rem 0 .9rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-  .description :global(h2) { font-family: var(--font-display); font-size: 1rem; color: var(--ink); margin: .9rem 0 .25rem; }
-  .description :global(p)  { margin: 0 0 .55rem; }
-  .description :global(a) { color: var(--pine); }
-  .links { display: flex; flex-direction: column; gap: .55rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: .88rem; }
-  .links a { color: var(--pine); display: inline-flex; align-items: center; gap: 0.35rem; width: fit-content; }
-  .compare-btn { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: .45rem .9rem; cursor: pointer; font-size: .85rem; font-weight: 600; transition: background 0.13s var(--ease); }
-  .compare-btn:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
-  .compare-btn.active { background: color-mix(in srgb, var(--moss) 20%, var(--paper-2)); border-color: color-mix(in srgb, var(--moss) 50%, transparent); color: var(--pine-deep); }
-  .suggest-btn { background: var(--paper-deep); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: .45rem .9rem; cursor: pointer; font-size: .85rem; font-weight: 600; margin-left: .5rem; transition: background 0.13s var(--ease); }
-  .suggest-btn:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
-  .report-duplicate-link { display: block; background: none; border: none; padding: 0; margin-top: 0.5rem; font-size: 0.78rem; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: inherit; }
+  h2 {
+    margin: 0 0 0.3rem;
+    font-family: var(--font-display);
+    font-size: 1.55rem;
+    font-weight: 600;
+    line-height: 1.08;
+  }
+  .meta {
+    margin: 0;
+    font-family: var(--font-mono);
+    color: var(--ink-soft);
+    font-size: 0.76rem;
+    letter-spacing: 0.01em;
+  }
+  .fee {
+    margin: 0.7rem 0 0.6rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--pine);
+  }
+  .fee-unknown {
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .fee-unknown a {
+    color: var(--clay);
+    text-decoration: underline;
+  }
+  .description {
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin: 1.2rem 0 0.9rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+  .description :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--ink);
+    margin: 0.9rem 0 0.25rem;
+  }
+  .description :global(p) {
+    margin: 0 0 0.55rem;
+  }
+  .description :global(a) {
+    color: var(--pine);
+  }
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 1.1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.88rem;
+  }
+  .links a {
+    color: var(--pine);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+  }
+  .compare-btn {
+    background: var(--paper-deep);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 0.45rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.13s var(--ease);
+  }
+  .compare-btn:hover {
+    background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
+  }
+  .compare-btn.active {
+    background: color-mix(in srgb, var(--moss) 20%, var(--paper-2));
+    border-color: color-mix(in srgb, var(--moss) 50%, transparent);
+    color: var(--pine-deep);
+  }
+  .suggest-btn {
+    background: var(--paper-deep);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 0.45rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    transition: background 0.13s var(--ease);
+  }
+  .suggest-btn:hover {
+    background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
+  }
+  .report-duplicate-link {
+    display: block;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    text-decoration: underline;
+    cursor: pointer;
+    font-family: inherit;
+  }
   .admin-pending {
     display: inline-flex;
     align-items: center;
@@ -355,8 +515,12 @@
     text-decoration: none;
     transition: background 0.13s var(--ease);
   }
-  .admin-pending:hover { background: color-mix(in srgb, var(--rust) 16%, var(--paper-2)); }
-  .report-duplicate-link:hover { color: var(--ink-soft); }
+  .admin-pending:hover {
+    background: color-mix(in srgb, var(--rust) 16%, var(--paper-2));
+  }
+  .report-duplicate-link:hover {
+    color: var(--ink-soft);
+  }
   .closed-banner {
     position: sticky;
     top: 0;
@@ -365,12 +529,16 @@
     color: #f4ecd6;
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: .75rem 1.4rem;
-    font-size: .92rem;
+    gap: 0.5rem;
+    padding: 0.75rem 1.4rem;
+    font-size: 0.92rem;
     font-weight: 500;
     box-shadow: var(--shadow-sm);
   }
-  .closed-banner strong { letter-spacing: 0.03em; }
-  .closed-icon { font-size: 1.1rem; }
+  .closed-banner strong {
+    letter-spacing: 0.03em;
+  }
+  .closed-icon {
+    font-size: 1.1rem;
+  }
 </style>

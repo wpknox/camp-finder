@@ -4,7 +4,7 @@
 
 CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
 
-## Current status (2026-10-03): "Suggest a campground" built on `feat/suggest-campground` (PR open, NOT deployed) — prod still = PR #3 rollout (2026-07-21)
+## Current status (2026-10-07): "Suggest a campground" (PR #4) MERGED to `main` + prod backend deployed; code-reuse refactor DONE on `chore/code-reuse-refactor` (15 commits, not pushed)
 
 The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are now live in prod** — PR #3 merged 2026-07-21 following the `docs/rollout-pr3.md` runbook (backend schema deployed, both enrichments run against prod, frontend auto-deployed). See "Session 2026-07-21" below for the rollout log and "Wishlist: post-launch" for remaining future work.
 
@@ -108,15 +108,35 @@ Built on **`feat/suggest-campground`** (plan: Sonnet subagents per task, Opus re
 
 **⚠ Prod rollout order (owner-confirmed, not done):** (1) `cd backend && pnpm deploy` with the `TB_SHARED_SECRET` delete → deploy → `pnpm secrets-upload` dance; (2) verify `POST /api/v1/table/campground_suggestions/list` → 200 with a real request; (3) only then merge the PR — Pages auto-deploys `main` and the new routes 500 without the table.
 
-**⏭ Next session (owner reviewing PR #4 — https://github.com/wpknox/camp-finder/pull/4):**
-1. Owner reviews PR #4 (try it locally: backend + frontend `pnpm dev`; local admin `willis+admin@email.com`, test user `testview@example.com` / `password123`).
-2. Decide the pnpm files (uncommitted on the branch's working tree): commit `pnpm-workspace.yaml` + `pnpm-lock.yaml` separately after confirming Cloudflare Pages builds with lockfile v9 — or discard with `git checkout pnpm-workspace.yaml pnpm-lock.yaml`. Keep them out of PR #4 either way.
-3. Prod rollout in the order above (backend deploy → verify table → merge). Afterwards smoke-check on prod: submit a test campground, approve it in `/admin`, confirm marker + detail panel, then flag it for deletion.
-4. Optional polish noted during E2E: the submit button starts disabled with no explanation until a field is blurred (same as Suggest Edit) — could show all errors on a click attempt instead.
-5. Optional cleanup: delete the local Playwright test data (below) and the `*.bak-suggest-campground` DB/config backups once happy.
-6. Still-open older items: PR #3 prod smoke check (rollout-pr3.md step 4), ~50 fs.usda.gov stragglers (`pnpm discover`), pre-existing duplicate pairs (e.g. South Fork Campground / South Fork Group Site showed up in dup hints), OSM gap-report idea (Overpass `tourism=camp_site` vs our dedupe → admin review list).
+**⏭ Superseded — see "Session 2026-10-07" below.**
 
 **Local test data left behind:** facility "Playwright Edited Meadow" (`user-bqrxpgIFSNK-j9daMGcutA`) + 3 resolved test suggestions in the local DB only.
+
+### Session 2026-10-07 — PR #4 merged, admin refactor, refactor sweep
+
+- **Admin page refactor** (in PR #4): `routes/admin/+page.svelte` 1631 → ~1150 lines via `lib/admin/{QueueSection,ReviewCard,PasswordResetCard}.svelte` + `types.ts`. Cards are collapsible (chevron header; Collapse all / Expand all per queue; cards start expanded).
+- **Toilets:** Flush/Vault/None/Unknown selector on the suggest-a-campground form (submission key `toiletType`, validated, written to facility amenities on approve) and on suggest-an-edit (sent as `amenities.toiletType`; `/api/suggestions` validates it). Admin diff labels it "Toilets".
+- **Blank numerics → 0:** fee min/max, FCFS and reservable counts save as `0`, not null (`draftToSubmission`; `buildFacilityValues` also coalesces legacy nulls to 0). Note fee 0 reads as "free" even if the submitter just didn't know — revisit if that bites.
+- Not added: a test for the `toiletType` check in `/api/suggestions`; the admin page refactor was not eyeballed in a browser (check + vitest only). Frontend tests: 89.
+- **Prod rollout of PR #4:** owner ran the backend deploy (`X-TB-Key` guard dance: `wrangler secret delete TB_SHARED_SECRET` → `pnpm deploy` → `pnpm secrets-upload`); guard confirmed back on (403 without key). PR #4 then merged (`3a88dc7`) → Pages auto-deploy. **Not yet done:** a real-request check of `campground_suggestions/list` → 200 (assistant could only confirm the guard), and the prod smoke test (submit a test campground → approve in `/admin` → marker + detail panel → flag it for deletion).
+- pnpm file decision (`pnpm-workspace.yaml` / `pnpm-lock.yaml`, lockfile v9) was committed in `ba5d5aa` and is now on `main`; confirm the Pages build is happy with it.
+- **Codebase reuse sweep** done (read-only); findings + ordered plan in **`docs/refactor-sweep.md`**.
+
+**⏭ Superseded — see "Session 2026-10-07 (later)" below.**
+
+### Session 2026-10-07 (later) — code-reuse refactor executed on `chore/code-reuse-refactor`
+
+- 15 commits, one per task (Sonnet/Haiku subagents implemented, Opus reviewed each before committing). Full table, intentional behavior changes and found-not-fixed issues: **`docs/refactor-sweep.md`**. New "Where shared code lives" section in `CLAUDE.md`.
+- **Bug fixed:** tombstoned facilities were still returned by `/api/facilities/[id]` and shown in Compare.
+- Tests: frontend 167 (was 89), etl 155 (was 146), svelte-check 0/0, `pnpm build` OK, `pnpm format:check` clean.
+- **Prettier added** (root `package.json` + `pnpm format`). This adds a root importer to `pnpm-lock.yaml` — **watch the first Cloudflare Pages build after merging**.
+- **Pushed; PR opened** (see GitHub). No backend schema changes, so no deploy-order constraint.
+- **Local DB state:** `testview@example.com` promoted to `role='admin'` (local only) for browser verification. Test campgrounds created during admin-page verification were merged/tombstoned; queues are empty; the two PIKE COMMUNITY test edit suggestions were rejected (record unchanged).
+
+**⏭ Next session — fix the bugs found during the refactor** (all pre-existing, small; one commit each, add a test where possible):
+1. **Stale admin rows after a merge** — approving a merge on `/admin` leaves the loser facility's pending edit suggestions / deletion flags / other merge rows visible until refresh; approving one then errors "Suggestion not found". Fix in `routes/admin/+page.svelte` (`resolveMerge` `onResolved`): also drop rows whose `facility_id` (or `facility_a`/`facility_b`) is the merged-away loser — or simply re-run the page load (`invalidateAll()`) after a merge.
+2. **Whitespace-only fields read as `0` in suggest-an-edit** — `lib/detail/SuggestEditModal.svelte` `changes` builder checks `=== ''`, so `'  '` becomes `Number('  ') === 0` (fees/counts/lat/lng). Trim before the blank check (validators in `lib/validation.ts` already trim), and make `locationValid` treat whitespace as blank.
+3. **Submit routes return no new row id** — Teenybase `insert` responds `[]`, so `insertRow` (`lib/server/moderation.ts`) passes `[]` back with 201. Low priority: return `{ ok: true }` (or look the row up) so the client gets a meaningful body.
 
 ### Session 2026-07-21 — PR #3 rolled out to prod (merge commit `febc72b`)
 
@@ -208,7 +228,7 @@ cd etl && pnpm sync       # RIDB; pnpm discover (fs.usda.gov); pnpm sync-nps (NP
 cd backend && pnpm generate && pnpm migrate   # after schema changes
 ```
 
-Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (64); `etl pnpm test` (143).
+Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (167); `etl pnpm test` (155); root `pnpm format:check`.
 
 **Teenybase regenerated `backend/migrations/` as a squashed 0000–0006 set during the prod deploy** (gitignored; old 0001–0012 history is gone — local dev DB predates the squash and is fine).
 

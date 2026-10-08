@@ -20,11 +20,7 @@ describe("deriveUsername", () => {
     expect(u.startsWith("u")).toBe(true);
   });
   it("never exceeds 32 chars", () => {
-    const u = deriveUsername(
-      "a".repeat(60) + "@example.com",
-      "x",
-      () => "beef",
-    );
+    const u = deriveUsername("a".repeat(60) + "@example.com", "x", () => "beef");
     expect(u.length).toBeLessThanOrEqual(32);
     expect(USERNAME_RE.test(u)).toBe(true);
     expect(u.endsWith("_beef")).toBe(true);

@@ -1,5 +1,5 @@
-import { TB_SERVICE_TOKEN } from "$env/static/private";
 import { tbFetch } from "../tbFetch";
+import { tbHeaders, tbView } from "../tb";
 
 export interface TbUserRecord {
   id: string;
@@ -9,16 +9,11 @@ export interface TbUserRecord {
   email_verified: boolean | number;
 }
 
-const HEADERS = {
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${TB_SERVICE_TOKEN}`,
-};
-
 /** Caller MUST have rejected emails containing `"` (WHERE interpolation). */
 export async function findUserByEmail(email: string): Promise<TbUserRecord | null> {
   const res = await tbFetch(`/api/v1/table/users/list`, {
     method: "POST",
-    headers: HEADERS,
+    headers: tbHeaders,
     body: JSON.stringify({ where: `email == "${email}"`, limit: 1 }),
   });
   if (!res.ok) return null;
@@ -27,17 +22,13 @@ export async function findUserByEmail(email: string): Promise<TbUserRecord | nul
 }
 
 export async function getUserById(id: string): Promise<TbUserRecord | null> {
-  const res = await tbFetch(`/api/v1/table/users/view/${id}`, { headers: HEADERS });
-  return res.ok ? ((await res.json()) as TbUserRecord) : null;
+  return tbView<TbUserRecord>("users", id);
 }
 
-export async function updateUser(
-  id: string,
-  patch: Record<string, unknown>,
-): Promise<boolean> {
+export async function updateUser(id: string, patch: Record<string, unknown>): Promise<boolean> {
   const res = await tbFetch(`/api/v1/table/users/edit/${id}`, {
     method: "POST",
-    headers: HEADERS,
+    headers: tbHeaders,
     body: JSON.stringify(patch),
   });
   return res.ok;

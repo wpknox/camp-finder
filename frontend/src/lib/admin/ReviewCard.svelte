@@ -67,19 +67,31 @@
             maxlength="1000"
           />
           <div class="actions">
-            <button class="cancel" type="button" onclick={() => (rejecting = false)}>Back</button>
-            <button class="danger" type="button" disabled={busy} onclick={() => onreject(note)}>
+            <button class="btn btn-secondary" type="button" onclick={() => (rejecting = false)}
+              >Back</button
+            >
+            <button
+              class="btn btn-danger"
+              type="button"
+              disabled={busy}
+              onclick={() => onreject(note)}
+            >
               Confirm reject
             </button>
           </div>
         </div>
       {:else}
         <div class="actions">
-          <button class="cancel" type="button" disabled={busy} onclick={() => (rejecting = true)}>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            disabled={busy}
+            onclick={() => (rejecting = true)}
+          >
             Reject
           </button>
           <button
-            class={approveTone}
+            class="btn {approveTone === 'danger' ? 'btn-danger' : 'btn-primary'}"
             type="button"
             disabled={busy || approveDisabled}
             onclick={onapprove}
@@ -94,8 +106,11 @@
 
 <style>
   .card {
-    background:
-      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 86%, var(--paper)));
+    background: linear-gradient(
+      180deg,
+      var(--paper-2),
+      color-mix(in srgb, var(--paper-2) 86%, var(--paper))
+    );
     border: 1px solid var(--line-strong);
     border-radius: 14px;
     padding: 1.1rem 1.4rem;
@@ -192,34 +207,6 @@
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.13s var(--ease), transform 0.08s var(--ease);
-  }
-  .actions button:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-  .cancel {
-    background: var(--paper-deep);
-    color: var(--ink);
-    border: 1px solid var(--line-strong);
-  }
-  .cancel:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
-  }
-  .primary {
-    background: var(--pine);
-    color: #f4ecd6;
-    border: 1px solid var(--pine-deep);
-  }
-  .primary:hover:not(:disabled) {
-    background: var(--pine-deep);
-  }
-  .danger {
-    background: var(--rust);
-    color: #f4ecd6;
-    border: 1px solid #832e12;
-  }
-  .danger:hover:not(:disabled) {
-    background: #832e12;
+    box-shadow: none;
   }
 </style>

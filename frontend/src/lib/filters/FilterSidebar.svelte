@@ -2,6 +2,8 @@
   import { filters, filteredFacilities } from "./filterStore";
   import { isLoading, selectedFacility } from "$lib/map/mapStore";
   import type { Facility } from "$lib/types";
+  import { STATUS_META, facilityStatus } from "$lib/status";
+  import { formatFeeShort } from "$lib/format";
 
   let {
     onSearch,
@@ -15,26 +17,10 @@
   let filtersOpen = $state(false);
   let resultsOpen = $state(false);
 
-  function feeLabel(f: Facility) {
-    if (f.fee_min === 0) return "Free";
-    if (f.fee_min != null) return `$${f.fee_min}`;
-    return "—";
-  }
-
-  // Mirrors the map marker colors (see CampMap.renderPins) — earthy pigments.
-  function statusColor(f: Facility) {
-    if (f.is_closed) return "var(--rust)";
-    if (f.is_fully_fcfs) return "var(--moss)";
-    if (f.is_partial_fcfs) return "var(--ochre)";
-    return "var(--lake)";
-  }
+  // Status colors/labels come from STATUS_META (same source as the map pins).
 </script>
 
-<aside
-  class="sidebar"
-  class:filters-open={filtersOpen}
-  class:results-open={resultsOpen}
->
+<aside class="sidebar" class:filters-open={filtersOpen} class:results-open={resultsOpen}>
   <button
     class="filter-toggle"
     onclick={() => (filtersOpen = !filtersOpen)}
@@ -46,21 +32,11 @@
   </button>
 
   <div class="filter-body" class:open={filtersOpen}>
-    <label
-      ><input type="checkbox" bind:checked={$filters.fcfsOnly} /> First-Come Only</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.water} /> Potable Water</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.toilets} /> Has Toilets</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.bearBoxes} /> Bear Boxes</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.hasCellService} /> Has Cell Service</label
-    >
+    <label><input type="checkbox" bind:checked={$filters.fcfsOnly} /> First-Come Only</label>
+    <label><input type="checkbox" bind:checked={$filters.water} /> Potable Water</label>
+    <label><input type="checkbox" bind:checked={$filters.toilets} /> Has Toilets</label>
+    <label><input type="checkbox" bind:checked={$filters.bearBoxes} /> Bear Boxes</label>
+    <label><input type="checkbox" bind:checked={$filters.hasCellService} /> Has Cell Service</label>
 
     <div class="field">
       <label for="filter-max-fee">Max fee/night</label>
@@ -113,17 +89,11 @@
           >
             <span
               class="r-dot"
-              style="background: {statusColor(f)}"
-              title={f.is_closed
-                ? "Closed"
-                : f.is_fully_fcfs
-                  ? "Fully first-come, first-served"
-                  : f.is_partial_fcfs
-                    ? "Partially first-come, first-served"
-                    : "Reservable only"}
+              style="background: {STATUS_META[facilityStatus(f)].cssVar}"
+              title={STATUS_META[facilityStatus(f)].label}
             ></span>
             <span class="r-name">{f.name}</span>
-            <span class="r-meta">{feeLabel(f)}</span>
+            <span class="r-meta">{formatFeeShort(f, "—")}</span>
           </button>
         </li>
       {:else}
@@ -154,12 +124,11 @@
   .sidebar {
     width: 256px;
     padding: 1.1rem 1rem;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--paper-2) 70%, transparent),
-        color-mix(in srgb, var(--paper-2) 40%, transparent)
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--paper-2) 70%, transparent),
+      color-mix(in srgb, var(--paper-2) 40%, transparent)
+    );
     border-right: 1px solid var(--line-strong);
     box-shadow: inset -10px 0 18px -16px rgba(46, 39, 25, 0.35);
     display: flex;

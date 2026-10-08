@@ -22,6 +22,7 @@ pnpm with workspaces. Root `pnpm-workspace.yaml` covers `frontend/`, `backend/`,
 | `backend/` | `pnpm generate && pnpm migrate` | Regenerate + apply SQL migrations after schema changes |
 | `etl/` | `pnpm sync` / `pnpm discover` / `pnpm sync-nps` | RIDB sync / fs.usda.gov scrape / NPS API sync |
 | `etl/` | `pnpm test` | Vitest (ETL normalize/scrape tests) |
+| repo root | `pnpm format` / `pnpm format:check` | Prettier (double quotes, semicolons, width 100; backend `*.jsonc` excluded) |
 
 See `docs/handoff.md` for current project status, env-file setup, and session history.
 
@@ -78,12 +79,18 @@ All `.svelte` files use Svelte 5 syntax; never Svelte 4 patterns.
 ### No PocketBase anywhere
 The project switched from PocketBase to Teenybase early on. Zero PocketBase SDK usage — all backend calls are plain `fetch()` to the Teenybase REST API.
 
-### Map marker colors (single source: `CampMap.renderPins`)
-🔴 Closed · 🟢 Fully FCFS · 🟡 Partial FCFS · 🔵 Reservable only. Keep sidebar dots/badges in lockstep with marker colors.
+### Map marker colors (single source: `frontend/src/lib/status.ts`)
+🔴 Closed · 🟢 Fully FCFS · 🟡 Partial FCFS · 🔵 Reservable only. Map pins, sidebar dots and the FCFS badge all read `STATUS_META` / `facilityStatus()` — never hardcode a status color.
 
 ### Teenybase quirks (do not deviate)
-- **JSON fields must be stringified on write** (`JSON.stringify(amenities)`) and parsed on read. Sending a plain object 400s.
-- **No compound WHERE** — `&&`/`AND` both fail with parse errors. Fetch with a high `limit` and filter in the SvelteKit server route (fine at ~592 records). See `frontend/src/routes/api/facilities/+server.ts`.
+- **JSON fields must be stringified on write** (`JSON.stringify(amenities)`) and parsed on read (`parseJson` in `lib/json.ts`, `parseFacility` in `lib/server/facilities.ts`). Sending a plain object 400s.
+- **No compound WHERE** — `&&`/`AND` both fail with parse errors. Fetch with a high `limit` and filter in the SvelteKit server route (fine at ~650 records). See `listPublicFacilities()` in `frontend/src/lib/server/facilities.ts`. Ids interpolated into WHERE strings must pass `isSafeId()`.
+
+### Where shared code lives (reuse before writing new)
+- **Server (`frontend/src/lib/server/`):** `tb.ts` (service-token `tbHeaders`/`tb()`/`tbList`/`tbView` — the only place `TB_SERVICE_TOKEN` is read), `facilities.ts` (public, non-tombstoned facility reads — the `is_deleted` filter lives only here), `moderation.ts` (pending-queue load/resolve, user/facility joins, submit guard + insert), `cacheRow.ts` (alerts/nearby per-facility cache rows).
+- **Shared (`frontend/src/lib/`):** `fields.ts` (amenity/carrier/toilet/tri-state constants), `validation.ts` (form field validators + `validateEditChanges`), `amenities.ts` (`defaultAmenities`, `scoreDataQuality` — kept in lockstep with the ETL by `fixtures/data-quality.json`), `status.ts`, `source.ts` (ridb_id prefix → source), `format.ts` (fees, dates), `geo.ts` (haversine), `api.ts` (`submitJson` for client calls to our `/api`).
+- **UI:** `lib/ui/ModalShell.svelte` for every modal (portal, Escape, backdrop), `lib/ui/SegmentedControl.svelte`, global `.btn`/`.btn-primary`/`.btn-secondary`/`.btn-danger` and `.form` field styles in `app.css`.
+- Pure TS modules under `lib/` use **relative imports** — Vitest here doesn't resolve `$lib`.
 
 ### Alerts are on-demand scraped, not synced
 `fs.usda.gov` alerts (road closures, fire restrictions) are scraped only when a user opens a campground detail panel — via a SvelteKit server route. Results are cached in the Teenybase `alerts` table; refresh if `scraped_at` is older than 24 hours. Fail gracefully: if the scrape errors, show a message rather than blocking the panel.

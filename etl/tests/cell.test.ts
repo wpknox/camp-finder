@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { latLngToCell } from "h3-js";
 import { parseHexFile, coverageFor, mergeCoverage } from "../src/enrich-cell.js";
 
-const LAT = 38.87, LNG = -106.99;
+const LAT = 38.87,
+  LNG = -106.99;
 const CELL = latLngToCell(LAT, LNG, 9);
 
 describe("parseHexFile", () => {
@@ -31,12 +32,30 @@ describe("mergeCoverage", () => {
     expect(merged).toEqual({ verizon: true, att: false, tmobile: true, as_of: "2026-06" });
   });
   it("preserves user_edited carriers", () => {
-    const existing = { verizon: false, att: true, tmobile: false, as_of: "2025-12", user_edited: ["att"] };
-    const merged = mergeCoverage(existing, { verizon: true, att: false, tmobile: false }, "2026-06");
-    expect(merged).toEqual({ verizon: true, att: true, tmobile: false, as_of: "2026-06", user_edited: ["att"] });
+    const existing = {
+      verizon: false,
+      att: true,
+      tmobile: false,
+      as_of: "2025-12",
+      user_edited: ["att"],
+    };
+    const merged = mergeCoverage(
+      existing,
+      { verizon: true, att: false, tmobile: false },
+      "2026-06",
+    );
+    expect(merged).toEqual({
+      verizon: true,
+      att: true,
+      tmobile: false,
+      as_of: "2026-06",
+      user_edited: ["att"],
+    });
   });
   it("returns null when nothing changed", () => {
     const existing = { verizon: true, att: false, tmobile: true, as_of: "2026-06" };
-    expect(mergeCoverage(existing, { verizon: true, att: false, tmobile: true }, "2026-06")).toBeNull();
+    expect(
+      mergeCoverage(existing, { verizon: true, att: false, tmobile: true }, "2026-06"),
+    ).toBeNull();
   });
 });

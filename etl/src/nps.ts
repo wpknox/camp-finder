@@ -125,14 +125,12 @@ export class NpsClient {
       // NPS API requires literal commas in parkCode; URLSearchParams encodes
       // them as %2C, which the API mishandles (returns only the first park).
       const url =
-        `${BASE_URL}/campgrounds?parkCode=${codes}` +
-        `&limit=${PAGE_SIZE}&start=${start}`;
+        `${BASE_URL}/campgrounds?parkCode=${codes}` + `&limit=${PAGE_SIZE}&start=${start}`;
 
       const res = await fetch(url, {
         headers: { "X-Api-Key": this.apiKey },
       });
-      if (!res.ok)
-        throw new Error(`NPS API error ${res.status}: ${await res.text()}`);
+      if (!res.ok) throw new Error(`NPS API error ${res.status}: ${await res.text()}`);
 
       const data: NpsListResponse = await res.json();
       all.push(...data.data);
@@ -163,15 +161,12 @@ export function normalizeNpsAmenities(c: NpsCampground): Amenities {
   let toiletType: ToiletType = "unknown";
   const toilets = (amenities?.toilets ?? []).map((t) => t.toLowerCase());
   if (toilets.some((t) => t.includes("flush"))) toiletType = "flush";
-  else if (toilets.some((t) => t.includes("vault") || t.includes("pit")))
-    toiletType = "vault";
-  else if (toilets.some((t) => t.includes("none") || t.includes("no toilet")))
-    toiletType = "none";
+  else if (toilets.some((t) => t.includes("vault") || t.includes("pit"))) toiletType = "vault";
+  else if (toilets.some((t) => t.includes("none") || t.includes("no toilet"))) toiletType = "none";
 
   // Potable water from amenities.potableWater array (e.g. "Tap Water - year round")
   const waterList = (amenities?.potableWater ?? []).map((w) => w.toLowerCase());
-  const potableWater =
-    waterList.length > 0 && !waterList.every((w) => w.includes("none"));
+  const potableWater = waterList.length > 0 && !waterList.every((w) => w.includes("none"));
 
   // Bear boxes / food storage lockers
   const bearBoxes = /yes/i.test(amenities?.foodStorageLockers ?? "");
@@ -185,16 +180,14 @@ export function normalizeNpsAmenities(c: NpsCampground): Amenities {
   const driveUp = npsTrue(accessibility?.rvAllowed) || npsTrue(accessibility?.trailerAllowed);
 
   // Electric hookups from campsite count
-  const electricHookups =
-    Number.parseInt(campsites?.electricalHookups ?? "0", 10) > 0;
+  const electricHookups = Number.parseInt(campsites?.electricalHookups ?? "0", 10) > 0;
 
   // Horses from campsite count
   const horsesAllowed = Number.parseInt(campsites?.horse ?? "0", 10) > 0;
 
   // ADA accessible — non-empty wheelchairAccess field that isn't "No"/"None"
   const accessible = !!(
-    accessibility?.wheelchairAccess &&
-    !/^(no|none)$/i.test(accessibility.wheelchairAccess.trim())
+    accessibility?.wheelchairAccess && !/^(no|none)$/i.test(accessibility.wheelchairAccess.trim())
   );
 
   // Fill text-derived fields (pets, picnic tables, fire rings, water fallback)
@@ -265,8 +258,7 @@ export function normalizeNpsCampground(
   const fees = extractNpsFees(c);
   const is_closed = detectIsClosed(c);
 
-  const fcfs_total =
-    Number.parseInt(c.numberOfSitesFirstComeFirstServe, 10) || 0;
+  const fcfs_total = Number.parseInt(c.numberOfSitesFirstComeFirstServe, 10) || 0;
   const reservable_total = Number.parseInt(c.numberOfSitesReservable, 10) || 0;
 
   return {

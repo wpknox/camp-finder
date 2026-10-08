@@ -7,5 +7,5 @@ export function deriveFcfsFlags(
   return {
     is_fully_fcfs: reservableTotal === 0 && fcfsTotal > 0,
     is_partial_fcfs: fcfsTotal > 0 && reservableTotal > 0,
-  }
+  };
 }

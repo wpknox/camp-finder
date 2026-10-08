@@ -20,10 +20,7 @@ export class RidbClient {
       }
       if (res) {
         if (res.ok) return res;
-        if (
-          attempt >= MAX_RETRIES ||
-          (res.status !== 429 && res.status < 500)
-        ) {
+        if (attempt >= MAX_RETRIES || (res.status !== 429 && res.status < 500)) {
           throw new Error(`RIDB error ${res.status}: ${await res.text()}`);
         }
       }

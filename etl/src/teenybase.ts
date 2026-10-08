@@ -93,16 +93,39 @@ export class TbClient {
   }
 
   async listAllWithMerged(): Promise<
-    Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string; merged_ridb_ids: string[]; is_deleted: boolean }>
+    Array<{
+      id: string;
+      ridb_id: string;
+      name: string;
+      lat: number;
+      lng: number;
+      fee_min: number | null;
+      fs_url: string;
+      merged_ridb_ids: string[];
+      is_deleted: boolean;
+    }>
   > {
     // limit: 10000 — well above current scale (~600 campgrounds). If the table ever
     // grows past this, add cursor/offset pagination here.
     const res = (await this.tbFetch("/table/facilities/list", { limit: 10000 })) as {
-      items: Array<{ id: string; ridb_id: string; name: string; lat: number; lng: number; fee_min: number | null; fs_url: string; merged_ridb_ids?: string | string[] | null; is_deleted?: boolean | null }>;
+      items: Array<{
+        id: string;
+        ridb_id: string;
+        name: string;
+        lat: number;
+        lng: number;
+        fee_min: number | null;
+        fs_url: string;
+        merged_ridb_ids?: string | string[] | null;
+        is_deleted?: boolean | null;
+      }>;
     };
     return res.items.map((f) => ({
       ...f,
-      merged_ridb_ids: typeof f.merged_ridb_ids === "string" ? JSON.parse(f.merged_ridb_ids) : (f.merged_ridb_ids ?? []),
+      merged_ridb_ids:
+        typeof f.merged_ridb_ids === "string"
+          ? JSON.parse(f.merged_ridb_ids)
+          : (f.merged_ridb_ids ?? []),
       is_deleted: !!f.is_deleted,
     }));
   }
@@ -112,10 +135,24 @@ export class TbClient {
   }
 
   async listForEnrichment(): Promise<
-    Array<{ id: string; lat: number; lng: number; elevation_m: number | null; cell_coverage: Record<string, unknown> | null; is_deleted: boolean }>
+    Array<{
+      id: string;
+      lat: number;
+      lng: number;
+      elevation_m: number | null;
+      cell_coverage: Record<string, unknown> | null;
+      is_deleted: boolean;
+    }>
   > {
     const res = (await this.tbFetch("/table/facilities/list", { limit: 10000 })) as {
-      items: Array<{ id: string; lat: number; lng: number; elevation_m?: number | null; cell_coverage?: string | Record<string, unknown> | null; is_deleted?: boolean | null }>;
+      items: Array<{
+        id: string;
+        lat: number;
+        lng: number;
+        elevation_m?: number | null;
+        cell_coverage?: string | Record<string, unknown> | null;
+        is_deleted?: boolean | null;
+      }>;
     };
     return res.items.map((f) => ({
       id: f.id,
@@ -123,7 +160,9 @@ export class TbClient {
       lng: f.lng,
       elevation_m: f.elevation_m ?? null,
       cell_coverage:
-        typeof f.cell_coverage === "string" ? JSON.parse(f.cell_coverage) : (f.cell_coverage ?? null),
+        typeof f.cell_coverage === "string"
+          ? JSON.parse(f.cell_coverage)
+          : (f.cell_coverage ?? null),
       is_deleted: !!f.is_deleted,
     }));
   }

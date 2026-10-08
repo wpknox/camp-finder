@@ -1,8 +1,16 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
+import { tb, tbHeaders, tbView } from "$lib/server/tb";
 import { tbFetch } from "$lib/server/tbFetch";
+import {
+  listPending,
+  loadLookups,
+  loadPendingRow,
+  parseResolveBody,
+  resolveRow,
+  userEmail,
+} from "$lib/server/moderation";
 
 interface RawDeletion {
   id: string;
@@ -16,33 +24,14 @@ interface RawDeletion {
   created: string;
 }
 
-interface RawFacility {
-  id: string;
-  name: string;
-  ridb_id: string;
-}
-
-interface RawUser {
-  id: string;
-  email: string;
-}
-
 /** GET /api/admin/deletions → pending deletion flags, joined to facility + user. */
 export const GET: RequestHandler = async ({ locals }) => {
   await requireAdmin(locals);
 
-  const [deletions, facilities, users] = await Promise.all([
-    tbList<RawDeletion>("delete_suggestions", {
-      where: "status == 'pending'",
-      order: "created asc",
-      limit: 500,
-    }),
-    tbList<RawFacility>("facilities", { limit: 10000 }),
-    tbList<RawUser>("users", { limit: 10000 }),
+  const [deletions, { facById, userById }] = await Promise.all([
+    listPending<RawDeletion>("delete_suggestions", { order: "created asc", limit: 500 }),
+    loadLookups(),
   ]);
-
-  const facById = new Map(facilities.map((f) => [f.id, f]));
-  const userById = new Map(users.map((u) => [u.id, u]));
 
   const result = deletions.map((d) => {
     const fac = d.facility_id ? facById.get(d.facility_id) : undefined;
@@ -50,7 +39,7 @@ export const GET: RequestHandler = async ({ locals }) => {
       ...d,
       facility_name: fac?.name ?? "(deleted)",
       facility_ridb_id: fac?.ridb_id ?? "",
-      user_email: userById.get(d.user_id)?.email ?? "(deleted)",
+      user_email: userEmail(userById, d.user_id),
     };
   });
 
@@ -61,24 +50,12 @@ export const GET: RequestHandler = async ({ locals }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
   const admin = await requireAdmin(locals);
 
-  const body = (await request.json()) as {
-    id?: string;
-    action?: string;
-    admin_note?: string;
-  };
+  const body = await parseResolveBody(request);
+  if (body instanceof Response) return body;
   const { id, action } = body;
-  if (!id || (action !== "approve" && action !== "reject")) {
-    return json({ error: "id and action (approve|reject) required" }, { status: 400 });
-  }
 
-  const viewRes = await tbFetch(tb(`delete_suggestions/view/${id}`), {
-    headers: tbHeaders,
-  });
-  if (!viewRes.ok) return json({ error: "Flag not found" }, { status: 404 });
-  const flag = (await viewRes.json()) as RawDeletion;
-  if (flag.status !== "pending") {
-    return json({ error: "Flag already resolved" }, { status: 409 });
-  }
+  const flag = await loadPendingRow<RawDeletion>("delete_suggestions", id, "Flag");
+  if (flag instanceof Response) return flag;
 
   let tombstoned: { id: string; name: string } | null = null;
 
@@ -86,11 +63,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     if (!flag.facility_id) {
       return json({ error: "Facility no longer exists" }, { status: 404 });
     }
-    const facRes = await tbFetch(tb(`facilities/view/${flag.facility_id}`), {
-      headers: tbHeaders,
-    });
-    if (!facRes.ok) return json({ error: "Facility not found" }, { status: 404 });
-    const facility = (await facRes.json()) as RawFacility;
+    const facility = await tbView<{ id: string; name: string }>("facilities", flag.facility_id);
+    if (!facility) return json({ error: "Facility not found" }, { status: 404 });
 
     // Soft-delete: the row stays so the ETL's ridb_id index keeps absorbing
     // this id (see etl tombstone handling) — never hard-delete here.
@@ -108,16 +82,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     tombstoned = { id: facility.id, name: facility.name };
   }
 
-  const resolveRes = await tbFetch(tb(`delete_suggestions/edit/${id}`), {
-    method: "POST",
-    headers: tbHeaders,
-    body: JSON.stringify({
-      status: action === "approve" ? "approved" : "rejected",
-      reviewed_by: admin.id,
-      reviewed_at: new Date().toISOString(),
-      admin_note: (body.admin_note ?? "").slice(0, 1000),
-    }),
-  });
+  const resolveRes = await resolveRow("delete_suggestions", id, admin.id, action, body.admin_note);
   if (!resolveRes.ok) {
     return json(
       { error: "Failed to update flag", detail: await resolveRes.text() },

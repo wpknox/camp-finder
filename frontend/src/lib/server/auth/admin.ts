@@ -1,6 +1,5 @@
 import { error } from "@sveltejs/kit";
-import { TB_SERVICE_TOKEN } from "$env/static/private";
-import { tbFetch } from "../tbFetch";
+import { tbView } from "../tb";
 
 export interface AdminUser {
   id: string;
@@ -15,12 +14,7 @@ export interface AdminUser {
  */
 async function fetchUserRecord(userId: string): Promise<AdminUser | null> {
   try {
-    const res = await tbFetch(
-      `/api/v1/table/users/view/${userId}`,
-      { headers: { Authorization: `Bearer ${TB_SERVICE_TOKEN}` } },
-    );
-    if (!res.ok) return null;
-    return (await res.json()) as AdminUser;
+    return await tbView<AdminUser>("users", userId);
   } catch {
     return null;
   }
@@ -45,9 +39,7 @@ export async function requireAdmin(locals: App.Locals): Promise<AdminUser> {
  * Display-only role lookup — never throws. Used to surface an "Admin" link
  * in the UI; the actual gate for any admin action is requireAdmin() above.
  */
-export async function getRoleForDisplay(
-  locals: App.Locals,
-): Promise<string | null> {
+export async function getRoleForDisplay(locals: App.Locals): Promise<string | null> {
   if (!locals.user) return null;
   const record = await fetchUserRecord(locals.user.id);
   return record?.role ?? null;

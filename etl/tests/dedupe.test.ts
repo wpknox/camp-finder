@@ -8,18 +8,16 @@ import {
 
 describe("canonicalName", () => {
   it("matches RIDB all-caps names against fs district-suffixed names", () => {
-    expect(canonicalName("ALMONT")).toBe(
-      canonicalName("Almont Campground - Gunnison RD"),
-    );
+    expect(canonicalName("ALMONT")).toBe(canonicalName("Almont Campground - Gunnison RD"));
   });
 
   it("strips parentheticals", () => {
     expect(canonicalName("Cold Spring (CO)")).toBe(
       canonicalName("Cold Spring Campground - Gunnison RD"),
     );
-    expect(
-      canonicalName("Lodgepole (Taylor River Canyon near Gunnison, COLORADO)"),
-    ).toBe(canonicalName("Lodgepole Campground - Gunnison RD"));
+    expect(canonicalName("Lodgepole (Taylor River Canyon near Gunnison, COLORADO)")).toBe(
+      canonicalName("Lodgepole Campground - Gunnison RD"),
+    );
   });
 
   it("strips campground/camping area suffix words", () => {
@@ -38,9 +36,7 @@ describe("canonicalName", () => {
 
   it("survives hyphens inside names", () => {
     // no spaced " - " so the district-suffix strip must not fire
-    expect(canonicalName("Maroon Bells-Snowmass Wilderness")).toContain(
-      "snowmass",
-    );
+    expect(canonicalName("Maroon Bells-Snowmass Wilderness")).toContain("snowmass");
   });
 });
 
@@ -61,9 +57,7 @@ describe("findDuplicate", () => {
   });
 
   it("rejects nearby facility with different name", () => {
-    expect(
-      findDuplicate(byName, "ROSY LANE", 38.6553, -106.8556),
-    ).toBeUndefined();
+    expect(findDuplicate(byName, "ROSY LANE", 38.6553, -106.8556)).toBeUndefined();
   });
 });
 

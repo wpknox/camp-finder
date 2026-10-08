@@ -77,11 +77,9 @@ describe("upsertFacilities options", () => {
 
   it("omitEmptyOnUpdate drops only null/empty fields", async () => {
     mockListThen({});
-    await tb.upsertFacilities(
-      [facility({ fee_min: null, fee_max: null, fs_url: "" })],
-      undefined,
-      { omitEmptyOnUpdate: ["fee_min", "fee_max", "fs_url", "description"] },
-    );
+    await tb.upsertFacilities([facility({ fee_min: null, fee_max: null, fs_url: "" })], undefined, {
+      omitEmptyOnUpdate: ["fee_min", "fee_max", "fs_url", "description"],
+    });
     const body = lastWriteBody();
     expect(body).not.toHaveProperty("fee_min");
     expect(body).not.toHaveProperty("fee_max");
