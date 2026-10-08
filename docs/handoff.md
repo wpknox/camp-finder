@@ -130,8 +130,13 @@ Built on **`feat/suggest-campground`** (plan: Sonnet subagents per task, Opus re
 - **Bug fixed:** tombstoned facilities were still returned by `/api/facilities/[id]` and shown in Compare.
 - Tests: frontend 167 (was 89), etl 155 (was 146), svelte-check 0/0, `pnpm build` OK, `pnpm format:check` clean.
 - **Prettier added** (root `package.json` + `pnpm format`). This adds a root importer to `pnpm-lock.yaml` — **watch the first Cloudflare Pages build after merging**.
-- **Not pushed / no PR yet.** No backend schema changes, so no deploy-order constraint.
+- **Pushed; PR opened** (see GitHub). No backend schema changes, so no deploy-order constraint.
 - **Local DB state:** `testview@example.com` promoted to `role='admin'` (local only) for browser verification. Test campgrounds created during admin-page verification were merged/tombstoned; queues are empty; the two PIKE COMMUNITY test edit suggestions were rejected (record unchanged).
+
+**⏭ Next session — fix the bugs found during the refactor** (all pre-existing, small; one commit each, add a test where possible):
+1. **Stale admin rows after a merge** — approving a merge on `/admin` leaves the loser facility's pending edit suggestions / deletion flags / other merge rows visible until refresh; approving one then errors "Suggestion not found". Fix in `routes/admin/+page.svelte` (`resolveMerge` `onResolved`): also drop rows whose `facility_id` (or `facility_a`/`facility_b`) is the merged-away loser — or simply re-run the page load (`invalidateAll()`) after a merge.
+2. **Whitespace-only fields read as `0` in suggest-an-edit** — `lib/detail/SuggestEditModal.svelte` `changes` builder checks `=== ''`, so `'  '` becomes `Number('  ') === 0` (fees/counts/lat/lng). Trim before the blank check (validators in `lib/validation.ts` already trim), and make `locationValid` treat whitespace as blank.
+3. **Submit routes return no new row id** — Teenybase `insert` responds `[]`, so `insertRow` (`lib/server/moderation.ts`) passes `[]` back with 201. Low priority: return `{ ok: true }` (or look the row up) so the client gets a meaningful body.
 
 ### Session 2026-07-21 — PR #3 rolled out to prod (merge commit `febc72b`)
 

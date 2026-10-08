@@ -28,7 +28,7 @@ Goal (owner): easy-to-read, easy-to-use code; stop re-making the same thing; fea
 - Admin edit-diff amenity labels use the canonical wording ("Pets allowed", not "Pets OK").
 - Client calls show the form's fallback message on network failure instead of throwing.
 
-## Found, not fixed (pre-existing)
+## Found, not fixed (pre-existing) — queued as next-session work in `docs/handoff.md`
 - After a merge is approved, the loser's pending edit suggestions stay visible on `/admin` until refresh (approving one shows "Suggestion not found").
 - Suggest-an-edit: a whitespace-only lat/lng/fee field is read as `0` by the `changes` builder.
 - Teenybase `insert` responds with `[]`, so submit routes return no new row id.
