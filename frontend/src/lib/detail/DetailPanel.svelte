@@ -6,6 +6,8 @@
   import NearbySection from './NearbySection.svelte'
   import DataQualityWarning from './DataQualityWarning.svelte'
   import { compareList } from '$lib/compare/compareStore'
+  import { formatFeeRange } from '$lib/format'
+  import { isRidbRecord } from '$lib/source'
   import SaveButton from '$lib/saved/SaveButton.svelte'
   import RatingsSection from './RatingsSection.svelte'
   import SuggestEditModal from './SuggestEditModal.svelte'
@@ -111,17 +113,12 @@
 
   let nearbyMapsUrl = $derived(`https://www.google.com/maps/search/hiking+trails/@${facility.lat},${facility.lng},12z`)
   // Only real RIDB records have a recreation.gov page — fs-/nps-/user- ids would 404.
-  let reserveUrl    = $derived(/^\d+$/.test(facility.ridb_id) ? `https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}` : null)
+  let reserveUrl    = $derived(isRidbRecord(facility.ridb_id) ? `https://www.recreation.gov/camping/campgrounds/${facility.ridb_id}` : null)
   const onIOS = browser && isIOS(navigator.userAgent)
   let googleDirectionsUrl = $derived(`https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`)
   let appleDirectionsUrl  = $derived(`https://maps.apple.com/?daddr=${facility.lat},${facility.lng}`)
   let elevationFt = $derived(formatElevationFt(facility.elevation_m))
-  let feeStr = $derived(
-    facility.fee_min === 0   ? 'Free'
-    : facility.fee_min != null && facility.fee_min === facility.fee_max ? `$${facility.fee_min}/night`
-    : facility.fee_min != null ? `$${facility.fee_min}–$${facility.fee_max}/night`
-    : null
-  )
+  let feeStr = $derived(formatFeeRange(facility))
   let isComparing = $derived($compareList.some((c) => c.id === facility.id))
 </script>
 

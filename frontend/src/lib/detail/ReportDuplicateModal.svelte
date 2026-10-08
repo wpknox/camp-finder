@@ -2,6 +2,7 @@
   import { untrack } from 'svelte'
   import type { Facility } from '$lib/types'
   import { distanceMiles } from '$lib/geo'
+  import { sourceLabel } from '$lib/source'
 
   let { facility, onclose }: { facility: Facility; onclose: () => void } = $props()
 
@@ -19,13 +20,6 @@
   let submitted = $state(false)
   let alreadyReported = $state(false)
   let errorMsg = $state('')
-
-  function sourceBadge(ridbId: string): string {
-    if (ridbId.startsWith('nps-')) return 'NPS'
-    if (ridbId.startsWith('fs-')) return 'USFS'
-    if (ridbId.startsWith('user-')) return 'User'
-    return 'RIDB'
-  }
 
   async function loadCandidates() {
     loading = true
@@ -134,7 +128,7 @@
                 >
                   <span class="candidate-name">{f.name}</span>
                   <span class="candidate-meta">
-                    <span class="badge">{sourceBadge(f.ridb_id)}</span>
+                    <span class="badge">{sourceLabel(f.ridb_id)}</span>
                     <span class="dist">{mi.toFixed(1)} mi</span>
                   </span>
                 </button>

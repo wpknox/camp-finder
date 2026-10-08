@@ -14,6 +14,8 @@
   import QueueSection from "$lib/admin/QueueSection.svelte";
   import ReviewCard from "$lib/admin/ReviewCard.svelte";
   import type { SuccessNotice } from "$lib/admin/types";
+  import { formatDate } from "$lib/format";
+  import { sourceLabel } from "$lib/source";
 
   interface EditRow {
     id: string;
@@ -188,24 +190,9 @@
     return String(v);
   }
 
-  function fmtDate(iso: string): string {
-    try {
-      return new Date(iso).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return iso;
-    }
-  }
+  const fmtDate = (iso: string): string =>
+    formatDate(iso, { year: "numeric", month: "short", day: "numeric" });
 
-  function ridbSourceBadge(ridbId: string): string {
-    if (ridbId.startsWith("fs-")) return "USFS";
-    if (ridbId.startsWith("nps-")) return "NPS";
-    if (ridbId.startsWith("user-")) return "User";
-    return "RIDB";
-  }
 
   // Per-row transient UI state, keyed by suggestion id.
   let errors = $state<Record<string, string>>({});
@@ -708,7 +695,7 @@
               onclick={() => useAllOfSide(row.id, "a")}
             >
               <span class="side-name">{row.facility_a_name}</span>
-              <span class="badge">{ridbSourceBadge(row.facility_a_ridb_id)}</span>
+              <span class="badge">{sourceLabel(row.facility_a_ridb_id)}</span>
               <span class="ridb-id">{row.facility_a_ridb_id}</span>
               {#if !row.facility_a_data}<span class="deleted-tag">deleted</span>{/if}
             </button>
@@ -722,7 +709,7 @@
               onclick={() => useAllOfSide(row.id, "b")}
             >
               <span class="side-name">{row.facility_b_name}</span>
-              <span class="badge">{ridbSourceBadge(row.facility_b_ridb_id)}</span>
+              <span class="badge">{sourceLabel(row.facility_b_ridb_id)}</span>
               <span class="ridb-id">{row.facility_b_ridb_id}</span>
               {#if !row.facility_b_data}<span class="deleted-tag">deleted</span>{/if}
             </button>
@@ -805,7 +792,7 @@
           {#snippet title()}{row.facility_name}{/snippet}
           {#snippet meta()}
             {#if row.facility_ridb_id}
-              <span class="badge">{ridbSourceBadge(row.facility_ridb_id)}</span> ·
+              <span class="badge">{sourceLabel(row.facility_ridb_id)}</span> ·
             {/if}
             {row.user_email} · {fmtDate(row.created)}
           {/snippet}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { formatDate } from "$lib/format";
 
   let { facilityId }: { facilityId: string } = $props();
 
@@ -9,7 +10,7 @@
   let error = $state(false);
 
   let dateStr = $derived(
-    scraped_at ? new Date(scraped_at).toLocaleDateString() : "",
+    scraped_at ? formatDate(scraped_at) : "",
   );
 
   onMount(async () => {

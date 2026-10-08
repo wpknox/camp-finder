@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Facility } from '$lib/types'
   import { formatElevationFt } from '$lib/weather'
+  import { formatFeeShort } from '$lib/format'
 
   let { facilities }: { facilities: Facility[] } = $props()
 
@@ -14,7 +15,7 @@
         return on.length ? on.join(' · ') : 'None'
       } },
     { label: 'FCFS Sites',   key: f => f.fcfs_total > 0 ? `${f.fcfs_total}/${f.fcfs_total + f.reservable_total}` : 'None' },
-    { label: 'Fee/night',    key: f => f.fee_min == null ? '?' : f.fee_min === 0 ? 'Free' : `$${f.fee_min}` },
+    { label: 'Fee/night',    key: f => formatFeeShort(f, '?') },
     { label: 'Water',        key: f => f.amenities.potableWater ? '✓' : '—' },
     { label: 'Toilet',       key: f => f.amenities.toiletType === 'unknown' ? '?' : f.amenities.toiletType },
     { label: 'Bear Boxes',   key: f => f.amenities.bearBoxes ? '✓' : '—' },

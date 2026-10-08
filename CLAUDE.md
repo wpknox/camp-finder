@@ -78,7 +78,7 @@ All `.svelte` files use Svelte 5 syntax; never Svelte 4 patterns.
 ### No PocketBase anywhere
 The project switched from PocketBase to Teenybase early on. Zero PocketBase SDK usage — all backend calls are plain `fetch()` to the Teenybase REST API.
 
-### Map marker colors (single source: `CampMap.renderPins`)
+### Map marker colors (single source: `frontend/src/lib/status.ts`)
 🔴 Closed · 🟢 Fully FCFS · 🟡 Partial FCFS · 🔵 Reservable only. Keep sidebar dots/badges in lockstep with marker colors.
 
 ### Teenybase quirks (do not deviate)

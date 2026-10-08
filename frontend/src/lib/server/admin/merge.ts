@@ -1,11 +1,10 @@
 import type { Facility, Amenities } from "$lib/types";
+import { sourceOf, type Source } from "../../source";
 
 /** Source richness: numeric RIDB record > NPS > fs.usda.gov scrape > user-submitted. */
+const SOURCE_RANK: Record<Source, number> = { user: -1, fs: 0, nps: 1, ridb: 2 };
 function sourceRank(ridbId: string): number {
-  if (ridbId.startsWith("user-")) return -1;
-  if (ridbId.startsWith("fs-")) return 0;
-  if (ridbId.startsWith("nps-")) return 1;
-  return 2;
+  return SOURCE_RANK[sourceOf(ridbId)];
 }
 
 export function pickWinner(a: Facility, b: Facility): Facility {

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { Facility } from "$lib/types";
   import { searchPending } from "./mapStore";
+  import { STATUS_META, facilityStatus } from "$lib/status";
 
   let {
     onselect,
@@ -81,15 +82,9 @@
     pinsLayer.clearLayers();
 
     for (const f of facilityList) {
-      // Earthy pigments — mirror docs/design-language.md status colors and the
-      // sidebar statusColor(). Cream stroke so pins read on the topo paper.
-      const fillColor = f.is_closed
-        ? "#a23a17" // rust
-        : f.is_fully_fcfs
-          ? "#5f7d34" // moss
-          : f.is_partial_fcfs
-            ? "#c8932f" // ochre
-            : "#356b7d"; // lake
+      // Earthy pigments — mirror docs/design-language.md status colors via
+      // STATUS_META in lib/status.ts. Cream stroke so pins read on the topo paper.
+      const fillColor = STATUS_META[facilityStatus(f)].hex;
 
       const marker = L.circleMarker([f.lat, f.lng], {
         radius: 8,

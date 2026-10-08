@@ -2,6 +2,8 @@
   import { filters, filteredFacilities } from "./filterStore";
   import { isLoading, selectedFacility } from "$lib/map/mapStore";
   import type { Facility } from "$lib/types";
+  import { STATUS_META, facilityStatus } from "$lib/status";
+  import { formatFeeShort } from "$lib/format";
 
   let {
     onSearch,
@@ -15,19 +17,7 @@
   let filtersOpen = $state(false);
   let resultsOpen = $state(false);
 
-  function feeLabel(f: Facility) {
-    if (f.fee_min === 0) return "Free";
-    if (f.fee_min != null) return `$${f.fee_min}`;
-    return "—";
-  }
-
-  // Mirrors the map marker colors (see CampMap.renderPins) — earthy pigments.
-  function statusColor(f: Facility) {
-    if (f.is_closed) return "var(--rust)";
-    if (f.is_fully_fcfs) return "var(--moss)";
-    if (f.is_partial_fcfs) return "var(--ochre)";
-    return "var(--lake)";
-  }
+  // Status colors/labels come from STATUS_META (same source as the map pins).
 </script>
 
 <aside
@@ -113,17 +103,11 @@
           >
             <span
               class="r-dot"
-              style="background: {statusColor(f)}"
-              title={f.is_closed
-                ? "Closed"
-                : f.is_fully_fcfs
-                  ? "Fully first-come, first-served"
-                  : f.is_partial_fcfs
-                    ? "Partially first-come, first-served"
-                    : "Reservable only"}
+              style="background: {STATUS_META[facilityStatus(f)].cssVar}"
+              title={STATUS_META[facilityStatus(f)].label}
             ></span>
             <span class="r-name">{f.name}</span>
-            <span class="r-meta">{feeLabel(f)}</span>
+            <span class="r-meta">{formatFeeShort(f, "—")}</span>
           </button>
         </li>
       {:else}
