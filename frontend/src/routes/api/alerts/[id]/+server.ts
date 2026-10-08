@@ -2,15 +2,10 @@
 import { json } from '@sveltejs/kit'
 import { parse } from 'node-html-parser'
 import { tbFetch } from '$lib/server/tbFetch'
-import { TB_SERVICE_TOKEN } from '$env/static/private'
+import { tbHeaders } from '$lib/server/tb'
 import type { RequestHandler } from './$types'
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
-
-const tbHeaders = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${TB_SERVICE_TOKEN}`,
-}
 
 export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id

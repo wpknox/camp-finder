@@ -1,7 +1,7 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tbList } from "$lib/server/admin/tb";
+import { tbList } from "$lib/server/tb";
 
 /** GET /api/admin/pending/[facilityId] → pending moderation counts for one
  * facility, powering the admin-only shortcut on the detail panel. */

@@ -1,25 +1,13 @@
 // frontend/src/routes/api/nearby/[id]/+server.ts
 import { json } from '@sveltejs/kit'
 import { tbFetch } from '$lib/server/tbFetch'
-import { TB_SERVICE_TOKEN } from '$env/static/private'
+import { tbHeaders } from '$lib/server/tb'
 import { buildOverpassQuery, normalizeOverpass, type NearbyPoi, type OverpassResponse } from '$lib/server/overpass'
+import { parseJson } from '$lib/json'
 import type { RequestHandler } from './$types'
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
-
-const tbHeaders = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${TB_SERVICE_TOKEN}`,
-}
-
-function parsePois(v: unknown): NearbyPoi[] | null {
-  if (v == null) return null
-  if (typeof v === 'string') {
-    try { return JSON.parse(v) as NearbyPoi[] } catch { return null }
-  }
-  return v as NearbyPoi[]
-}
 
 export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id
@@ -34,7 +22,7 @@ export const GET: RequestHandler = async ({ params }) => {
   const row = cache.items?.[0]
 
   if (row && new Date(row.fetched_at).getTime() >= cutoff) {
-    return json({ pois: parsePois(row.pois), fetched_at: row.fetched_at, cached: true })
+    return json({ pois: parseJson<NearbyPoi[] | null>(row.pois, null), fetched_at: row.fetched_at, cached: true })
   }
 
   const facRes = await tbFetch(`/api/v1/table/facilities/view/${facilityId}`)
@@ -58,7 +46,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
   if (pois === null) {
     // Overpass down or rate-limited: serve stale if we have anything at all.
-    if (row) return json({ pois: parsePois(row.pois), fetched_at: row.fetched_at, cached: true, stale: true })
+    if (row) return json({ pois: parseJson<NearbyPoi[] | null>(row.pois, null), fetched_at: row.fetched_at, cached: true, stale: true })
     return json({ pois: null })
   }
 

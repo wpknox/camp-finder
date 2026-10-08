@@ -1,7 +1,8 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
+import { tb, tbHeaders, tbList } from "$lib/server/tb";
+import { parseJson } from "$lib/json";
 import { tbFetch } from "$lib/server/tbFetch";
 import {
   validateSubmission,
@@ -40,15 +41,6 @@ interface RawUser {
   email: string;
 }
 
-function parseSubmission(raw: CampgroundSubmission | string): unknown {
-  if (typeof raw !== "string") return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
 /** GET /api/admin/campground-suggestions → pending new-campground submissions, with nearby duplicates + user. */
 export const GET: RequestHandler = async ({ locals }) => {
   await requireAdmin(locals);
@@ -68,7 +60,7 @@ export const GET: RequestHandler = async ({ locals }) => {
   const userById = new Map(users.map((u) => [u.id, u]));
 
   const result = rows.map((r) => {
-    const submission = parseSubmission(r.submission) as CampgroundSubmission | null;
+    const submission = parseJson(r.submission, null) as CampgroundSubmission | null;
     const nearby =
       submission && typeof submission.lat === "number" && typeof submission.lng === "number"
         ? findNearby(live, submission.lat, submission.lng)
@@ -118,7 +110,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     finalSubmission =
       body.submission !== undefined && body.submission !== null
         ? body.submission
-        : parseSubmission(row.submission);
+        : parseJson(row.submission, null);
     finalSourceUrl =
       typeof body.source_url === "string"
         ? body.source_url.trim() || null

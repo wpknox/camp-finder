@@ -1,7 +1,8 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
+import { tb, tbHeaders, tbList } from "$lib/server/tb";
+import { parseJson } from "$lib/json";
 import { tbFetch } from "$lib/server/tbFetch";
 import { pickWinner, mergeFacilityFields, CHOICE_FIELDS } from "$lib/server/admin/merge";
 import type { ChoiceField, FieldChoices } from "$lib/server/admin/merge";
@@ -53,18 +54,6 @@ interface ChildRow {
   id: string;
   user_id: string;
   facility_id: string;
-}
-
-function parseJson<T>(v: unknown, fallback: T): T {
-  if (v == null) return fallback;
-  if (typeof v === "string") {
-    try {
-      return JSON.parse(v) as T;
-    } catch {
-      return fallback;
-    }
-  }
-  return v as T;
 }
 
 /** Load a facility by id, parsing its JSON fields into a usable Facility. */

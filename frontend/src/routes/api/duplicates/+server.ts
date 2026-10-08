@@ -1,18 +1,12 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { tbFetch } from '$lib/server/tbFetch'
-import { TB_SERVICE_TOKEN } from '$env/static/private'
+import { tbHeaders } from '$lib/server/tb'
 import { suggestionLimiter } from '$lib/server/auth/limiters'
 
 const TB = `/api/v1/table/merge_suggestions`
-// Deliberately uses TB_SERVICE_TOKEN: merge_suggestions has ALL Teenybase rules set to
-// 'false', so the service token is the only way in. Unlike sibling routes (api/saved,
-// api/ratings) which use the user's own JWT — don't "fix" this to the per-request
-// user-token pattern.
-const headers = {
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${TB_SERVICE_TOKEN}`,
-}
+// Deliberately uses the service token (see $lib/server/tb) — don't "fix" this to the
+// per-request user-token pattern of sibling routes (api/saved, api/ratings).
 
 export const POST: RequestHandler = async ({ locals, request, getClientAddress }) => {
   if (!locals.user) return json({ error: 'Unauthenticated' }, { status: 401 })
@@ -29,7 +23,7 @@ export const POST: RequestHandler = async ({ locals, request, getClientAddress }
   // 1000-row pending ceiling: fine at current scale, revisit if the queue ever grows.
   const existingRes = await tbFetch(`${TB}/list`, {
     method: 'POST',
-    headers,
+    headers: tbHeaders,
     body: JSON.stringify({ where: `status == 'pending'`, limit: 1000 }),
   })
   const existing = (await existingRes.json()) as {
@@ -42,7 +36,7 @@ export const POST: RequestHandler = async ({ locals, request, getClientAddress }
 
   const res = await tbFetch(`${TB}/insert`, {
     method: 'POST',
-    headers,
+    headers: tbHeaders,
     body: JSON.stringify({
       values: {
         facility_a,

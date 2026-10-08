@@ -1,7 +1,8 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
+import { tb, tbHeaders, tbList } from "$lib/server/tb";
+import { parseJson } from "$lib/json";
 import { tbFetch } from "$lib/server/tbFetch";
 import type { Amenities } from "$lib/types";
 import { deriveFcfsFlags } from "$lib/fcfs";
@@ -31,18 +32,6 @@ interface RawFacility {
 interface RawUser {
   id: string;
   email: string;
-}
-
-function parseJson<T>(v: unknown, fallback: T): T {
-  if (v == null) return fallback;
-  if (typeof v === "string") {
-    try {
-      return JSON.parse(v) as T;
-    } catch {
-      return fallback;
-    }
-  }
-  return v as T;
 }
 
 /** GET /api/admin/suggestions → pending edit suggestions, joined to facility + user. */

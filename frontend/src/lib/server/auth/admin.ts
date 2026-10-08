@@ -1,6 +1,5 @@
 import { error } from "@sveltejs/kit";
-import { TB_SERVICE_TOKEN } from "$env/static/private";
-import { tbFetch } from "../tbFetch";
+import { tbView } from "../tb";
 
 export interface AdminUser {
   id: string;
@@ -15,12 +14,7 @@ export interface AdminUser {
  */
 async function fetchUserRecord(userId: string): Promise<AdminUser | null> {
   try {
-    const res = await tbFetch(
-      `/api/v1/table/users/view/${userId}`,
-      { headers: { Authorization: `Bearer ${TB_SERVICE_TOKEN}` } },
-    );
-    if (!res.ok) return null;
-    return (await res.json()) as AdminUser;
+    return await tbView<AdminUser>("users", userId);
   } catch {
     return null;
   }

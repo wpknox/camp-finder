@@ -1,7 +1,7 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireAdmin } from "$lib/server/auth/admin";
-import { tb, tbHeaders, tbList } from "$lib/server/admin/tb";
+import { tb, tbHeaders, tbList } from "$lib/server/tb";
 import { tbFetch } from "$lib/server/tbFetch";
 
 interface RawDeletion {
