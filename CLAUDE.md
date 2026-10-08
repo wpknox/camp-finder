@@ -1,126 +1,55 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+CampFinder: map-first web app for comparing National Forest campgrounds, surfacing first-come-first-serve (FCFS) availability + amenities from RIDB. Deployed (Pages `camp-finder.pages.dev` + Teenybase Worker + prod D1; deploys are manual). Status, env files, secrets and session history: `docs/handoff.md`. Original spec: `campfinder-spec.md` (repo root).
 
-## Project Overview
+## Layout & commands
 
-CampFinder is a map-first web app for discovering and comparing National Forest campgrounds. The core value prop is surfacing first-come, first-serve (FCFS) availability and amenity data from RIDB in a usable UI — the USDA Forest Service website (`fs.usda.gov`) has the data but terrible discoverability.
-
-See `campfinder-spec.md` for the full brainstorm spec including data models, UI/UX notes, build order, and open questions.
-
-## Package Manager
-
-pnpm with workspaces. Root `pnpm-workspace.yaml` covers `frontend/`, `backend/`, `etl/`. Run `pnpm install` from the repo root to install all packages at once.
-
-## Commands
+pnpm workspaces — `pnpm install` at the root. `frontend/` SvelteKit + vanilla Leaflet (Pages) · `backend/` Teenybase (Workers + D1) · `etl/` Node/TS sync scripts · `fixtures/` shared ETL↔frontend test fixtures · `docs/`.
 
 | Where | Command | Purpose |
 |---|---|---|
-| `frontend/` | `pnpm dev` | SvelteKit app on :5173 |
-| `frontend/` | `pnpm check` / `pnpm test` | svelte-check (0/0 expected) / Vitest |
-| `backend/` | `pnpm dev` | Teenybase (Workers+D1) on :8787 |
-| `backend/` | `pnpm generate && pnpm migrate` | Regenerate + apply SQL migrations after schema changes |
-| `etl/` | `pnpm sync` / `pnpm discover` / `pnpm sync-nps` | RIDB sync / fs.usda.gov scrape / NPS API sync |
-| `etl/` | `pnpm test` | Vitest (ETL normalize/scrape tests) |
-| repo root | `pnpm format` / `pnpm format:check` | Prettier (double quotes, semicolons, width 100; backend `*.jsonc` excluded) |
+| `frontend/` | `pnpm dev` / `pnpm check` / `pnpm test` | :5173 / svelte-check (0/0 expected) / Vitest |
+| `backend/` | `pnpm dev` | Teenybase on :8787 |
+| `backend/` | `pnpm generate && pnpm migrate` | After schema changes (see migrate trap below) |
+| `backend/` | `pnpm deploy` / `pnpm secrets-upload` | Prod Worker / push `.prod.vars` secrets |
+| `etl/` | `pnpm sync` / `discover` / `sync-nps` | RIDB / fs.usda.gov scrape / NPS API |
+| `etl/` | `pnpm enrich-elevation` / `enrich-cell` / `test` | Enrichment (cell needs `etl/data/fcc/`) / Vitest |
+| root | `pnpm format` / `format:check` | Prettier (backend `*.jsonc` excluded) |
 
-See `docs/handoff.md` for current project status, env-file setup, and session history.
+**UI work:** read `docs/design-language.md` ("Folded Field Map" palette, type, textures) first; all new UI must match it.
 
-## Stack
+## Rules
 
-| Layer | Technology |
-|---|---|
-| Frontend | SvelteKit + vanilla Leaflet + OpenStreetMap tiles |
-| Backend / DB | Teenybase (Cloudflare Workers + D1 / SQLite at the edge) |
-| ETL | Node/TypeScript script |
-| Map tiles | OpenStreetMap (free) + USGS Topo WMS (toggleable) |
-| Primary data | RIDB API (`ridb.recreation.gov/api/v1/`) |
-| Scraped data | `fs.usda.gov` (on-demand, alerts only) |
+- **Svelte 5 runes only** — `$state`/`$derived`/`$effect`/`$props`, `onclick=`, `{@render children()}`, callback props (`onclose`). Never `export let`, `$:`, `on:click`, `<slot />`, `createEventDispatcher`.
+- **No PocketBase.** Backend calls are `fetch()` to Teenybase REST, always via `tbFetch()` (below).
+- **Status colors** come only from `STATUS_META` / `facilityStatus()` in `lib/status.ts` (🔴 closed · 🟢 fully FCFS · 🟡 partial · 🔵 reservable). Never hardcode.
+- **Pages functions are not Node.** Use web APIs only in server code (`atob`/`TextDecoder`, never `Buffer`).
+- **Secrets stay server-side.** RIDB and Teenybase service calls go through SvelteKit `+server.ts` routes.
+- **FCFS is per-campsite in RIDB**: the ETL aggregates `/facilities/{id}/campsites` into `fcfs_total`/`reservable_total`/`is_fully_fcfs`/`is_partial_fcfs`. Amenities are normalized at ETL time into a fixed schema; unknowns are `null`/`"unknown"`, never omitted.
+- **Alerts** are scraped from fs.usda.gov on detail-panel open, cached in `alerts` for 24h; a failed scrape shows a message, never blocks the panel.
+- **Map search is explicit** ("Search this area"), never auto-queried on pan/zoom.
+- **Sparse data** (`ridb_data_quality == "sparse"`) shows a warning + link to the fs.usda.gov page.
 
-Teenybase was chosen over PocketBase because this is a side project with no production pressure. Everything runs on Cloudflare (Pages + Workers + D1), the free tier is generous, and no VPS is required. The tradeoff is that Teenybase is pre-alpha (v0.0.x) — API instability is acceptable for an experimental project.
+## Teenybase quirks (do not deviate)
 
-## Repository Structure
+- **All Teenybase HTTP goes through `tbFetch()`** (`lib/server/tbFetch.ts`; `tb()`/`tbList` wrap it). It adds `X-TB-Key` + CF Access headers. Prod 403s without them; local doesn't enforce the guard, so a raw `fetch()` passes locally and breaks in prod.
+- **JSON fields: stringify on write, parse on read** (`parseJson` in `lib/json.ts`, `parseFacility` in `lib/server/facilities.ts`). A plain object 400s.
+- **No compound WHERE** (`&&`/`AND` fail). Fetch with a high `limit` and filter in the route (see `listPublicFacilities()`). Ids interpolated into WHERE must pass `isSafeId()`.
+- **`pnpm migrate` (`teeny deploy --local`) is unreliable locally.** Apply DDL to the served sqlite by hand and verify with real requests.
 
-```
-camp-finder/
-  frontend/          # SvelteKit app (Cloudflare Pages)
-  backend/           # Teenybase project (Cloudflare Workers + D1)
-  etl/               # RIDB sync script (Node/TypeScript)
-  docs/              # handoff.md (status), design-language.md, campfinder-spec.md
-```
+## Shared code (reuse before writing new)
 
-### Design language — read before any UI work
-`docs/design-language.md` defines the "Folded Field Map" identity (palette, Fraunces/Hanken/JetBrains Mono type, paper textures). All new UI must match it.
+- **`frontend/src/lib/server/`:** `tbFetch.ts` (base URL + guard headers), `tb.ts` (`tbHeaders`/`tb()`/`tbList`/`tbView`; the only reader of `TB_SERVICE_TOKEN`), `facilities.ts` (public non-tombstoned reads; the `is_deleted` filter lives only here), `moderation.ts` (pending queues, joins, submit guard), `cacheRow.ts` (alerts/nearby cache rows), `email.ts` (Resend; without `RESEND_API_KEY` it logs, so local reset/verify links are in the dev-server log), `auth/limiters.ts` (rate limits).
+- **`frontend/src/lib/`:** `fields.ts` (amenity/carrier/toilet/tri-state constants), `validation.ts`, `amenities.ts` (`scoreDataQuality`, lockstepped with the ETL by `fixtures/data-quality.json`), `status.ts`, `source.ts` (ridb_id prefix → source), `format.ts`, `geo.ts`, `api.ts` (`submitJson` for client → `/api`).
+- **UI:** `lib/ui/ModalShell.svelte` (every modal), `ConfirmDialog.svelte`, `SegmentedControl.svelte`; global `.btn*` and `.form` styles in `app.css`.
+- Pure TS under `lib/` uses **relative imports**; Vitest doesn't resolve `$lib`.
 
-## Key Architectural Decisions
+## Schema & auth
 
-### RIDB API key stays server-side
-All RIDB calls go through a SvelteKit server route (`+server.ts`) to proxy requests. This keeps the API key out of client bundles and allows caching headers to be set.
+Schema lives in `backend/teenybase.ts`. Non-obvious parts:
+- `users.role` (`'admin'` | null) is set **only by hand via sqlite**, never through an API (register mass-assigns fields).
+- `facilities`: public read; `updateRule` is `'false'`. The ETL and admin-approved edits/merges write with the service token. `merged_ridb_ids` keeps the ETL from resurrecting merged duplicates.
+- `edit_suggestions`, `merge_suggestions`, `campground_suggestions`: **all rules `'false'`**, accessed only by server routes with the service token. An approved campground becomes a facility with `ridb_id = "user-<id>"`; the ETL treats `user-`/`fs-`/`nps-` rows as absorb/enrich, never duplicate.
+- `ratings` (auth create), `saved_campgrounds` (`auth.uid == user_id`), `alerts` (service-token write).
 
-### FCFS data lives at campsite level, not facility level
-RIDB stores reservability per-campsite. The ETL must call `GET /facilities/{id}/campsites` and aggregate:
-- `fcfs_total` = count where `CampsiteReservable == false`
-- `reservable_total` = count where `CampsiteReservable == true`
-- `is_fully_fcfs` / `is_partial_fcfs` flags derived from counts
-
-### Amenities are normalized at ETL time
-RIDB amenity field names are inconsistent across forests. The ETL normalizes everything into a fixed JSON schema (see `campfinder-spec.md` → Amenities JSON Schema). Unknown fields default to `null`/`"unknown"` rather than being omitted.
-
-### Svelte 5 runes — mandatory, no legacy syntax
-All `.svelte` files use Svelte 5 syntax; never Svelte 4 patterns.
-- State: `let x = $state(0)` — not `let x = 0`
-- Props: `let { prop } = $props()` — not `export let prop`
-- Derived: `let y = $derived(x * 2)` — not `$: y = x * 2`
-- Effects: `$effect(() => { ... })` — not `$: { ... }`
-- Events: `onclick={fn}` — not `on:click={fn}`
-- Slots: `{@render children()}` — not `<slot />`
-- Event dispatch: callback props (`onclose`, `onselect`) — not `createEventDispatcher`
-
-### No PocketBase anywhere
-The project switched from PocketBase to Teenybase early on. Zero PocketBase SDK usage — all backend calls are plain `fetch()` to the Teenybase REST API.
-
-### Map marker colors (single source: `frontend/src/lib/status.ts`)
-🔴 Closed · 🟢 Fully FCFS · 🟡 Partial FCFS · 🔵 Reservable only. Map pins, sidebar dots and the FCFS badge all read `STATUS_META` / `facilityStatus()` — never hardcode a status color.
-
-### Teenybase quirks (do not deviate)
-- **JSON fields must be stringified on write** (`JSON.stringify(amenities)`) and parsed on read (`parseJson` in `lib/json.ts`, `parseFacility` in `lib/server/facilities.ts`). Sending a plain object 400s.
-- **No compound WHERE** — `&&`/`AND` both fail with parse errors. Fetch with a high `limit` and filter in the SvelteKit server route (fine at ~650 records). See `listPublicFacilities()` in `frontend/src/lib/server/facilities.ts`. Ids interpolated into WHERE strings must pass `isSafeId()`.
-
-### Where shared code lives (reuse before writing new)
-- **Server (`frontend/src/lib/server/`):** `tb.ts` (service-token `tbHeaders`/`tb()`/`tbList`/`tbView` — the only place `TB_SERVICE_TOKEN` is read), `facilities.ts` (public, non-tombstoned facility reads — the `is_deleted` filter lives only here), `moderation.ts` (pending-queue load/resolve, user/facility joins, submit guard + insert), `cacheRow.ts` (alerts/nearby per-facility cache rows).
-- **Shared (`frontend/src/lib/`):** `fields.ts` (amenity/carrier/toilet/tri-state constants), `validation.ts` (form field validators + `validateEditChanges`), `amenities.ts` (`defaultAmenities`, `scoreDataQuality` — kept in lockstep with the ETL by `fixtures/data-quality.json`), `status.ts`, `source.ts` (ridb_id prefix → source), `format.ts` (fees, dates), `geo.ts` (haversine), `api.ts` (`submitJson` for client calls to our `/api`).
-- **UI:** `lib/ui/ModalShell.svelte` for every modal (portal, Escape, backdrop), `lib/ui/SegmentedControl.svelte`, global `.btn`/`.btn-primary`/`.btn-secondary`/`.btn-danger` and `.form` field styles in `app.css`.
-- Pure TS modules under `lib/` use **relative imports** — Vitest here doesn't resolve `$lib`.
-
-### Alerts are on-demand scraped, not synced
-`fs.usda.gov` alerts (road closures, fire restrictions) are scraped only when a user opens a campground detail panel — via a SvelteKit server route. Results are cached in the Teenybase `alerts` table; refresh if `scraped_at` is older than 24 hours. Fail gracefully: if the scrape errors, show a message rather than blocking the panel.
-
-### Map search is explicit, not reactive
-The "Search this area" button is a deliberate user trigger — the map does not auto-query on pan/zoom. This reduces API load and matches intentional use.
-
-### Data quality warning
-If a facility's `ridb_data_quality == "sparse"` (heuristic: amenities JSON has fewer than 5 fields populated), show a visible warning in the detail panel and prompt the user to check the official `fs.usda.gov` page.
-
-## Teenybase Tables
-
-Defined in `backend/teenybase.ts` — the single source of truth for the entire backend schema.
-
-- `users` — auth table with email/password + JWT, plus a nullable `role` text column (`'admin'` | null). Row-level security: users can only read/update their own record. **`role` is promoted manually via sqlite, never through any API** — Teenybase register mass-assigns fields, so the role is never trusted from the JWT/cookie (see `requireAdmin` below).
-- `facilities` — normalized campground records synced from RIDB (includes `amenities` JSON, FCFS counts, `ridb_data_quality`, and `merged_ridb_ids` — a JSON array of ridb_ids absorbed by admin duplicate-merges so the ETL never resurrects them). Public read (`listRule: 'true'`); ETL writes via service token, and admin-approved crowdsourced edits/merges write via the service token through server routes (the table's `updateRule` stays `'false'`).
-- `alerts` — scraped fs.usda.gov notices, keyed to facility, with `scraped_at` for 24hr cache invalidation. Public read; SvelteKit server route writes via service token.
-- `ratings` — user-submitted 1–5 scores. Public read; auth required to create (`createRule: 'auth.uid != null'`).
-- `saved_campgrounds` — authenticated user favorites. Private: all operations require `auth.uid == user_id`.
-- `edit_suggestions` — crowdsourced facility-edit submissions (`changes` JSON patch, `status` pending|approved|rejected, reviewer fields). **ALL rules `'false'`** — every read/write goes through SvelteKit server routes using `TB_SERVICE_TOKEN` (Teenybase's rule language can't express role checks and can't do compound WHERE).
-- `merge_suggestions` — user-flagged duplicate pairs (`facility_a`/`facility_b`, `status`, reviewer fields). **ALL rules `'false'`**, same service-token-only access pattern.
-- `campground_suggestions` — user-submitted new campgrounds (`submission` JSON patch of facility fields, optional `source_url`, `status`, reviewer fields, `created_facility_id`). **ALL rules `'false'`**, same service-token-only access pattern. Admin approval inserts a facility with `ridb_id = "user-<suggestionId>"`; the ETL treats `user-` like `fs-`/`nps-` (absorbs/enriches, never duplicates).
-
-## Auth Pattern
-
-Auth is **httpOnly-cookie based — no token is ever exposed to client JS**. SvelteKit server routes (`/api/auth/{register,login,logout,me}`) proxy Teenybase and set httpOnly `cf_access` + `cf_refresh` cookies; `hooks.server.ts` decodes `cf_access`, silently refreshes when expired, and populates `event.locals.user`. Privileged writes (save, rate) are proxied through server routes (`/api/saved`, `/api/ratings/[facilityId]`) that derive `user_id` from `locals.user` — never trusted from the client. The `TB_SERVICE_TOKEN` (from `.dev.vars` / `.prod.vars`) is used server-side only (ETL writes, alert cache writes, all suggestion/merge table access) and never exposed to the client.
-
-### Admin gate — `requireAdmin` (server-side only)
-`frontend/src/lib/server/auth/admin.ts` exports `requireAdmin(locals)`, the single trusted way to answer "is this an admin request?". It re-fetches `users/view/{id}` with `TB_SERVICE_TOKEN` and checks `role === 'admin'` on **every** call — the role is never carried in the JWT/cookie (Teenybase register mass-assigns fields, so a client-supplied role can't be trusted). Returns the admin record or throws `error(401)`/`error(403)`. All `/api/admin/*` routes and the `/admin` page `load` call it first. `/api/auth/me` surfaces `role` display-only so `AccountMenu` can show an Admin link — that is convenience, not a gate.
-
-## Build Status
-
-All 7 phases from `campfinder-spec.md` are built (ETL → map → detail panel → filters → compare → auth + saved → ratings/reviews), plus admin moderation with crowdsourced edits and duplicate merges. Deployment is the remaining milestone — see `docs/handoff.md` for current status and deployment blockers.
+Auth uses httpOnly cookies (`cf_access`/`cf_refresh`); no token ever reaches client JS. `hooks.server.ts` decodes/refreshes the cookies into `locals.user`. Write routes derive `user_id` from `locals.user`, never from the client. **Admin gate:** `requireAdmin(locals)` (`lib/server/auth/admin.ts`) re-fetches the user with the service token and checks `role` on every call; all `/api/admin/*` routes and the `/admin` load call it first. The `role` returned by `/api/auth/me` is for display only.

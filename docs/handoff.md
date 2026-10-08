@@ -1,257 +1,102 @@
-# CampFinder — Session Handoff
+# CampFinder — Handoff
 
-## What this is
+Current state, next steps and hard-won gotchas. Stack, rules and code map: `CLAUDE.md`. Per-session history before 2026-10-07: `git log -p docs/handoff.md` and PRs #1–#5.
 
-CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
+## Status (2026-10-07)
 
-## Current status (2026-10-07): "Suggest a campground" (PR #4) MERGED to `main` + prod backend deployed; code-reuse refactor DONE on `chore/code-reuse-refactor` (15 commits, not pushed)
+- **Live and soft-launched** (since 2026-07-11). PRs #1–#4 are merged and deployed: moderation, suggest-edit/deletion, post-launch features (directions, elevation + weather, nearby, cell coverage), suggest-a-campground.
+- **PR #5 open**: `chore/code-reuse-refactor` (change record in the PR description). No schema change. It adds a root `package.json` + Prettier, which adds a root importer to `pnpm-lock.yaml`, so **watch the first Pages build after merging**.
+- **The owner's stance:** next work should come from user feedback, not speculation.
 
-The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are now live in prod** — PR #3 merged 2026-07-21 following the `docs/rollout-pr3.md` runbook (backend schema deployed, both enrichments run against prod, frontend auto-deployed). See "Session 2026-07-21" below for the rollout log and "Wishlist: post-launch" for remaining future work.
+## Next up
 
-## Deploy status (2026-07-07)
+1. **Stale admin rows after a merge.** Approving a merge on `/admin` leaves the loser's pending edits/deletion flags/merge rows visible, and approving one then errors "Suggestion not found". Fix in `routes/admin/+page.svelte` `resolveMerge` `onResolved`: drop rows whose `facility_id`/`facility_a`/`facility_b` is the loser, or `invalidateAll()`.
+2. **Whitespace-only fields read as `0` in suggest-an-edit.** The `lib/detail/SuggestEditModal.svelte` `changes` builder checks `=== ''`, so `Number('  ') === 0`. Trim first (the `lib/validation.ts` validators already do), and make `locationValid` treat whitespace as blank.
+3. **Submit routes return `[]` with 201** (Teenybase `insert` responds `[]`; `insertRow` in `lib/server/moderation.ts`). Low priority: return `{ ok: true }`.
 
-The release-readiness plan (`docs/superpowers/plans/2026-07-05-release-readiness.md`) is **complete — all 16 tasks done**, branch merged to `main`. `main` is live and auto-deploys.
+4. **Approved user campgrounds get no Cell Signal (or elevation).** This is a feature gap, found 2026-10-07 on a local test submission (`user-b4gs8hjIQ2i1k_4FfKerZA`, "Zapata Falls Campground"; prod already has it from RIDB `261715` with coverage). `cell_coverage` comes only from the offline `etl` `enrich-cell` run (the FCC hex CSVs live only on the owner's machine), and `buildFacilityValues` (`lib/campgroundSubmission.ts`) sets neither field, so `CellCoverageChips` hides. Short-term fix: rerun `enrich-cell --as-of 2025-12` + `enrich-elevation` against prod after approvals, or suggest an edit with carriers. Real fix: on approve, fetch elevation from Open-Meteo (keyless) and look up the H3 res-9 cell in a server-side copy of the FCC hex sets (a D1 table or R2 object; `h3-js` is already an ETL dep). Also consider carrier tri-states on the suggest-a-campground form.
 
-- **Frontend:** https://camp-finder.pages.dev — Cloudflare Pages, **git-integrated: every push to `main` auto-builds and deploys** (root dir `frontend`, `pnpm build`, output `.svelte-kit/cloudflare`).
-- **Backend:** https://backend.misty-cell-863d.workers.dev — Teenybase Worker + prod D1 `backend-db`. Deploys are manual: `cd backend && pnpm deploy` (needs `.prod.vars`).
-- **Lockdown:** `X-TB-Key` header guard live and verified (403 on all paths incl. Pocket UI without the secret; prod Pocket UI is intentionally unreachable — admin data access is `wrangler d1 execute backend-db --remote`).
-- **Free tier throughout:** no domain, no Resend, no CF Access. `RESEND_API_KEY`/`EMAIL_FROM`/`TB_ACCESS_*` deliberately unset in prod.
-- **Data:** 649 facilities (2026-07-08 grid-sweep resync: 353 RIDB-sourced, rest fs.usda.gov/NPS; 102 RIDB ids absorbed into scraped rows via `merged_ridb_ids`). ~50 fs.usda.gov stragglers remain (429s) — rerun `cd etl && pnpm discover` with prod `.env` values to top up; dedupe makes reruns safe.
-- **Accounts:** `knox.wp@gmail.com` is the sole user and sole admin. Invite code: `fcfscamp` (Pages env var `INVITE_CODE`; changing it only affects new registrations).
+One commit each, with a test where possible. Item 4 probably folds into the brainstorm below.
 
-### Secrets
+## Direction brainstorm (planned session)
 
-All prod secrets live in the owner's private worksheet (generated 2026-07-07, never in git) + `backend/.prod.vars` (gitignored). Pages env vars: `TB_URL`/`PUBLIC_TB_URL` (worker URL), `TB_SERVICE_TOKEN`, `TB_SHARED_SECRET`, `AUTH_TOKEN_SECRET`, `INVITE_CODE`. Worker secrets: `JWT_SECRET(_USERS)`, `ADMIN_JWT_SECRET`, `ADMIN_SERVICE_TOKEN`, `TB_SHARED_SECRET`, `APP_URL`, `POCKET_UI_*_PASSWORD`.
+The goal is a site the owner and friends use to find campsites anywhere they want to camp in the **Western US**, not just Colorado. Open questions to settle together before building:
+- **Expansion beyond CO:** the ETL is CO-bbox/forest-specific (`etl/src/forests.ts`), and so are the FCC data (state_fips 08) and the `WeatherStrip` timezone.
+- **Better campground discovery:** today it's RIDB grid sweep + fs.usda.gov scrape (429s) + NPS + user submissions. Look for better sources and a less manual process.
+- **Cell coverage at scale:** keep it working for new regions and newly approved campgrounds (Next up #4, wishlist #4).
+- **Backend:** stay on Teenybase (pre-alpha; no compound WHERE, local migrate pain) or move to something similar with more features.
 
-### Smoke results (2026-07-07, all captured)
+**Unverified in prod (owner):** a real-request `campground_suggestions/list` → 200; a suggest-a-campground smoke test (submit → approve → marker → flag for deletion); the PR #3 smoke list (elevation/weather/cell on a Denver-area panel, Has Cell Service filter, directions, Nearby, Compare rows, mobile filter collapse).
 
-- Direct Worker sign-up with `role:"admin"` payload, no `X-TB-Key` → 403 from guard ✓
-- Wrong invite code → 403 "Invalid invite code." ✓
-- Password-reset round trip via link read from `wrangler pages deployment tail` ✓ (old password dead, new works)
-- Verify banner + account resend correctly ABSENT (`email_enabled:false`) ✓
-- Map search / save / rate / suggest-edit / report-duplicate / admin approval ✓
-- Alerts scrape from prod ✓
+## Prod
 
-### Prod bugs found & fixed during smoke
+- **Frontend:** https://camp-finder.pages.dev. Pages is git-integrated, so **every push to `main` auto-deploys** (root `frontend`, `pnpm build`, output `.svelte-kit/cloudflare`).
+- **Backend:** https://backend.misty-cell-863d.workers.dev (Teenybase Worker + D1 `backend-db`). Deploys are manual.
+- **Free tier throughout:** no domain, Resend or CF Access (`RESEND_API_KEY`/`EMAIL_FROM`/`TB_ACCESS_*` unset). Reset links are generated by an admin in `/admin` ("Password reset link"), or read from `wrangler pages deployment tail`.
+- **Lockdown:** the `X-TB-Key` guard 403s every path without the secret, including Pocket UI (unreachable in prod by design). Admin data access is `wrangler d1 execute backend-db --remote`.
+- **Data:** 647 facilities (RIDB + fs.usda.gov + NPS + user-submitted).
+- **Accounts:** knox.wp@gmail.com is the sole user and admin. Invite code `fcfscamp` (Pages env `INVITE_CODE`; changing it only affects new registrations). No test accounts in prod.
 
-- **`Buffer` broke sessions on Pages** (`2e91c43`): `decodeJwtPayload` used Node `Buffer`, unavailable on Pages functions without `nodejs_compat`. Every request's JWT decode threw → silent refresh per request → parallel requests ("Search this area") raced refresh-token rotation → loser cleared session cookies. Fixed with `atob`/`TextDecoder`. **Lesson: Pages functions are not Node — web APIs only in `frontend/src/lib/server` and routes.**
-- Teenybase deploy quirks: `teeny deploy --remote` keeps its own migration ledger (`_db_migrations`) and settings (`$settings` in `_ddb_internal_kv`) **inside D1** — applying migrations via plain `wrangler d1 migrations apply` satisfies wrangler but leaves Teenybase reporting "Table not found". A crashed teeny deploy required dropping the empty tables and letting teeny redo it end-to-end. Also: teeny's API settings sync is blocked by the X-TB-Key guard — temporarily `wrangler secret delete TB_SHARED_SECRET`, deploy, re-run `pnpm secrets-upload`.
+### Deploy procedure (schema changes)
 
-### Session 2026-07-08 — ETL grid-sweep redesign + prod resync
+1. **Backend first, and deploy it before merging the frontend.** Pages auto-deploys `main`, and new routes 500 without their tables.
+2. The guard blocks teeny's settings sync, so run `npx wrangler secret delete TB_SHARED_SECRET` → `pnpm deploy` → `pnpm secrets-upload` (in `backend/`), then confirm a request without the key gets a 403.
+3. Verify the new table with a real request (e.g. `POST /api/v1/table/<table>/list` → 200), not the migration ledger.
+4. Merge to `main`.
 
-The old RIDB sync (`state=CO&activity=CAMPING`) silently missed ~80 real campgrounds: RIDB's `state` filter matches the facility *address record* and `activity` its ACTIVITY list — both empty for many real campgrounds (e.g. ROSY LANE 232157). Redesigned in `etl/`:
+## Secrets & env files
 
-- **Grid sweep** (`forests.ts`): lat/lng radius queries over the CO bbox (RIDB clamps `radius` to ~25mi), dedupe by FacilityID, filter to bbox coords.
-- **Junk filter**: `facilitytype=Campground` includes trailheads/day-use/a cemetery; skip facilities with zero *overnight* campsites (only when the campsite fetch succeeded).
-- **Cross-source dedupe** (`dedupe.ts`, shared by sync/discover/sync-nps): canonicalized names (strips parens, " - District" suffixes, "Campground") + ~1km proximity. New RIDB ids matching existing `fs-*`/`nps-*` rows are absorbed into `merged_ridb_ids` (enriched, not duplicated).
-- **Update-clobber protection** (`teenybase.ts` UpsertOptions): re-syncs no longer reset `is_closed` or wipe fees/fs_url/description another source populated.
-- **Retry/backoff** in RidbClient for 429/5xx.
-- Prod resync ran clean: 1001 candidates → 694 junk-skipped → 307 campgrounds upserted, 102 absorbed, 566→649 facilities. Tests: 127 ETL (was 108).
+Prod secrets live in the owner's private worksheet and `backend/.prod.vars` (gitignored). CF Worker secrets are write-only, so those two are the readable source of truth.
 
-**Leftover:** pre-existing duplicate pairs from the old weak name-match (e.g. RIDB "Lodgepole (Taylor River…)" + `fs-gmug-lodgepole-campground-gunnison-rd`, ditto Lottis Creek) are still in prod — merge via the /admin duplicate UI.
+- **Pages env:** `TB_URL`/`PUBLIC_TB_URL`, `TB_SERVICE_TOKEN`, `TB_SHARED_SECRET`, `AUTH_TOKEN_SECRET`, `INVITE_CODE`
+- **`backend/.dev.vars`:** `APP_URL`, `JWT_SECRET(_USERS)`, `ADMIN_JWT_SECRET`, `ADMIN_SERVICE_TOKEN`, `POCKET_UI_*_PASSWORD`. **`.prod.vars`:** the same names + `TB_SHARED_SECRET`
+- **`frontend/.env`:** `PUBLIC_TB_URL=http://localhost:8787`, `TB_SERVICE_TOKEN`, `AUTH_TOKEN_SECRET`, `INVITE_CODE=letmecamp`
+- **`etl/.env`:** `RIDB_API_KEY`, `NPS_API_KEY`, `TB_API_URL`, `TB_SERVICE_TOKEN`. **For prod runs, add `TB_SHARED_SECRET`** and the worker URL; the ETL sends the header only when the var is set, so without it every request 403s. The ETL's `TB_SERVICE_TOKEN` is the backend's `ADMIN_SERVICE_TOKEN`. Revert to local values afterwards.
 
-### Known limitations / follow-ups
-
-- ~~Reset links are admin-delivered~~ **DONE 2026-07-08**: `/admin` now has a "Password reset link" section (`POST /api/admin/reset-link`, gated by `requireAdmin`; link shown only to the authenticated admin, valid 30 min). Pages-log tailing no longer needed.
-- ~~/reset page is left-aligned~~ **FIXED 2026-07-08**: `.app-shell` is a flex row, so the page needed `flex: 1` — card now centers.
-- fs.usda.gov rate-limits the scraper (HTTP 429); multi-pass `pnpm discover` with 10–15 min cooldowns converges.
-- SonarQube (sonarjs) repo scan 2026-07-08 left unfixed: super-linear regexes in `auth/validate.ts` (email — hit by public auth routes), `auth/tokens.ts`, `api/alerts/[id]`, `etl fsScraper/normalize`; plus minor hygiene (unused import in filterStore, nested ternary in ratings route, `Math.random()` in username.ts). Re-run with `eslint.sonar.config.mjs` (repo root, untracked).
-
-### Session 2026-07-11 — moderation wishlist built (merged to `main` as PR #2)
-
-Both wishlist items below are **implemented** on `feat/moderation-wishlist` (11 commits, plan: `docs/superpowers/plans/2026-07-11-moderation-wishlist.md`) and **merged to `main`** later the same day.
-
-- **Expanded suggest-an-edit**: site counts (`fcfs_total`/`reservable_total`, derived FCFS flags recomputed on approval via shared `$lib/fcfs.ts`), closed status, and location via a draggable-pin Leaflet picker (`LocationPicker.svelte`). New fields validated in `/api/suggestions`.
-- **Suggest-a-deletion**: `delete_suggestions` table (all rules `'false'`), required reason, `FlagDeletionModal` entry next to report-duplicate, `/admin` "Deletion flags" queue. Approval **tombstones** (`facilities.is_deleted`) — public bbox route filters tombstones, ETL never updates/resurrects them (`etl/tests/tombstone.test.ts`).
-- **Admin UX**: `/admin` is now its own scroll container (the `.app-shell` overflow:hidden lock made it unscrollable); "View on map" links on all three queues; location edits render a before/after mini-map (`LocationDiffMap.svelte`); admins opening a detail panel see a "⚑ N pending reviews" pill linking to `/admin` (`/api/admin/pending/[facilityId]`).
-- **⚠ Deploy order**: run `cd backend && pnpm deploy` (new table + column) BEFORE merging to `main` — the auto-deployed frontend 500s on `/api/deletions` without the schema.
-- **⚠ Local dev DB trap (root-caused & fixed)**: commit `b8e4073` (7/7 prod deploy) changed `database_id` in `wrangler.jsonc`, which re-keys miniflare's local D1 storage — every dev run since bound a NEW empty DB ("no such table" everywhere). Fixed by copying the old sqlite over the new object and hand-applying the new DDL. The served file is now `da240ff2…sqlite` (use THIS hash for the sqlite promote command below). `pnpm migrate` (`teeny deploy --local`) proved unreliable locally (ledger-only writes, empty `migrations/`) — for local schema changes prefer direct SQL against the served sqlite + verify with a real request.
-- Tests now: frontend 44 (`pnpm check` 0/0), etl 130.
-
-### Session 2026-07-16 — post-launch features built (PR #3 open, NOT merged)
-
-All four feature tiers from `docs/superpowers/plans/2026-07-14-post-launch-features.md` (spec: `docs/superpowers/specs/2026-07-14-post-launch-features-design.md`) are **implemented and reviewed** on `feat/post-launch-features` — 22 commits, subagent-driven with two-stage review per task plus a final whole-branch review (verdict: ready to merge). **PR #3 is open; owner reviews and decides the merge.**
-
-- **Directions deep-links**: Google Maps universal link everywhere, Apple Maps added on iOS (`$lib/platform.ts`).
-- **Elevation + weather**: `facilities.elevation_m` backfilled by `cd etl && pnpm enrich-elevation` (Open-Meteo, keyless; already run against local). Shown in detail header + Compare. `WeatherStrip.svelte` fetches a 7-day elevation-corrected forecast client-side.
-- **Things nearby**: `nearby_pois` cache table + `/api/nearby/[id]` (Overpass on miss, 7-day TTL, serve-stale on failure) + `NearbySection`. **Field note:** the section hides entirely when Overpass fails and no cache exists — during this session overpass-api.de 504'd under load, then 429'd our IP (timeouts stack a cooldown penalty). Normal usage (1 query/campground/week) is fine; if chronic, add a mirror fallback (kumi.systems) and a short server-side no-retry window on 429/504.
-- **Cell coverage**: `facilities.cell_coverage` JSON (Verizon/AT&T/T-Mobile + `as_of` + `user_edited`), offline enrichment via `cd etl && pnpm enrich-cell --as-of YYYY-MM` from FCC BDC H3 res-9 CSVs (download runbook: `etl/README.md`). Chips in detail panel, Cell Signal row in Compare. **Populated locally 2026-07-17 (see that session note); prod waits on `docs/rollout-pr3.md`** (UI hides on null, so shipping without it is safe).
-- **Crowdsourced carrier overrides**: suggest-an-edit now has a carrier tri-state group; admin approval merges only suggested carriers and appends them to `user_edited` (never clobbered by `enrich-cell`). **Semantic decision:** suggesting "Unknown" (null) *relinquishes* ownership — the key is removed from `user_edited` so FCC data can repopulate it.
-- Tests now: frontend 64 (`pnpm check` 0/0), etl 143. Local D1 got the new DDL by hand (miniflare trap, see 2026-07-11 note); all 588 local facilities have `elevation_m`.
-
-**⚠ Remaining rollout steps: superseded by `docs/rollout-pr3.md` (2026-07-17) — the FCC download is no longer a blocker.**
-
-### Session 2026-07-17 — FCC cell data ingested locally + has-cell filter (on PR #3)
-
-Commit `410758a` on `feat/post-launch-features` (pushed, part of PR #3).
-
-- **FCC data downloaded & enriched (local only)**: the FCC dropped the per-provider H3 CSV download the runbook assumed. New flow (documented in `etl/README.md`): By Provider tab → Verizon 131425 / AT&T Mobility 130077 / T-Mobile 130403 → Colorado, 4G LTE → **Hexagon Coverage - GeoPackage**. A GeoPackage is SQLite; hex IDs are extracted with `sqlite3` into `etl/data/fcc/{verizon,att,tmobile}.csv` (gitignored, currently on the owner's machine — .gpkg sources in `~/Downloads/bdc_08_*.gpkg`). Data vintage **Dec 31 2025** → `--as-of 2025-12`.
-- **⚠ `environmnt` trap (root-caused after a bad first pass)**: each hex appears under exactly ONE `environmnt` value — 1 = covered even in-vehicle (strong), 0 = outdoor-only fringe; the sets are disjoint. Coverage = the union; do NOT filter. First extraction kept only `environmnt=0`, which inverted reality (wilderness "covered", Cherry Creek/Chatfield/Bear Creek "no service"). Verified fixed: Denver-metro parks show all three carriers; 231/588 local facilities have some coverage.
-- **"Has Cell Service" filter** (owner request): replaces the Pets Allowed checkbox in `FilterSidebar`/`filterStore` — matches facilities with ANY carrier true in `cell_coverage` (FCC or camper-reported). One-for-one checkbox swap, mobile collapse layout untouched. Pets data still shown in detail/suggest-edit/admin.
-- **Detail-panel divider**: `.description` now has the same top rule as the Cell Signal section, separating Cell Signal from the Overview text.
-- Verified live via Playwright (filter 537→231; computed border on `.description`). Tests: frontend 64 pass, `pnpm check` 0/0.
-
-### Session 2026-10-03 — "Suggest a campground" (user-submitted campgrounds)
-
-Owner got back after ~2 months away. Prod admin password reset via the forgot-password flow + `wrangler pages deployment tail` (link logged since email is off); local admin `willis+admin@email.com` reset the same way (link prints in the frontend dev terminal as `[email:dev]`).
-
-Built on **`feat/suggest-campground`** (plan: Sonnet subagents per task, Opus review). Scrapers still miss some campgrounds, so signed-in users can now submit one:
-
-- **Entry point:** "＋ Suggest a missing campground" under "Search this area" in the sidebar (logged-out → sign-in modal). `SubmitCampgroundModal` → shared `lib/campground/CampgroundForm.svelte`: name (required), map pin (`LocationPicker`) + lat/lng, optional fee min/max, FCFS/reservable counts, season, amenity tri-states, source link, reviewer notes.
-- **Table `campground_suggestions`** (ALL rules `'false'`, service-token only): `user_id`, `submission` JSON (`CampgroundSubmission`), `source_url`, `created_facility_id`, + moderation fields (`note` = submitter notes). Routes: `POST /api/campground-suggestions`, `GET/POST /api/admin/campground-suggestions`.
-- **Admin queue** "Suggested campgrounds" (top of `/admin`): every field editable (same form + description/forest/district), "Possible duplicate — within 1.5 km" list, submitter email. **Approve** inserts a `facilities` row built by `buildFacilityValues` (`$lib/campgroundSubmission.ts`) — `ridb_id = "user-<suggestionId>"`, amenities defaulted like the ETL, FCFS flags via `$lib/fcfs.ts`, `fs_url` only if the source link is on fs.usda.gov — and records the edited submission + `created_facility_id` on the suggestion. Approve is idempotent (reuses an existing `user-<id>` row on retry).
-- **`user-` ridb_id convention:** ETL `isNonRidbSourceId` (dedupe.ts) treats `user-` like `fs-`/`nps-` — RIDB sync absorbs a matching new RIDB id into the user row's `merged_ridb_ids`; `discover` deliberately keeps user rows in its match pool so an fs.usda.gov page enriches them. Merge `sourceRank` puts `user-` lowest (scraped/RIDB record wins a duplicate merge). Source badge "User".
-- **E2E fixes found via Playwright:** `LocationPicker` now `invalidateSize()`s on container resize (admin-card maps rendered half grey); "Reserve on recreation.gov" link now only for numeric RIDB ids (was 404ing for fs-/nps-/user- rows — pre-existing bug).
-- Tests: frontend 87 (was 64), etl 146 (was 143), svelte-check 0/0. Verified end-to-end locally with Playwright (logged-out gate, validation, submit, dup hints, edit+approve → green marker + detail panel, reject, 390px mobile).
-- **Local DB:** table added by hand to the served sqlite + `.local-persist/config.json` (miniflare trap). Backups `*.bak-suggest-campground` next to both. `teeny generate` re-numbered the gitignored `backend/migrations/` (now 0000–0016, new table in `0015_…`) — don't trust that folder's numbering.
-- **⚠ pnpm env:** `pnpm check/test/generate` failed with `ERR_PNPM_IGNORED_BUILDS` (newer pnpm). Owner ran `approve-builds`, which rewrote `pnpm-workspace.yaml` (`allowBuilds`) and `pnpm-lock.yaml` (lockfile v6→v9, wrangler 4.63→4.147, …) — **left uncommitted, not in the feature PR**; decide separately (Pages build uses its own pnpm).
-
-**⚠ Prod rollout order (owner-confirmed, not done):** (1) `cd backend && pnpm deploy` with the `TB_SHARED_SECRET` delete → deploy → `pnpm secrets-upload` dance; (2) verify `POST /api/v1/table/campground_suggestions/list` → 200 with a real request; (3) only then merge the PR — Pages auto-deploys `main` and the new routes 500 without the table.
-
-**⏭ Superseded — see "Session 2026-10-07" below.**
-
-**Local test data left behind:** facility "Playwright Edited Meadow" (`user-bqrxpgIFSNK-j9daMGcutA`) + 3 resolved test suggestions in the local DB only.
-
-### Session 2026-10-07 — PR #4 merged, admin refactor, refactor sweep
-
-- **Admin page refactor** (in PR #4): `routes/admin/+page.svelte` 1631 → ~1150 lines via `lib/admin/{QueueSection,ReviewCard,PasswordResetCard}.svelte` + `types.ts`. Cards are collapsible (chevron header; Collapse all / Expand all per queue; cards start expanded).
-- **Toilets:** Flush/Vault/None/Unknown selector on the suggest-a-campground form (submission key `toiletType`, validated, written to facility amenities on approve) and on suggest-an-edit (sent as `amenities.toiletType`; `/api/suggestions` validates it). Admin diff labels it "Toilets".
-- **Blank numerics → 0:** fee min/max, FCFS and reservable counts save as `0`, not null (`draftToSubmission`; `buildFacilityValues` also coalesces legacy nulls to 0). Note fee 0 reads as "free" even if the submitter just didn't know — revisit if that bites.
-- Not added: a test for the `toiletType` check in `/api/suggestions`; the admin page refactor was not eyeballed in a browser (check + vitest only). Frontend tests: 89.
-- **Prod rollout of PR #4:** owner ran the backend deploy (`X-TB-Key` guard dance: `wrangler secret delete TB_SHARED_SECRET` → `pnpm deploy` → `pnpm secrets-upload`); guard confirmed back on (403 without key). PR #4 then merged (`3a88dc7`) → Pages auto-deploy. **Not yet done:** a real-request check of `campground_suggestions/list` → 200 (assistant could only confirm the guard), and the prod smoke test (submit a test campground → approve in `/admin` → marker + detail panel → flag it for deletion).
-- pnpm file decision (`pnpm-workspace.yaml` / `pnpm-lock.yaml`, lockfile v9) was committed in `ba5d5aa` and is now on `main`; confirm the Pages build is happy with it.
-- **Codebase reuse sweep** done (read-only); findings + ordered plan in **`docs/refactor-sweep.md`**.
-
-**⏭ Superseded — see "Session 2026-10-07 (later)" below.**
-
-### Session 2026-10-07 (later) — code-reuse refactor executed on `chore/code-reuse-refactor`
-
-- 15 commits, one per task (Sonnet/Haiku subagents implemented, Opus reviewed each before committing). Full table, intentional behavior changes and found-not-fixed issues: **`docs/refactor-sweep.md`**. New "Where shared code lives" section in `CLAUDE.md`.
-- **Bug fixed:** tombstoned facilities were still returned by `/api/facilities/[id]` and shown in Compare.
-- Tests: frontend 167 (was 89), etl 155 (was 146), svelte-check 0/0, `pnpm build` OK, `pnpm format:check` clean.
-- **Prettier added** (root `package.json` + `pnpm format`). This adds a root importer to `pnpm-lock.yaml` — **watch the first Cloudflare Pages build after merging**.
-- **Pushed; PR opened** (see GitHub). No backend schema changes, so no deploy-order constraint.
-- **Local DB state:** `testview@example.com` promoted to `role='admin'` (local only) for browser verification. Test campgrounds created during admin-page verification were merged/tombstoned; queues are empty; the two PIKE COMMUNITY test edit suggestions were rejected (record unchanged).
-
-**⏭ Next session — fix the bugs found during the refactor** (all pre-existing, small; one commit each, add a test where possible):
-1. **Stale admin rows after a merge** — approving a merge on `/admin` leaves the loser facility's pending edit suggestions / deletion flags / other merge rows visible until refresh; approving one then errors "Suggestion not found". Fix in `routes/admin/+page.svelte` (`resolveMerge` `onResolved`): also drop rows whose `facility_id` (or `facility_a`/`facility_b`) is the merged-away loser — or simply re-run the page load (`invalidateAll()`) after a merge.
-2. **Whitespace-only fields read as `0` in suggest-an-edit** — `lib/detail/SuggestEditModal.svelte` `changes` builder checks `=== ''`, so `'  '` becomes `Number('  ') === 0` (fees/counts/lat/lng). Trim before the blank check (validators in `lib/validation.ts` already trim), and make `locationValid` treat whitespace as blank.
-3. **Submit routes return no new row id** — Teenybase `insert` responds `[]`, so `insertRow` (`lib/server/moderation.ts`) passes `[]` back with 201. Low priority: return `{ ok: true }` (or look the row up) so the client gets a meaningful body.
-
-### Session 2026-07-21 — PR #3 rolled out to prod (merge commit `febc72b`)
-
-Executed `docs/rollout-pr3.md` end to end. PR #3 (`feat/post-launch-features`) is **merged to `main`** and the post-launch features are live.
-
-- **Backend schema deployed** (step 1): `nearby_pois` table + `facilities.cell_coverage` / `facilities.elevation_m` columns are on prod. Verified with a real request, not the ledger: `GET /api/v1/table/nearby_pois/list?limit=1` → `HTTP 200 {"items":[],"total":0}`.
-- **Enrichments run against prod** (step 2): `enrich-elevation` (Open-Meteo, keyless) + `enrich-cell --as-of 2025-12` (FCC CSVs from `etl/data/fcc/`).
-- **Merged** (step 3): `gh pr merge 3 --merge` → merge commit `febc72b` at 23:36 UTC. No protected-ref error (ruleset 18509008 was already correct). Cloudflare Pages auto-built `main` → `camp-finder.pages.dev`.
-- **Cleanups done** (step 5): stray `~/Downloads/bdc_us_*` folders deleted; `etl/.env` reverted to local values (backup was `etl/.env.local.bak`).
-
-**Gotcha logged for future prod ETL runs:** the `X-TB-Key` guard 403s any request with an empty/missing header. `etl/.env` has no `TB_SHARED_SECRET` line locally (local backend doesn't enforce the guard); for prod runs it must be **added** — the ETL only sends the header when the var is present (`etl/src/teenybase.ts:26`). Also note the name mismatch: the ETL's `TB_SERVICE_TOKEN` is the same value as the backend's `ADMIN_SERVICE_TOKEN` in `backend/.prod.vars`. Cloudflare Worker secrets are write-only — the readable source of truth for these values is `backend/.prod.vars` / the owner's worksheet, not the CF dashboard.
-
-**Left to the owner:** step 4 prod smoke checks on `camp-finder.pages.dev` (elevation/weather/cell on a Denver-area detail panel, Has Cell Service filter, directions links, Things Nearby, Compare rows, mobile filter collapse).
-
-### ~~Wishlist: expand suggest-an-edit fields (owner request, 2026-07-07)~~ — DONE 2026-07-11 (see session note above)
-
-Users should additionally be able to suggest edits for:
-1. **Site counts** — total sites and FCFS site count (`fcfs_total`/`reservable_total`; note the derived `is_fully_fcfs`/`is_partial_fcfs` flags must be recomputed on approval).
-2. **Campground location** — coordinates. Typing lat/lng works, but drag/place a pin on a map would be much better; needs a richer edit UI than the current field-patch form (map picker in the suggest-edit modal).
-3. **Closed status** — whether the campground is closed (`is_closed`; drives the red marker).
-
-### ~~Wishlist: suggest-a-deletion (owner request, 2026-07-09)~~ — DONE 2026-07-11 (see session note above)
-
-Users should be able to flag a facility for **deletion** — some records aren't real campgrounds (bad scrape/RIDB entries). A **reason is required** (free text), same as the reason we'd want on any moderation action. Suggested shape:
-- New `delete_suggestions` table (mirror `merge_suggestions`: `facility`, `reason`, `status` pending|approved|rejected, reviewer fields; **ALL rules `'false'`**, service-token-only via SvelteKit server routes — Teenybase can't express role checks or compound WHERE).
-- Approval should **soft-delete / tombstone** rather than hard-delete, so the ETL doesn't resurrect the row on the next sync (compare the `merged_ridb_ids` absorb pattern — likely a `deleted`/`suppressed` flag the ETL respects, since a deleted `ridb_id` would otherwise reappear).
-- Surface the flag entry point next to the existing report-duplicate action; approve/reject from `/admin` alongside edits and merges.
-
-~~Also: **favicon + PWA icons**~~ — **DONE 2026-07-08**: owner-supplied icon set (mountain-ridge logo, Folded Field Map palette) lives in `frontend/static/icons/` (16/32 favicons, 180 apple-touch, 48/192/512 + `site.webmanifest`); wired into `app.html` head, `theme-color` now `#44542f`.
-
-### Session 2026-07-11 (later) — merged, icon unified, soft launch
-
-- **PR #2 merged to `main`** and auto-deployed; prod smoke-checked after merge (main page 200, bbox API 200 with data — the `/api/deletions` schema was already live in prod).
-- **Brand icon unified** (`989b217`): the header mark in `+layout.svelte` was a generic tent triangle that didn't match the favicon set. Redrawn as the same mountain-range + clay-sun mark on a cream (`--paper-2`) tile, so the browser tab and the top-left brand are now the same icon.
-- **GitHub "Cannot update the protected ref" (resolved)**: the repo ruleset `main` (id 18509008) had picked up a `update` ("Restrict updates") rule — that rule blocks ALL ref updates including PR merges, not just direct pushes. If the error recurs, edit https://github.com/wpknox/camp-finder/rules/18509008 and keep only `deletion` + `non_fast_forward` (add `pull_request` if we want to require PRs).
-
-### Session 2026-07-14 — post-launch features: spec + plan written, execution NOT started
-
-Researched and designed four post-launch feature tiers; spec and implementation
-plan are committed, **no implementation code exists yet**.
-
-- **Spec:** `docs/superpowers/specs/2026-07-14-post-launch-features-design.md`
-- **Plan:** `docs/superpowers/plans/2026-07-14-post-launch-features.md` (+ co-located `.tasks.json`, 13 tasks with dependencies)
-- **Branch:** `feat/post-launch-features` (created from `main`, this session)
-
-The four tiers, each independently shippable, in order: (1) directions
-deep-links (Google everywhere + Apple Maps on iOS), (2) `elevation_m` column +
-ETL `enrich-elevation` (Open-Meteo) + 7-day elevation-corrected weather strip,
-(3) "things nearby" — Overpass trailheads/grocery/fuel cached in a new
-`nearby_pois` table like alerts, (4) FCC cell-coverage enrichment
-(`enrich-cell`, h3-js) + carrier chips + **crowdsourced carrier overrides**
-through the existing suggest-an-edit flow (`user_edited` carriers are never
-clobbered by the FCC refresh).
-
-**Key ordering constraint (in the plan):** backend schema deploy (`cd backend
-&& pnpm deploy`) must land in prod BEFORE the frontend merge to `main`; local
-schema DDL is applied by hand per the known miniflare trap.
-
-**⏭ Next session: execute the plan with subagent-driven development** — invoke
-`superpowers-extended-cc:subagent-driven-development` against the plan file (or
-`/superpowers-extended-cc:executing-plans docs/superpowers/plans/2026-07-14-post-launch-features.md`
-in a fresh session); the `.tasks.json` carries full per-task briefs.
-
-**Deferred (needs its own brainstorm/spec):** road-conditions & trail-status
-reports — ephemeral timestamped condition-report model, not facility edits
-(owner request 2026-07-14; see spec's "Deferred" section).
-
-### Wishlist: post-launch (owner, 2026-07-11)
-
-Deliberately deferred until user feedback justifies them:
-
-1. **Domain + real email**: buy a domain, then wire up Resend for real email verification and password reset (the code paths exist but are disabled — `RESEND_API_KEY`/`EMAIL_FROM` deliberately unset in prod; reset links are currently admin-generated from `/admin`).
-2. **Submitter notifications**: the admin review UI has a "note to submitter" box on suggestions, but **it does nothing today** — the note is stored with the review and is never delivered to the user. Wiring it up probably depends on email (item 1), or an in-app inbox/banner.
-3. **Submitter attribution for admins**: it would be cool if the admin queues showed WHO made each edit suggestion / deletion flag / duplicate-merge request. All three tables (`edit_suggestions`, `merge_suggestions`, `delete_suggestions`) already store `user_id` — this is purely a display gap: resolve the username/email server-side (service token, `users/view/{id}`) in the `/api/admin/*` list routes and show it in the three `/admin` queues.
-4. **Automate the FCC cell-coverage download (`pnpm fetch-fcc`)** (owner request, 2026-07-16): the BDC Public Data API can replace the manual `etl/README.md` click-path — `listAsOfDates` → `listAvailabilityData/{as_of_date}?category=Provider&subcategory=Hexagon Coverage&technology_type=Mobile Broadband` (filter state_fips 08, 4G LTE, Verizon/AT&T Mobility/T-Mobile) → `downloadFile/availability/{file_id}` → unzip into `etl/data/fcc/`, then chain `enrich-cell --as-of`. Auth is a free FCC User Registration account + self-service token (broadbandmap.fcc.gov login → username menu → Manage API Access → Generate); headers `username` + `hash_value`; rate limit 10 calls/min (we need ~5). Owner still needs to register + generate the token (`FCC_USERNAME`/`FCC_HASH_VALUE` in `etl/.env`). Reference docs in owner's Downloads: `bdc-public-data-api-swagger.yaml`, `bdc-public-data-api-specifications.pdf`.
-5. **Road conditions & trail status reports** (deferred 2026-07-14): ephemeral timestamped camper reports ("road washed out", "trail snowed in") — different data model from permanent facility facts (needs expiry/decay), so it needs its own spec before any build.
-6. **WeatherStrip timezone** (final-review note, 2026-07-16): `timezone=America/Denver` is hardcoded — fine for CO, wrong day-bucketing if the app ever covers other states; Open-Meteo supports `timezone=auto`. Same review noted chips render `false` (FCC says no) and `null` (unknown) identically as ○.
-
-### Feedback-driven from here
-
-The app is now being shared with real users. **The next round of work should be driven by their feedback** — collect what campers actually ask for (pain points, missing data, confusing UI) rather than speculating. Revisit the wishlist above as feedback confirms demand.
-
-## How to run locally
+## Local dev
 
 ```bash
 cd backend && pnpm dev    # :8787 — Pocket UI /api/v1/pocket/, Swagger /api/v1/doc/ui
-cd frontend && pnpm dev   # :5173
-cd etl && pnpm sync       # RIDB; pnpm discover (fs.usda.gov); pnpm sync-nps (NPS)
-cd backend && pnpm generate && pnpm migrate   # after schema changes
+cd frontend && pnpm dev   # :5173 — emails print here as [email:dev] (reset links)
 ```
 
-Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (167); `etl pnpm test` (155); root `pnpm format:check`.
+Tests: frontend `pnpm check` (0/0 before every commit) + `pnpm test` (167); etl `pnpm test` (155); root `pnpm format:check`.
 
-**Teenybase regenerated `backend/migrations/` as a squashed 0000–0006 set during the prod deploy** (gitignored; old 0001–0012 history is gone — local dev DB predates the squash and is fine).
+- Local admin `willis+admin@email.com`; test user `testview@example.com` / `password123` (also promoted to admin locally).
+- Promote locally with `sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/da240ff2….sqlite "UPDATE users SET role='admin' WHERE email='<you>'"`. In prod: `cd backend && npx wrangler d1 execute backend-db --remote --command "…"`.
+- Leftover local test data: facility "Playwright Edited Meadow" (`user-bqrxpgIFSNK-j9daMGcutA`).
 
-## Env files
+## Gotchas
 
-- **`backend/.dev.vars`** — `APP_URL`, `JWT_SECRET(_USERS)`, `ADMIN_JWT_SECRET`, `ADMIN_SERVICE_TOKEN`, `POCKET_UI_*_PASSWORD`
-- **`backend/.prod.vars`** — same names with prod values + `TB_SHARED_SECRET` (uploaded via `pnpm secrets-upload`)
-- **`frontend/.env`** — `PUBLIC_TB_URL=http://localhost:8787`, `TB_SERVICE_TOKEN`, `AUTH_TOKEN_SECRET`, `INVITE_CODE=letmecamp` (local)
-- **`etl/.env`** — `RIDB_API_KEY`, `NPS_API_KEY`, `TB_API_URL`, `TB_SERVICE_TOKEN`; add `TB_SHARED_SECRET` + worker URL for prod runs
+- **Pages functions are not Node.** Use web APIs only in `frontend/src/lib/server` and routes. A `Buffer` call (fixed in `2e91c43`) made every JWT decode throw, and the parallel refresh races then silently cleared sessions.
+- **Local D1 schema changes:** miniflare keys the sqlite file by `database_id`, and the served file is `da240ff2…`. The worker routes tables from `backend/.local-persist/config.json`, so **update both the sqlite and config.json by hand**, then verify with real HTTP. Never run `pnpm migrate` locally while they disagree: it fails partway and reverts config.json. The gitignored `backend/migrations/` numbering is meaningless.
+- **Teenybase keeps its migration ledger and settings inside D1.** Plain `wrangler d1 migrations apply` leaves teeny reporting "Table not found". If a teeny deploy crashes, drop the empty tables and rerun it.
+- **Rate limits:** fs.usda.gov 429s the scraper (multi-pass `pnpm discover` with 10–15 min cooldowns converges; dedupe makes reruns safe). Overpass 504s/429s under load and timeouts stack a cooldown. The Nearby section hides when there's no cache, and a mirror fallback (kumi.systems) is the fix if this becomes chronic.
+- **FCC cell data:** the download flow is in `etl/README.md`. Never filter on `environmnt`: coverage is the union of both values.
+- **Carrier overrides:** suggesting "Unknown" removes the carrier from `user_edited`, so FCC data can repopulate it.
+- **Blank numerics save as `0`,** so a fee of 0 reads as "free" even when the submitter just didn't know.
+- **GitHub "Cannot update the protected ref":** the `main` ruleset (https://github.com/wpknox/camp-finder/rules/18509008) picked up an `update` rule. Keep only `deletion` + `non_fast_forward`.
 
-## Accounts & data notes
+## Known issues
 
-- Local admin: `willis+admin@email.com`; local test user `testview@example.com` / `password123`. Prod has NO test accounts.
-- Local promote via sqlite: `sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/<long-hash>.sqlite "UPDATE users SET role='admin' WHERE email='<you>'"`. Prod promote: `cd backend && npx wrangler d1 execute backend-db --remote --command "UPDATE users SET role='admin' WHERE email='<you>'"`.
-- All ETL sources dedupe by name + ~1km proximity and respect `merged_ridb_ids`.
+- ~50 fs.usda.gov stragglers are still missing (rerun `pnpm discover` with prod `.env`).
+- Old duplicate pairs are still in prod (e.g. RIDB "Lodgepole (Taylor River…)" + `fs-gmug-lodgepole-campground-gunnison-rd`, Lottis Creek). Merge them via `/admin`.
+- SonarQube findings (2026-07-08, rerun with the untracked `eslint.sonar.config.mjs`): super-linear regexes in `auth/validate.ts` (reachable from public auth routes), `auth/tokens.ts`, `api/alerts/[id]`, `etl fsScraper/normalize`; minor hygiene.
+- No test for the `toiletType` check in `/api/suggestions`.
+- `WeatherStrip` hardcodes `timezone=America/Denver` (use `auto` if the app leaves CO). Cell chips render `false` and `null` identically.
+
+## Wishlist (deferred until feedback justifies it)
+
+1. **Domain + Resend:** real verification and reset email (the code paths exist).
+2. **Submitter notifications:** the admin "note to submitter" is stored but never delivered (depends on 1, or an in-app inbox).
+3. **Submitter attribution in `/admin`:** suggestion tables already store `user_id`; resolve it via `users/view/{id}` in the `/api/admin/*` list routes.
+4. **`pnpm fetch-fcc`:** automate the FCC download via the BDC Public Data API: `listAsOfDates` → `listAvailabilityData/{date}?category=Provider&subcategory=Hexagon Coverage&technology_type=Mobile Broadband` (state_fips 08, 4G LTE, Verizon/AT&T Mobility/T-Mobile) → `downloadFile/availability/{file_id}` → unzip to `etl/data/fcc/` → `enrich-cell --as-of`. Auth headers are `username` + `hash_value` (`FCC_USERNAME`/`FCC_HASH_VALUE` in `etl/.env`), limit 10 calls/min. Blocked on the owner generating a token (broadbandmap.fcc.gov → Manage API Access). Swagger/spec PDFs are in the owner's Downloads.
+5. **Road/trail condition reports:** ephemeral, expiring reports; needs its own spec first.
 
 ## Useful checks
 
 ```bash
-# prod facility count
 cd backend && npx wrangler d1 execute backend-db --remote --command "SELECT COUNT(*) FROM facilities"
-# prod bbox search through the live frontend
 curl "https://camp-finder.pages.dev/api/facilities?north=41&south=38&east=-104&west=-107"
-# guard sanity: expect 403
-curl -X POST https://backend.misty-cell-863d.workers.dev/api/v1/table/facilities/list -d '{"limit":1}'
+curl -X POST https://backend.misty-cell-863d.workers.dev/api/v1/table/facilities/list -d '{"limit":1}'  # expect 403
 ```
