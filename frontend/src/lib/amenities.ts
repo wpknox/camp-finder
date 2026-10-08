@@ -19,7 +19,8 @@ export function defaultAmenities(): Amenities {
   }
 }
 
-/** Copy of etl/src/normalize.ts scoreDataQuality. MUST stay in lockstep with the ETL. */
+/** Copy of etl/src/normalize.ts scoreDataQuality. MUST stay in lockstep with the ETL —
+ * enforced by fixtures/data-quality.json (lockstep.test.ts in both packages). */
 export function scoreDataQuality(amenities: Amenities): DataQuality {
   const populated = Object.entries(amenities).filter(([k, v]) => {
     if (k === 'toiletType') return v !== 'unknown'
