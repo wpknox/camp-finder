@@ -117,19 +117,23 @@
     isLoading.set(true);
     searchPending.set(false);
 
-    const params = new URLSearchParams({
-      north: String(bounds.north),
-      south: String(bounds.south),
-      east: String(bounds.east),
-      west: String(bounds.west),
-    });
+    try {
+      const params = new URLSearchParams({
+        north: String(bounds.north),
+        south: String(bounds.south),
+        east: String(bounds.east),
+        west: String(bounds.west),
+      });
 
-    const res = await fetch(`/api/facilities?${params}`);
-    const data: Facility[] = await res.json();
+      const res = await fetch(`/api/facilities?${params}`);
+      if (!res.ok) return;
+      const data: Facility[] = await res.json();
 
-    facilities.set(data);
-    campMap.renderPins(data);
-    isLoading.set(false);
+      facilities.set(data);
+      campMap.renderPins(data);
+    } finally {
+      isLoading.set(false);
+    }
   }
 </script>
 

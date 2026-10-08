@@ -24,30 +24,16 @@
 
   let { facility, onclose }: { facility: Facility; onclose?: () => void } = $props()
 
-  let suggestOpen = $state(false)
-  let duplicateOpen = $state(false)
-  let deletionOpen = $state(false)
+  type PanelModal = 'suggest' | 'duplicate' | 'deletion'
+  let openModal = $state<PanelModal | null>(null)
   let showAuth = $state(false)
-  let pendingAction: 'suggest' | 'duplicate' | 'deletion' | null = $state(null)
-  function onSuggestClick() {
-    if (!$isLoggedIn) { pendingAction = 'suggest'; showAuth = true; return; }
-    suggestOpen = true
+  let pendingAction: PanelModal | null = $state(null)
+  /** Open a contributor modal, routing through sign-in first when logged out. */
+  function openGated(kind: PanelModal) {
+    if (!$isLoggedIn) { pendingAction = kind; showAuth = true; return }
+    openModal = kind
   }
-  function onReportDuplicateClick() {
-    if (!$isLoggedIn) { pendingAction = 'duplicate'; showAuth = true; return; }
-    duplicateOpen = true
-  }
-  function onFlagDeletionClick() {
-    if (!$isLoggedIn) { pendingAction = 'deletion'; showAuth = true; return; }
-    deletionOpen = true
-  }
-  function onAuthSuccess() {
-    showAuth = false
-    if (pendingAction === 'suggest') suggestOpen = true
-    else if (pendingAction === 'duplicate') duplicateOpen = true
-    else if (pendingAction === 'deletion') deletionOpen = true
-    pendingAction = null
-  }
+  function onAuthSuccess() { showAuth = false; openModal = pendingAction; pendingAction = null }
 
   // Admin-only shortcut: pending moderation counts for this facility. The
   // role check is display convenience — the /api/admin/pending route itself
@@ -170,10 +156,10 @@
         </p>
       {/if}
       <SaveButton facilityId={facility.id} facilityName={facility.name} />
-      <button class="report-duplicate-link" type="button" onclick={onReportDuplicateClick}>
+      <button class="report-duplicate-link" type="button" onclick={() => openGated('duplicate')}>
         Seeing this campground twice? Report a duplicate
       </button>
-      <button class="report-duplicate-link" type="button" onclick={onFlagDeletionClick}>
+      <button class="report-duplicate-link" type="button" onclick={() => openGated('deletion')}>
         Not a real campground? Flag for deletion
       </button>
       {#if isAdmin && pendingTotal > 0}
@@ -200,7 +186,7 @@
       {isComparing ? '✓ In Compare' : '+ Compare'}
     </button>
 
-    <button class="suggest-btn" onclick={onSuggestClick}>
+    <button class="suggest-btn" onclick={() => openGated('suggest')}>
       ✎ Suggest an edit
     </button>
 
@@ -240,16 +226,16 @@
   </div>
 </aside>
 
-{#if suggestOpen}
-  <SuggestEditModal {facility} onclose={() => (suggestOpen = false)} />
+{#if openModal === 'suggest'}
+  <SuggestEditModal {facility} onclose={() => (openModal = null)} />
 {/if}
 
-{#if duplicateOpen}
-  <ReportDuplicateModal {facility} onclose={() => (duplicateOpen = false)} />
+{#if openModal === 'duplicate'}
+  <ReportDuplicateModal {facility} onclose={() => (openModal = null)} />
 {/if}
 
-{#if deletionOpen}
-  <FlagDeletionModal {facility} onclose={() => (deletionOpen = false)} />
+{#if openModal === 'deletion'}
+  <FlagDeletionModal {facility} onclose={() => (openModal = null)} />
 {/if}
 
 {#if showAuth}
