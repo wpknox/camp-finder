@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from "$lib/api";
   import { onMount } from "svelte";
   import { isLoggedIn, currentUser } from "$lib/auth/authStore";
   import AuthModal from "$lib/auth/AuthModal.svelte";
@@ -49,12 +50,7 @@
   async function submit() {
     if (score < 1 || score > 5) return;
     submitting = true;
-    await fetch(`/api/ratings/${facilityId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ score, notes, visited_at }),
-    });
+    await submitJson(`/api/ratings/${facilityId}`, { score, notes, visited_at });
     submitting = false;
     showWriteForm = false;
     await load();
@@ -62,7 +58,7 @@
 
   async function doDelete() {
     confirmingDelete = false;
-    await fetch(`/api/ratings/${facilityId}`, { method: "DELETE", credentials: "include" });
+    await submitJson(`/api/ratings/${facilityId}`, undefined, { method: "DELETE" });
     await load();
   }
 

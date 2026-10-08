@@ -63,7 +63,7 @@
     if (!isAdmin) { pendingCounts = null; return }
     pendingCounts = null
     let stale = false
-    fetch(`/api/admin/pending/${id}`, { credentials: 'include' })
+    fetch(`/api/admin/pending/${id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => { if (!stale) pendingCounts = c })
       .catch(() => {})

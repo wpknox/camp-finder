@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from "$lib/api";
   import { auth, currentUser } from "$lib/auth/authStore";
   import { goto, invalidateAll } from "$app/navigation";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -35,17 +36,9 @@
     pending = null;
     if (!p) return;
     if (p.kind === "unsave") {
-      await fetch("/api/saved", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id: p.id }),
-      });
+      await submitJson("/api/saved", { id: p.id }, { method: "DELETE" });
     } else {
-      await fetch(`/api/ratings/${p.facilityId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      await submitJson(`/api/ratings/${p.facilityId}`, undefined, { method: "DELETE" });
     }
     await invalidateAll();
   }

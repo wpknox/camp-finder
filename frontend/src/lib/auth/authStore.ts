@@ -1,4 +1,5 @@
 import { writable, derived } from 'svelte/store'
+import { submitJson } from '../api'
 
 export interface AuthUser {
   id: string
@@ -14,20 +15,14 @@ function createAuthStore() {
   const { subscribe, set } = writable<AuthUser | null>(null)
 
   async function post(path: string, body: Record<string, string>) {
-    const res = await fetch(`/api/auth/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    })
-    const data = (await res.json().catch(() => ({}))) as { user?: AuthUser; error?: string }
-    if (!res.ok) throw new Error(data.error ?? 'Authentication failed')
-    return data
+    const r = await submitJson<{ user?: AuthUser }>(`/api/auth/${path}`, body, { fallbackError: 'Authentication failed' })
+    if (!r.ok) throw new Error(r.error)
+    return r.data ?? {}
   }
 
   /** Re-fetch the current user from the server (picks up email_verified/role changes). */
   async function refresh() {
-    const res = await fetch('/api/auth/me', { credentials: 'include' })
+    const res = await fetch('/api/auth/me')
     const data = (await res.json().catch(() => ({}))) as { user?: AuthUser }
     set(data.user ?? null)
     return data.user ?? null
@@ -50,18 +45,17 @@ function createAuthStore() {
       if (data.user) await refresh()
     },
     async logout() {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+      await submitJson('/api/auth/logout')
       set(null)
     },
     async requestReset(email: string) {
       await post('request-reset', { email })
     },
     async requestVerify(): Promise<{ ok: boolean; error?: string }> {
-      const res = await fetch('/api/auth/request-verify', { method: 'POST', credentials: 'include' })
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!res.ok || !data.ok) {
-        return { ok: false, error: data.error ?? 'Could not send email. Try again later.' }
-      }
+      const r = await submitJson<{ ok?: boolean }>('/api/auth/request-verify', undefined, {
+        fallbackError: 'Could not send email. Try again later.',
+      })
+      if (!r.ok || !r.data?.ok) return { ok: false, error: r.error }
       return { ok: true }
     },
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from "$lib/api";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
 
@@ -29,13 +30,9 @@
     if (!formValid) return;
     submitting = true;
     try {
-      const res = await fetch("/api/auth/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password, passwordConfirm }),
-      });
-      if (res.ok) done = true;
-      else error = ((await res.json()) as { error?: string }).error ?? "Something went wrong.";
+      const r = await submitJson("/api/auth/reset", { token, password, passwordConfirm }, { fallbackError: "Something went wrong." });
+      if (r.ok) done = true;
+      else error = r.error;
     } finally {
       submitting = false;
     }

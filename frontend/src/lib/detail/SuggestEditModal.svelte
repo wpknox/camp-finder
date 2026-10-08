@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from '$lib/api'
   import { untrack } from 'svelte'
   import type { Facility, EditChanges, Amenities, ToiletType } from '$lib/types'
   import { countError, feeError, feeRangeError, latError as checkLat, lngError as checkLng } from '$lib/validation'
@@ -105,16 +106,9 @@
     submitting = true
     errorMsg = ''
     try {
-      const res = await fetch('/api/suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ facility_id: facility.id, changes, note }),
-      })
-      if (res.ok) submitted = true
-      else errorMsg = ((await res.json()) as { error?: string }).error ?? 'Something went wrong'
-    } catch {
-      errorMsg = 'Something went wrong'
+      const r = await submitJson('/api/suggestions', { facility_id: facility.id, changes, note })
+      if (r.ok) submitted = true
+      else errorMsg = r.error
     } finally {
       submitting = false
     }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from '$lib/api'
   import { untrack } from 'svelte'
   import CampgroundForm from './CampgroundForm.svelte'
   import {
@@ -31,20 +32,13 @@
     submitting = true
     errorMsg = ''
     try {
-      const res = await fetch('/api/campground-suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          submission: draftToSubmission(draft),
-          source_url: sourceUrl.trim(),
-          note,
-        }),
+      const r = await submitJson('/api/campground-suggestions', {
+        submission: draftToSubmission(draft),
+        source_url: sourceUrl.trim(),
+        note,
       })
-      if (res.ok) submitted = true
-      else errorMsg = ((await res.json()) as { error?: string }).error ?? 'Something went wrong'
-    } catch {
-      errorMsg = 'Something went wrong'
+      if (r.ok) submitted = true
+      else errorMsg = r.error
     } finally {
       submitting = false
     }

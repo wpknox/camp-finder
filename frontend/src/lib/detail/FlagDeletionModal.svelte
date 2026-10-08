@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from '$lib/api'
   import { untrack } from 'svelte'
   import type { Facility } from '$lib/types'
 
@@ -19,23 +20,15 @@
     submitting = true
     errorMsg = ''
     try {
-      const res = await fetch('/api/deletions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ facility_id: initial.id, reason }),
-      })
-      if (res.status === 201) {
+      const r = await submitJson<{ duplicate?: boolean }>('/api/deletions', { facility_id: initial.id, reason })
+      if (r.status === 201) {
         submitted = true
-      } else if (res.ok) {
-        const data = (await res.json()) as { duplicate?: boolean }
-        if (data.duplicate) alreadyFlagged = true
+      } else if (r.ok) {
+        if (r.data?.duplicate) alreadyFlagged = true
         else submitted = true
       } else {
-        errorMsg = ((await res.json()) as { error?: string }).error ?? 'Something went wrong'
+        errorMsg = r.error
       }
-    } catch {
-      errorMsg = 'Something went wrong'
     } finally {
       submitting = false
     }

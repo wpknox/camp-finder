@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from '$lib/api'
   import { untrack } from 'svelte'
   import type { Facility } from '$lib/types'
   import { distanceMiles } from '$lib/geo'
@@ -55,23 +56,19 @@
     submitting = true
     errorMsg = ''
     try {
-      const res = await fetch('/api/duplicates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ facility_a: initial.id, facility_b: selected.id, note }),
+      const r = await submitJson<{ duplicate?: boolean }>('/api/duplicates', {
+        facility_a: initial.id,
+        facility_b: selected.id,
+        note,
       })
-      if (res.status === 201) {
+      if (r.status === 201) {
         submitted = true
-      } else if (res.ok) {
-        const data = (await res.json()) as { duplicate?: boolean }
-        if (data.duplicate) alreadyReported = true
+      } else if (r.ok) {
+        if (r.data?.duplicate) alreadyReported = true
         else submitted = true
       } else {
-        errorMsg = ((await res.json()) as { error?: string }).error ?? 'Something went wrong'
+        errorMsg = r.error
       }
-    } catch {
-      errorMsg = 'Something went wrong'
     } finally {
       submitting = false
     }

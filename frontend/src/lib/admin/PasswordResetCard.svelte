@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from "$lib/api";
   import QueueSection from "./QueueSection.svelte";
 
   let resetEmail = $state("");
@@ -14,22 +15,14 @@
     resetLink = "";
     resetCopied = false;
     try {
-      const res = await fetch("/api/admin/reset-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail.trim() }),
+      const r = await submitJson<{ link?: string }>("/api/admin/reset-link", {
+        email: resetEmail.trim(),
       });
-      const body = (await res.json().catch(() => ({}))) as {
-        link?: string;
-        error?: string;
-      };
-      if (res.ok && body.link) {
-        resetLink = body.link;
+      if (r.ok && r.data?.link) {
+        resetLink = r.data.link;
       } else {
-        resetError = body.error ?? "Something went wrong";
+        resetError = r.error;
       }
-    } catch {
-      resetError = "Something went wrong";
     } finally {
       resetBusy = false;
     }

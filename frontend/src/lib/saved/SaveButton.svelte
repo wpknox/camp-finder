@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from "$lib/api";
   import { onMount } from "svelte";
   import { isLoggedIn } from "$lib/auth/authStore";
   import AuthModal from "$lib/auth/AuthModal.svelte";
@@ -14,7 +15,7 @@
 
   async function refresh() {
     if (!$isLoggedIn) { saved = false; savedRecordId = null; return; }
-    const res = await fetch(`/api/saved?facilityId=${encodeURIComponent(facilityId)}`, { credentials: "include" });
+    const res = await fetch(`/api/saved?facilityId=${encodeURIComponent(facilityId)}`);
     if (!res.ok) return;
     const data = (await res.json()) as { saved: boolean; id: string | null };
     saved = data.saved;
@@ -36,12 +37,7 @@
   async function save() {
     busy = true;
     try {
-      await fetch("/api/saved", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ facility_id: facilityId }),
-      });
+      await submitJson("/api/saved", { facility_id: facilityId });
       // Re-read so we always hold the canonical record id (the insert response
       // shape isn't guaranteed to surface it), which keeps later removes correct.
       await refresh();
@@ -55,12 +51,7 @@
     if (!savedRecordId) { await refresh(); return; }
     busy = true;
     try {
-      await fetch("/api/saved", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id: savedRecordId }),
-      });
+      await submitJson("/api/saved", { id: savedRecordId }, { method: "DELETE" });
       saved = false;
       savedRecordId = null;
     } finally {
