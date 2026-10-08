@@ -2,7 +2,7 @@
 import { json } from '@sveltejs/kit'
 import { parse } from 'node-html-parser'
 import { tbFetch } from '$lib/server/tbFetch'
-import { tbHeaders } from '$lib/server/tb'
+import { readCacheRow, writeCacheRow, isFresh } from '$lib/server/cacheRow'
 import { isSafeId } from '$lib/server/facilities'
 import type { RequestHandler } from './$types'
 
@@ -11,18 +11,11 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id
   if (!isSafeId(facilityId)) return json({ content: null, scraped_at: null })
-  const cutoff = Date.now() - CACHE_TTL_MS
 
-  const cacheRes = await tbFetch(`/api/v1/table/alerts/list`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ where: `facility_id == '${facilityId}'`, limit: 1 }),
-  })
-  const cache = await cacheRes.json() as { items?: Array<{ content: string; scraped_at: string }> }
-  const fresh = cache.items?.find(i => new Date(i.scraped_at).getTime() >= cutoff)
+  const row = await readCacheRow<{ id: string; content: string; scraped_at: string }>('alerts', facilityId)
 
-  if (fresh) {
-    return json({ content: fresh.content, scraped_at: fresh.scraped_at, cached: true })
+  if (row && isFresh(row.scraped_at, CACHE_TTL_MS)) {
+    return json({ content: row.content, scraped_at: row.scraped_at, cached: true })
   }
 
   const facRes = await tbFetch(`/api/v1/table/facilities/view/${facilityId}`)
@@ -61,24 +54,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
   const scraped_at = new Date().toISOString()
 
-  const existingRes = await tbFetch(`/api/v1/table/alerts/list`, {
-    method: 'POST',
-    headers: tbHeaders,
-    body: JSON.stringify({ where: `facility_id == '${facilityId}'`, limit: 1 }),
-  })
-  const existing = await existingRes.json() as { items?: Array<{ id: string }> }
-
-  if (existing.items?.length) {
-    await tbFetch(`/api/v1/table/alerts/edit/${existing.items[0].id}`, {
-      method: 'POST', headers: tbHeaders,
-      body: JSON.stringify({ content, scraped_at }),
-    })
-  } else {
-    await tbFetch(`/api/v1/table/alerts/insert`, {
-      method: 'POST', headers: tbHeaders,
-      body: JSON.stringify({ values: { facility_id: facilityId, content, scraped_at } }),
-    })
-  }
+  await writeCacheRow('alerts', row?.id ?? null, facilityId, { content, scraped_at })
 
   return json({ content, scraped_at, cached: false })
 }

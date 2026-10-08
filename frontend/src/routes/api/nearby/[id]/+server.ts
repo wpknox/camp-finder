@@ -1,7 +1,7 @@
 // frontend/src/routes/api/nearby/[id]/+server.ts
 import { json } from '@sveltejs/kit'
 import { tbFetch } from '$lib/server/tbFetch'
-import { tbHeaders } from '$lib/server/tb'
+import { readCacheRow, writeCacheRow, isFresh } from '$lib/server/cacheRow'
 import { isSafeId } from '$lib/server/facilities'
 import { buildOverpassQuery, normalizeOverpass, type NearbyPoi, type OverpassResponse } from '$lib/server/overpass'
 import { parseJson } from '$lib/json'
@@ -13,17 +13,10 @@ const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 export const GET: RequestHandler = async ({ params }) => {
   const facilityId = params.id
   if (!isSafeId(facilityId)) return json({ pois: null })
-  const cutoff = Date.now() - CACHE_TTL_MS
 
-  const cacheRes = await tbFetch(`/api/v1/table/nearby_pois/list`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ where: `facility_id == '${facilityId}'`, limit: 1 }),
-  })
-  const cache = await cacheRes.json() as { items?: Array<{ id: string; pois: unknown; fetched_at: string }> }
-  const row = cache.items?.[0]
+  const row = await readCacheRow<{ id: string; pois: unknown; fetched_at: string }>('nearby_pois', facilityId)
 
-  if (row && new Date(row.fetched_at).getTime() >= cutoff) {
+  if (row && isFresh(row.fetched_at, CACHE_TTL_MS)) {
     return json({ pois: parseJson<NearbyPoi[] | null>(row.pois, null), fetched_at: row.fetched_at, cached: true })
   }
 
@@ -54,17 +47,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
   const fetched_at = new Date().toISOString()
 
-  if (row) {
-    await tbFetch(`/api/v1/table/nearby_pois/edit/${row.id}`, {
-      method: 'POST', headers: tbHeaders,
-      body: JSON.stringify({ pois: JSON.stringify(pois), fetched_at }),
-    })
-  } else {
-    await tbFetch(`/api/v1/table/nearby_pois/insert`, {
-      method: 'POST', headers: tbHeaders,
-      body: JSON.stringify({ values: { facility_id: facilityId, pois: JSON.stringify(pois), fetched_at } }),
-    })
-  }
+  await writeCacheRow('nearby_pois', row?.id ?? null, facilityId, { pois: JSON.stringify(pois), fetched_at })
 
   return json({ pois, fetched_at, cached: false })
 }
