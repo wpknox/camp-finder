@@ -1,15 +1,20 @@
 <script lang="ts">
-  import SegmentedControl from '$lib/ui/SegmentedControl.svelte'
-  import { EDITABLE_AMENITIES, TOILET_OPTIONS, TRI_OPTIONS, type EditableAmenityKey } from '$lib/fields'
-  import type { ToiletType, TriState } from '$lib/types'
+  import SegmentedControl from "$lib/ui/SegmentedControl.svelte";
+  import {
+    EDITABLE_AMENITIES,
+    TOILET_OPTIONS,
+    TRI_OPTIONS,
+    type EditableAmenityKey,
+  } from "$lib/fields";
+  import type { ToiletType, TriState } from "$lib/types";
 
   let {
     values = $bindable(),
     toiletType = $bindable(),
   }: {
-    values: Record<EditableAmenityKey, TriState>
-    toiletType: ToiletType
-  } = $props()
+    values: Record<EditableAmenityKey, TriState>;
+    toiletType: ToiletType;
+  } = $props();
 </script>
 
 <div class="amenity-row">
@@ -24,6 +29,14 @@
 {/each}
 
 <style>
-  .amenity-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
-  .amenity-label { font-size: 0.86rem; color: var(--ink); }
+  .amenity-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .amenity-label {
+    font-size: 0.86rem;
+    color: var(--ink);
+  }
 </style>

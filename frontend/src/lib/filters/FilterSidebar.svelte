@@ -20,11 +20,7 @@
   // Status colors/labels come from STATUS_META (same source as the map pins).
 </script>
 
-<aside
-  class="sidebar"
-  class:filters-open={filtersOpen}
-  class:results-open={resultsOpen}
->
+<aside class="sidebar" class:filters-open={filtersOpen} class:results-open={resultsOpen}>
   <button
     class="filter-toggle"
     onclick={() => (filtersOpen = !filtersOpen)}
@@ -36,21 +32,11 @@
   </button>
 
   <div class="filter-body" class:open={filtersOpen}>
-    <label
-      ><input type="checkbox" bind:checked={$filters.fcfsOnly} /> First-Come Only</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.water} /> Potable Water</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.toilets} /> Has Toilets</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.bearBoxes} /> Bear Boxes</label
-    >
-    <label
-      ><input type="checkbox" bind:checked={$filters.hasCellService} /> Has Cell Service</label
-    >
+    <label><input type="checkbox" bind:checked={$filters.fcfsOnly} /> First-Come Only</label>
+    <label><input type="checkbox" bind:checked={$filters.water} /> Potable Water</label>
+    <label><input type="checkbox" bind:checked={$filters.toilets} /> Has Toilets</label>
+    <label><input type="checkbox" bind:checked={$filters.bearBoxes} /> Bear Boxes</label>
+    <label><input type="checkbox" bind:checked={$filters.hasCellService} /> Has Cell Service</label>
 
     <div class="field">
       <label for="filter-max-fee">Max fee/night</label>
@@ -138,12 +124,11 @@
   .sidebar {
     width: 256px;
     padding: 1.1rem 1rem;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--paper-2) 70%, transparent),
-        color-mix(in srgb, var(--paper-2) 40%, transparent)
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--paper-2) 70%, transparent),
+      color-mix(in srgb, var(--paper-2) 40%, transparent)
+    );
     border-right: 1px solid var(--line-strong);
     box-shadow: inset -10px 0 18px -16px rgba(46, 39, 25, 0.35);
     display: flex;

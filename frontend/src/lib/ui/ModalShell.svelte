@@ -80,7 +80,9 @@
   role="presentation"
   use:portal
   style:z-index={zIndex}
-  onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
+  onclick={(e) => {
+    if (e.target === e.currentTarget) onclose();
+  }}
 >
   <div
     class="card modal-card"
@@ -102,7 +104,8 @@
     {#if header}
       {@render header()}
     {:else}
-      {#if eyebrow}<span class="eyebrow" class:eyebrow-form={variant === "form"}>{eyebrow}</span>{/if}
+      {#if eyebrow}<span class="eyebrow" class:eyebrow-form={variant === "form"}>{eyebrow}</span
+        >{/if}
       {#if title}<h2 class:h2-auth={variant === "auth"}>{title}</h2>{/if}
     {/if}
     {@render children()}
@@ -110,10 +113,22 @@
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; background: rgba(35, 28, 14, 0.5); backdrop-filter: blur(2px); display: grid; place-items: center; padding: 1rem; }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(35, 28, 14, 0.5);
+    backdrop-filter: blur(2px);
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+  }
   .card {
     position: relative;
-    background: linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 86%, var(--paper)));
+    background: linear-gradient(
+      180deg,
+      var(--paper-2),
+      color-mix(in srgb, var(--paper-2) 86%, var(--paper))
+    );
     border: 1px solid var(--line-strong);
     border-radius: 14px;
     width: min(var(--ms-width), 100%);
@@ -122,28 +137,65 @@
     gap: var(--ms-gap);
     box-shadow: var(--shadow-lg);
   }
-  .card.flat { background: var(--paper-2); }
-  .card.animate { animation: modal-in 0.32s var(--ease); }
+  .card.flat {
+    background: var(--paper-2);
+  }
+  .card.animate {
+    animation: modal-in 0.32s var(--ease);
+  }
   /* A spine down the left edge — like a field-notebook binding. */
   .card.accented::before {
     content: "";
     position: absolute;
-    left: 0; top: 14px; bottom: 14px;
+    left: 0;
+    top: 14px;
+    bottom: 14px;
     width: 4px;
     border-radius: 4px;
     background: var(--accent);
   }
   @keyframes modal-in {
-    from { opacity: 0; transform: translateY(10px) scale(0.99); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
-  .eyebrow { margin-top: 0.1rem; }
-  .eyebrow-form { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; color: var(--ink-faint); font-weight: 600; }
-  h2 { margin: 0 0 0.4rem; font-family: var(--font-display); font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
-  h2.h2-auth { font-size: 1.55rem; line-height: 1.12; }
+  .eyebrow {
+    margin-top: 0.1rem;
+  }
+  .eyebrow-form {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  h2 {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  h2.h2-auth {
+    font-size: 1.55rem;
+    line-height: 1.12;
+  }
 
   @media (max-width: 640px) {
-    .card.capped { width: 100%; max-height: 92vh !important; }
-    .card.fullscreen { width: 100%; max-height: 100dvh !important; height: 100dvh; border-radius: 0; }
+    .card.capped {
+      width: 100%;
+      max-height: 92vh !important;
+    }
+    .card.fullscreen {
+      width: 100%;
+      max-height: 100dvh !important;
+      height: 100dvh;
+      border-radius: 0;
+    }
   }
 </style>

@@ -3,12 +3,7 @@
   import DetailPanel from "$lib/detail/DetailPanel.svelte";
   import FilterSidebar from "$lib/filters/FilterSidebar.svelte";
   import CompareTray from "$lib/compare/CompareTray.svelte";
-  import {
-    selectedFacility,
-    searchPending,
-    facilities,
-    isLoading,
-  } from "$lib/map/mapStore";
+  import { selectedFacility, searchPending, facilities, isLoading } from "$lib/map/mapStore";
   import { filteredFacilities } from "$lib/filters/filterStore";
   import type { Facility } from "$lib/types";
   import SubmitCampgroundModal from "$lib/campground/SubmitCampgroundModal.svelte";
@@ -158,10 +153,7 @@
 </div>
 
 {#if $selectedFacility}
-  <DetailPanel
-    facility={$selectedFacility}
-    onclose={() => selectedFacility.set(null)}
-  />
+  <DetailPanel facility={$selectedFacility} onclose={() => selectedFacility.set(null)} />
 {/if}
 
 {#if showSubmit}

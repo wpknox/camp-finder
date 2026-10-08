@@ -19,8 +19,7 @@ export function isRidbCampground(html: string): boolean {
 export function scrapeForestCampgroundUrls(html: string): string[] {
   const seen = new Set<string>();
   const results: string[] = [];
-  const re =
-    /href=["'](\/r02\/[^"'/]+\/recreation\/[^"'/]*campground[^"'/]*)["']/g;
+  const re = /href=["'](\/r02\/[^"'/]+\/recreation\/[^"'/]*campground[^"'/]*)["']/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     const path = m[1];
@@ -41,16 +40,12 @@ export function parseFsPageFees(html: string): ScrapedFsData {
   const root = parse(html);
 
   // Remove chrome — fees are in the main content
-  root
-    .querySelectorAll("nav, header, footer, script, style")
-    .forEach((el) => el.remove());
+  root.querySelectorAll("nav, header, footer, script, style").forEach((el) => el.remove());
 
   const text = root.text.replace(/\s+/g, " ").toLowerCase();
 
   if (
-    /no fee|free of charge|no charge|\bfree\b.*(?:camp|site)|(?:camp|site).*\bfree\b/.test(
-      text,
-    )
+    /no fee|free of charge|no charge|\bfree\b.*(?:camp|site)|(?:camp|site).*\bfree\b/.test(text)
   ) {
     return { fee_min: 0, fee_max: 0 };
   }
@@ -69,10 +64,7 @@ export function parseFsPageFees(html: string): ScrapedFsData {
   return { fee_min: Math.min(...dollars), fee_max: Math.max(...dollars) };
 }
 
-export function scrapeCampgroundPage(
-  html: string,
-  url: string,
-): ScrapedCampground | null {
+export function scrapeCampgroundPage(html: string, url: string): ScrapedCampground | null {
   if (isRidbCampground(html)) return null;
 
   const latMatch = new RegExp(/<b>Latitude:\s*<\/b>\s*([\d.-]+)/).exec(html);
@@ -83,25 +75,19 @@ export function scrapeCampgroundPage(
   const lng = Number.parseFloat(lngMatch[1]);
   if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
 
-  const titleMatch = new RegExp(
-    /<title>[^|]+\|\s*([^|]+)\|\s*Forest Service<\/title>/,
-  ).exec(html);
+  const titleMatch = new RegExp(/<title>[^|]+\|\s*([^|]+)\|\s*Forest Service<\/title>/).exec(html);
   const name = titleMatch
     ? titleMatch[1].trim()
     : (url.split("/").pop()?.replaceAll("-", " ") ?? "Unknown");
 
-  const descMatch = new RegExp(
-    /<meta name="description" content="([^"]+)"/,
-  ).exec(html);
+  const descMatch = new RegExp(/<meta name="description" content="([^"]+)"/).exec(html);
   const description = descMatch ? descMatch[1] : "";
 
   const hasFeeSection =
     html.includes('id="rec_acc_fees"') ||
     html.includes("id='rec_acc_fees'") ||
     /<h3[^>]*>[^<]*fee[^<]*<\/h3>/i.test(html);
-  const fees = hasFeeSection
-    ? parseFsPageFees(html)
-    : { fee_min: null, fee_max: null };
+  const fees = hasFeeSection ? parseFsPageFees(html) : { fee_min: null, fee_max: null };
 
   const fcfsMatch = new RegExp(/(\d+)\s+first[- ]come/i).exec(description);
   const fcfs_total = fcfsMatch ? Number.parseInt(fcfsMatch[1], 10) : 0;

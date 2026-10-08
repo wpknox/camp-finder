@@ -86,7 +86,9 @@
         m.id,
         {
           winner: "a",
-          fieldSide: Object.fromEntries(CHOICE_FIELDS.map((f) => [f, "a"])) as MergeChoice["fieldSide"],
+          fieldSide: Object.fromEntries(
+            CHOICE_FIELDS.map((f) => [f, "a"]),
+          ) as MergeChoice["fieldSide"],
           expanded: false,
           touched: false,
         } satisfies MergeChoice,
@@ -165,7 +167,8 @@
       const facilityId = res.data?.facility_id;
       errors = {
         ...errors,
-        [rowId]: opts.appendFacilityId && facilityId ? `${res.error} (facility ${facilityId})` : res.error,
+        [rowId]:
+          opts.appendFacilityId && facilityId ? `${res.error} (facility ${facilityId})` : res.error,
       };
     }
     busy = { ...busy, [rowId]: false };
@@ -178,10 +181,16 @@
   });
 
   const resolveEdit = (row: EditRow, action: Action, note = "") =>
-    resolve("/api/admin/suggestions", "edits", row.id, { id: row.id, action, admin_note: note }, {
-      onResolved: () => (edits = edits.filter((e) => e.id !== row.id)),
-      notice: noticeFrom(row.facility_name),
-    });
+    resolve(
+      "/api/admin/suggestions",
+      "edits",
+      row.id,
+      { id: row.id, action, admin_note: note },
+      {
+        onResolved: () => (edits = edits.filter((e) => e.id !== row.id)),
+        notice: noticeFrom(row.facility_name),
+      },
+    );
 
   function resolveMerge(row: MergeRow, action: Action, note = "") {
     if (action === "approve" && !canApproveMerge(row)) return;
@@ -216,10 +225,16 @@
   }
 
   const resolveDeletion = (row: DeletionRow, action: Action, note = "") =>
-    resolve("/api/admin/deletions", "deletions", row.id, { id: row.id, action, admin_note: note }, {
-      onResolved: () => (deletions = deletions.filter((d) => d.id !== row.id)),
-      notice: () => ({ facility_id: "", facility_name: row.facility_name }),
-    });
+    resolve(
+      "/api/admin/deletions",
+      "deletions",
+      row.id,
+      { id: row.id, action, admin_note: note },
+      {
+        onResolved: () => (deletions = deletions.filter((d) => d.id !== row.id)),
+        notice: () => ({ facility_id: "", facility_name: row.facility_name }),
+      },
+    );
 
   function resolveCampground(row: CampgroundRow, action: Action, note = "") {
     if (action === "approve" && !drafts[row.id]) return;
@@ -253,7 +268,9 @@
     <header class="page-header">
       <span class="eyebrow">Ranger's desk</span>
       <h1>Admin Review</h1>
-      <p class="sub">New campgrounds, edits, duplicate reports and deletion flags awaiting a decision.</p>
+      <p class="sub">
+        New campgrounds, edits, duplicate reports and deletion flags awaiting a decision.
+      </p>
     </header>
 
     <PasswordResetCard />
@@ -265,8 +282,16 @@
       successes={successes.campgrounds}
       successPrefix="Added"
       ondismiss={dismissSuccess}
-      onexpandall={() => setAllOpen(campgrounds.map((c) => c.id), true)}
-      oncollapseall={() => setAllOpen(campgrounds.map((c) => c.id), false)}
+      onexpandall={() =>
+        setAllOpen(
+          campgrounds.map((c) => c.id),
+          true,
+        )}
+      oncollapseall={() =>
+        setAllOpen(
+          campgrounds.map((c) => c.id),
+          false,
+        )}
     >
       {#each campgrounds as row (row.id)}
         {@const draft = drafts[row.id]}
@@ -355,8 +380,16 @@
       successes={successes.edits}
       successPrefix="Edit applied to"
       ondismiss={dismissSuccess}
-      onexpandall={() => setAllOpen(edits.map((e) => e.id), true)}
-      oncollapseall={() => setAllOpen(edits.map((e) => e.id), false)}
+      onexpandall={() =>
+        setAllOpen(
+          edits.map((e) => e.id),
+          true,
+        )}
+      oncollapseall={() =>
+        setAllOpen(
+          edits.map((e) => e.id),
+          false,
+        )}
     >
       {#each edits as row (row.id)}
         <ReviewCard
@@ -372,7 +405,12 @@
           {#snippet meta()}{row.user_email} · {fmtDate(row.created)}{/snippet}
           {#snippet headExtra()}
             {#if row.current}
-              <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
+              <a
+                class="map-link"
+                href={`/?facility=${row.facility_id}`}
+                target="_blank"
+                rel="noopener"
+              >
                 View on map ↗
               </a>
             {/if}
@@ -394,8 +432,16 @@
       successes={successes.merges}
       successPrefix="Merged into"
       ondismiss={dismissSuccess}
-      onexpandall={() => setAllOpen(merges.map((m) => m.id), true)}
-      oncollapseall={() => setAllOpen(merges.map((m) => m.id), false)}
+      onexpandall={() =>
+        setAllOpen(
+          merges.map((m) => m.id),
+          true,
+        )}
+      oncollapseall={() =>
+        setAllOpen(
+          merges.map((m) => m.id),
+          false,
+        )}
     >
       {#each merges as row (row.id)}
         {@const deleted = !canApproveMerge(row)}
@@ -409,17 +455,28 @@
           onapprove={() => resolveMerge(row, "approve")}
           onreject={(note) => resolveMerge(row, "reject", note)}
         >
-          {#snippet title()}{row.facility_a_name} <span class="vs">vs</span> {row.facility_b_name}{/snippet}
+          {#snippet title()}{row.facility_a_name} <span class="vs">vs</span>
+            {row.facility_b_name}{/snippet}
           {#snippet meta()}{row.user_email} · {fmtDate(row.created)}{/snippet}
           {#snippet headExtra()}
             <span class="map-links">
               {#if row.facility_a_data}
-                <a class="map-link" href={`/?facility=${row.facility_a}`} target="_blank" rel="noopener">
+                <a
+                  class="map-link"
+                  href={`/?facility=${row.facility_a}`}
+                  target="_blank"
+                  rel="noopener"
+                >
                   A on map ↗
                 </a>
               {/if}
               {#if row.facility_b_data}
-                <a class="map-link" href={`/?facility=${row.facility_b}`} target="_blank" rel="noopener">
+                <a
+                  class="map-link"
+                  href={`/?facility=${row.facility_b}`}
+                  target="_blank"
+                  rel="noopener"
+                >
                   B on map ↗
                 </a>
               {/if}
@@ -442,8 +499,16 @@
       successes={successes.deletions}
       successPrefix="Removed"
       ondismiss={dismissSuccess}
-      onexpandall={() => setAllOpen(deletions.map((d) => d.id), true)}
-      oncollapseall={() => setAllOpen(deletions.map((d) => d.id), false)}
+      onexpandall={() =>
+        setAllOpen(
+          deletions.map((d) => d.id),
+          true,
+        )}
+      oncollapseall={() =>
+        setAllOpen(
+          deletions.map((d) => d.id),
+          false,
+        )}
     >
       {#each deletions as row (row.id)}
         <ReviewCard
@@ -466,7 +531,12 @@
           {/snippet}
           {#snippet headExtra()}
             {#if row.facility_id}
-              <a class="map-link" href={`/?facility=${row.facility_id}`} target="_blank" rel="noopener">
+              <a
+                class="map-link"
+                href={`/?facility=${row.facility_id}`}
+                target="_blank"
+                rel="noopener"
+              >
                 View on map ↗
               </a>
             {/if}
@@ -476,7 +546,8 @@
 
           {#if !row.facility_id}
             <p class="winner-hint error-hint">
-              This facility was already removed (merge or prior deletion) — reject to clear the flag.
+              This facility was already removed (merge or prior deletion) — reject to clear the
+              flag.
             </p>
           {/if}
         </ReviewCard>
@@ -542,7 +613,6 @@
     font-size: 0.92rem;
   }
 
-
   .vs {
     color: var(--ink-faint);
     font-weight: 400;
@@ -582,7 +652,6 @@
     font-size: 0.85rem;
     margin: 0;
   }
-
 
   .dup-warning {
     background: color-mix(in srgb, var(--ochre, #b9852c) 14%, var(--paper-2));
@@ -630,8 +699,6 @@
     border-color: var(--moss);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--moss) 28%, transparent);
   }
-
-
 
   .dup-tag {
     color: var(--ochre, #b9852c);

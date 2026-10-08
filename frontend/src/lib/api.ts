@@ -1,10 +1,10 @@
-export const GENERIC_ERROR = 'Something went wrong'
+export const GENERIC_ERROR = "Something went wrong";
 
 export interface ApiResult<T> {
-  ok: boolean
-  status: number
-  data: T | null
-  error: string
+  ok: boolean;
+  status: number;
+  data: T | null;
+  error: string;
 }
 
 /**
@@ -15,25 +15,25 @@ export interface ApiResult<T> {
 export async function submitJson<T = unknown>(
   url: string,
   body?: unknown,
-  opts: { method?: 'POST' | 'PUT' | 'PATCH' | 'DELETE'; fallbackError?: string } = {},
+  opts: { method?: "POST" | "PUT" | "PATCH" | "DELETE"; fallbackError?: string } = {},
 ): Promise<ApiResult<T>> {
-  const { method = 'POST', fallbackError = GENERIC_ERROR } = opts
-  const init: RequestInit = { method }
+  const { method = "POST", fallbackError = GENERIC_ERROR } = opts;
+  const init: RequestInit = { method };
   if (body !== undefined) {
-    init.headers = { 'Content-Type': 'application/json' }
-    init.body = JSON.stringify(body)
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(body);
   }
   try {
-    const res = await fetch(url, init)
-    const data = (await res.json().catch(() => null)) as T | null
-    const serverError = (data as { error?: unknown } | null)?.error
+    const res = await fetch(url, init);
+    const data = (await res.json().catch(() => null)) as T | null;
+    const serverError = (data as { error?: unknown } | null)?.error;
     return {
       ok: res.ok,
       status: res.status,
       data,
-      error: typeof serverError === 'string' ? serverError : fallbackError,
-    }
+      error: typeof serverError === "string" ? serverError : fallbackError,
+    };
   } catch {
-    return { ok: false, status: 0, data: null, error: fallbackError }
+    return { ok: false, status: 0, data: null, error: fallbackError };
   }
 }

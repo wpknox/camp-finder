@@ -20,9 +20,7 @@
         : `${fcfs_total}/${total} FCFS sites`,
   );
   let color = $derived(
-    { fully: "green", partial: "yellow", reservable: "blue" }[
-      fcfsTier(fcfs_total, is_fully_fcfs)
-    ],
+    { fully: "green", partial: "yellow", reservable: "blue" }[fcfsTier(fcfs_total, is_fully_fcfs)],
   );
 </script>
 

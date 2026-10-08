@@ -18,8 +18,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
   return json({
     edits: edits.filter((s) => s.facility_id === facilityId).length,
-    merges: merges.filter((s) => s.facility_a === facilityId || s.facility_b === facilityId)
-      .length,
+    merges: merges.filter((s) => s.facility_a === facilityId || s.facility_b === facilityId).length,
     deletions: deletions.filter((s) => s.facility_id === facilityId).length,
   });
 };

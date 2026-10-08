@@ -7,18 +7,13 @@ import {
   CAMPGROUND_QUERY_PARAMS,
 } from "../src/forests.js";
 
-function milesBetween(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
+function milesBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 3958.8;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
   const h =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
@@ -47,9 +42,7 @@ describe("buildCoGrid", () => {
     // of some grid point, with margin for RIDB's distance math
     for (let lat = CO_BBOX.south; lat <= CO_BBOX.north; lat += 0.1) {
       for (let lng = CO_BBOX.west; lng <= CO_BBOX.east; lng += 0.1) {
-        const nearest = Math.min(
-          ...grid.map((p) => milesBetween(p, { lat, lng })),
-        );
+        const nearest = Math.min(...grid.map((p) => milesBetween(p, { lat, lng })));
         expect(nearest).toBeLessThan(GRID_RADIUS_MILES - 2);
       }
     }

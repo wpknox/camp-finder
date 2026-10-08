@@ -384,8 +384,7 @@ input[type="checkbox"]:focus-visible {
    Faint topographic flourish for panel backgrounds. Apply as a layered
    background-image on a paper surface. */
 .contour-bg {
-  background-image:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420' viewBox='0 0 420 420'><g fill='none' stroke='%23b3a37c' stroke-width='1.1' opacity='0.5'><path d='M-20 120 C 80 60 160 180 250 120 S 420 60 470 130'/><path d='M-20 170 C 90 110 170 220 260 160 S 420 110 470 175'/><path d='M-20 230 C 70 170 180 270 270 210 S 420 170 470 235'/><path d='M-20 300 C 100 240 180 340 280 280 S 420 240 470 300'/><path d='M-20 370 C 80 320 190 410 290 350 S 420 320 470 365'/></g></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420' viewBox='0 0 420 420'><g fill='none' stroke='%23b3a37c' stroke-width='1.1' opacity='0.5'><path d='M-20 120 C 80 60 160 180 250 120 S 420 60 470 130'/><path d='M-20 170 C 90 110 170 220 260 160 S 420 110 470 175'/><path d='M-20 230 C 70 170 180 270 270 210 S 420 170 470 235'/><path d='M-20 300 C 100 240 180 340 280 280 S 420 240 470 300'/><path d='M-20 370 C 80 320 190 410 290 350 S 420 320 470 365'/></g></svg>");
   background-repeat: repeat;
 }
 

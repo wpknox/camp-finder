@@ -102,10 +102,8 @@ export async function loadLookups(): Promise<{
   };
 }
 
-export const userEmail = (
-  userById: Map<string, { email: string }>,
-  id: string,
-): string => userById.get(id)?.email ?? "(deleted)";
+export const userEmail = (userById: Map<string, { email: string }>, id: string): string =>
+  userById.get(id)?.email ?? "(deleted)";
 
 /** Public submit routes: 401 if signed out, then 429 if rate-limited; null if OK. */
 export function guardSubmission(
@@ -120,10 +118,7 @@ export function guardSubmission(
 }
 
 /** Insert a row with the service token; 201 on success, else passthrough of Teenybase's status/body. */
-export async function insertRow(
-  table: string,
-  values: Record<string, unknown>,
-): Promise<Response> {
+export async function insertRow(table: string, values: Record<string, unknown>): Promise<Response> {
   const res = await tbFetch(tb(`${table}/insert`), {
     method: "POST",
     headers: tbHeaders,

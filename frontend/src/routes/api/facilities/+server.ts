@@ -9,10 +9,7 @@ export const GET: RequestHandler = async ({ url }) => {
   const west = Number.parseFloat(url.searchParams.get("west") ?? "");
 
   if ([north, south, east, west].some(Number.isNaN)) {
-    return json(
-      { error: "bbox params required: north, south, east, west" },
-      { status: 400 },
-    );
+    return json({ error: "bbox params required: north, south, east, west" }, { status: 400 });
   }
 
   // Teenybase WHERE parser doesn't support compound expressions, so fetch all

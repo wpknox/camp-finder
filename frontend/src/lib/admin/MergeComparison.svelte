@@ -86,8 +86,7 @@
 
 {#if deleted}
   <p class="winner-hint error-hint">
-    One of these facilities was deleted since the report was filed — this merge
-    can't be approved.
+    One of these facilities was deleted since the report was filed — this merge can't be approved.
   </p>
 {:else if choice.expanded}
   <div class="field-grid">
@@ -113,13 +112,13 @@
     {/each}
   </div>
   <p class="winner-hint">
-    Winner ({winnerLabel}) keeps its record with the field choices
-    above; amenities deep-merge automatically; the loser is deleted.
+    Winner ({winnerLabel}) keeps its record with the field choices above; amenities deep-merge
+    automatically; the loser is deleted.
   </p>
 {:else}
   <p class="winner-hint">
-    Winner ({winnerLabel}) keeps its record; the loser's data fills
-    gaps for unpicked fields, then is deleted.
+    Winner ({winnerLabel}) keeps its record; the loser's data fills gaps for unpicked fields, then
+    is deleted.
   </p>
 {/if}
 
@@ -144,7 +143,9 @@
     cursor: pointer;
     font-family: inherit;
     text-align: left;
-    transition: border-color 0.13s var(--ease), background 0.13s var(--ease);
+    transition:
+      border-color 0.13s var(--ease),
+      background 0.13s var(--ease);
   }
   .merge-side.selected {
     border-color: var(--moss);
@@ -250,7 +251,9 @@
     padding: 0.35rem 0.5rem;
     cursor: pointer;
     line-height: 1.3;
-    transition: border-color 0.13s var(--ease), background 0.13s var(--ease);
+    transition:
+      border-color 0.13s var(--ease),
+      background 0.13s var(--ease);
   }
   .field-value.selected {
     border-color: var(--moss);

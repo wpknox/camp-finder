@@ -85,11 +85,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 /** Repoint all rows of `table` from loser → winner, deleting rows that would
  * collide on the unique (user_id, facility_id) index. Idempotent. */
-async function repointChildren(
-  table: string,
-  loserId: string,
-  winnerId: string,
-): Promise<void> {
+async function repointChildren(table: string, loserId: string, winnerId: string): Promise<void> {
   const [loserRows, winnerRows] = await Promise.all([
     tbList<ChildRow>(table, { where: `facility_id == '${loserId}'`, limit: 1000 }),
     tbList<ChildRow>(table, { where: `facility_id == '${winnerId}'`, limit: 1000 }),
@@ -124,7 +120,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
   const fieldChoices = parseFieldChoices(body.field_choices);
   if (fieldChoices === null) {
-    return json({ error: "field_choices contains unknown keys or invalid values" }, { status: 400 });
+    return json(
+      { error: "field_choices contains unknown keys or invalid values" },
+      { status: 400 },
+    );
   }
 
   const suggestion = await loadPendingRow<RawMerge>("merge_suggestions", id, "Suggestion");

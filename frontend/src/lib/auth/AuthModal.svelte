@@ -19,7 +19,13 @@
 
   // A field's inline error only shows once the user has left it (blur) or tried
   // to submit — so we don't yell at someone mid-typing their first character.
-  let touched = $state({ email: false, name: false, password: false, passwordConfirm: false, inviteCode: false });
+  let touched = $state({
+    email: false,
+    name: false,
+    password: false,
+    passwordConfirm: false,
+    inviteCode: false,
+  });
 
   function touch(field: keyof typeof touched) {
     touched = { ...touched, [field]: true };
@@ -28,11 +34,21 @@
   // Per-field validation messages. Empty string === valid. Login is lenient on
   // password (existing accounts predate any rule); register enforces the rules.
   const emailError = $derived(
-    !email.trim() ? "Email is required." : !EMAIL_RE.test(email) ? "Enter a valid email address." : "",
+    !email.trim()
+      ? "Email is required."
+      : !EMAIL_RE.test(email)
+        ? "Enter a valid email address."
+        : "",
   );
-  const nameError = $derived(mode === "register" && !name.trim() ? "Display name is required." : "");
+  const nameError = $derived(
+    mode === "register" && !name.trim() ? "Display name is required." : "",
+  );
   const passwordError = $derived(
-    !password ? "Password is required." : mode === "register" && password.length < 8 ? "Password must be at least 8 characters." : "",
+    !password
+      ? "Password is required."
+      : mode === "register" && password.length < 8
+        ? "Password must be at least 8 characters."
+        : "",
   );
   const passwordConfirmError = $derived(
     mode === "register" && passwordConfirm !== password ? "Passwords do not match." : "",
@@ -83,14 +99,26 @@
   function switchMode() {
     mode = mode === "login" ? "register" : "login";
     error = "";
-    touched = { email: false, name: false, password: false, passwordConfirm: false, inviteCode: false };
+    touched = {
+      email: false,
+      name: false,
+      password: false,
+      passwordConfirm: false,
+      inviteCode: false,
+    };
   }
 
   function goToForgot() {
     mode = "forgot";
     error = "";
     resetSent = false;
-    touched = { ...touched, name: false, password: false, passwordConfirm: false, inviteCode: false };
+    touched = {
+      ...touched,
+      name: false,
+      password: false,
+      passwordConfirm: false,
+      inviteCode: false,
+    };
   }
 
   function backToSignIn() {
@@ -105,9 +133,17 @@
      stacks on top, not behind it. -->
 <ModalShell
   variant="auth"
-  eyebrow={mode === "login" ? "Welcome back" : mode === "register" ? "Join the trail" : "Lost the trail?"}
+  eyebrow={mode === "login"
+    ? "Welcome back"
+    : mode === "register"
+      ? "Join the trail"
+      : "Lost the trail?"}
   title={mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Reset password"}
-  ariaLabel={mode === 'login' ? 'Sign in' : mode === 'register' ? 'Create account' : 'Reset password'}
+  ariaLabel={mode === "login"
+    ? "Sign in"
+    : mode === "register"
+      ? "Create account"
+      : "Reset password"}
   accent="var(--pine)"
   width="390px"
   zIndex={4000}
@@ -121,7 +157,45 @@
       </button>
     {:else}
       <!-- A real form so pressing Enter in the field submits. -->
-      <form class="form form-roomy" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+      <form
+        class="form form-roomy"
+        onsubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <div class="field">
+          <input
+            type="email"
+            bind:value={email}
+            onblur={() => touch("email")}
+            placeholder="Email"
+            autocomplete="email"
+            class:invalid={touched.email && emailError}
+            aria-invalid={touched.email && !!emailError}
+          />
+          {#if touched.email && emailError}<p class="field-error">{emailError}</p>{/if}
+        </div>
+
+        <button class="btn btn-primary" type="submit" disabled={submitting}>
+          {#if submitting}<span class="spinner" aria-hidden="true"></span>{/if}
+          {submitting ? "Please wait…" : "Send reset link"}
+        </button>
+      </form>
+
+      <button class="toggle" type="button" onclick={backToSignIn}>
+        <span class="toggle-action">Back to sign in</span>
+      </button>
+    {/if}
+  {:else}
+    <!-- A real form so pressing Enter in any field submits. -->
+    <form
+      class="form form-roomy"
+      onsubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
       <div class="field">
         <input
           type="email"
@@ -135,118 +209,119 @@
         {#if touched.email && emailError}<p class="field-error">{emailError}</p>{/if}
       </div>
 
+      {#if mode === "register"}
+        <div class="field">
+          <input
+            type="text"
+            bind:value={name}
+            onblur={() => touch("name")}
+            placeholder="Display name"
+            autocomplete="name"
+            class:invalid={touched.name && nameError}
+            aria-invalid={touched.name && !!nameError}
+          />
+          {#if touched.name && nameError}<p class="field-error">{nameError}</p>{/if}
+        </div>
+      {/if}
+
+      <div class="field">
+        <input
+          type="password"
+          bind:value={password}
+          onblur={() => touch("password")}
+          placeholder="Password"
+          autocomplete={mode === "login" ? "current-password" : "new-password"}
+          class:invalid={touched.password && passwordError}
+          aria-invalid={touched.password && !!passwordError}
+        />
+        {#if touched.password && passwordError}
+          <p class="field-error">{passwordError}</p>
+        {:else if mode === "register"}
+          <p class="field-hint">At least 8 characters.</p>
+        {/if}
+      </div>
+
+      {#if mode === "login"}
+        <button class="toggle forgot-link" type="button" onclick={goToForgot}>
+          <span class="toggle-action">Forgot password?</span>
+        </button>
+      {/if}
+
+      {#if mode === "register"}
+        <div class="field">
+          <input
+            type="password"
+            bind:value={passwordConfirm}
+            onblur={() => touch("passwordConfirm")}
+            placeholder="Confirm password"
+            autocomplete="new-password"
+            class:invalid={touched.passwordConfirm && passwordConfirmError}
+            aria-invalid={touched.passwordConfirm && !!passwordConfirmError}
+          />
+          {#if touched.passwordConfirm && passwordConfirmError}<p class="field-error">
+              {passwordConfirmError}
+            </p>{/if}
+        </div>
+
+        <div class="field">
+          <input
+            type="text"
+            bind:value={inviteCode}
+            onblur={() => touch("inviteCode")}
+            placeholder="Invite code"
+            autocomplete="off"
+            class:invalid={touched.inviteCode && inviteCodeError}
+            aria-invalid={touched.inviteCode && !!inviteCodeError}
+          />
+          {#if touched.inviteCode && inviteCodeError}<p class="field-error">
+              {inviteCodeError}
+            </p>{/if}
+        </div>
+      {/if}
+
+      {#if error}<p class="error" role="alert">{error}</p>{/if}
+
       <button class="btn btn-primary" type="submit" disabled={submitting}>
         {#if submitting}<span class="spinner" aria-hidden="true"></span>{/if}
-        {submitting ? "Please wait…" : "Send reset link"}
+        {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
       </button>
-      </form>
+    </form>
 
-      <button class="toggle" type="button" onclick={backToSignIn}>
-        <span class="toggle-action">Back to sign in</span>
-      </button>
-    {/if}
-  {:else}
-  <!-- A real form so pressing Enter in any field submits. -->
-  <form class="form form-roomy" onsubmit={(e) => { e.preventDefault(); submit(); }}>
-  <div class="field">
-    <input
-      type="email"
-      bind:value={email}
-      onblur={() => touch("email")}
-      placeholder="Email"
-      autocomplete="email"
-      class:invalid={touched.email && emailError}
-      aria-invalid={touched.email && !!emailError}
-    />
-    {#if touched.email && emailError}<p class="field-error">{emailError}</p>{/if}
-  </div>
-
-  {#if mode === "register"}
-    <div class="field">
-      <input
-        type="text"
-        bind:value={name}
-        onblur={() => touch("name")}
-        placeholder="Display name"
-        autocomplete="name"
-        class:invalid={touched.name && nameError}
-        aria-invalid={touched.name && !!nameError}
-      />
-      {#if touched.name && nameError}<p class="field-error">{nameError}</p>{/if}
-    </div>
-  {/if}
-
-  <div class="field">
-    <input
-      type="password"
-      bind:value={password}
-      onblur={() => touch("password")}
-      placeholder="Password"
-      autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
-      class:invalid={touched.password && passwordError}
-      aria-invalid={touched.password && !!passwordError}
-    />
-    {#if touched.password && passwordError}
-      <p class="field-error">{passwordError}</p>
-    {:else if mode === "register"}
-      <p class="field-hint">At least 8 characters.</p>
-    {/if}
-  </div>
-
-  {#if mode === "login"}
-    <button class="toggle forgot-link" type="button" onclick={goToForgot}>
-      <span class="toggle-action">Forgot password?</span>
+    <button class="toggle" type="button" onclick={switchMode}>
+      {mode === "login" ? "Need an account?" : "Already have an account?"}
+      <span class="toggle-action">{mode === "login" ? "Register" : "Sign in"}</span>
     </button>
   {/if}
-
-  {#if mode === "register"}
-    <div class="field">
-      <input
-        type="password"
-        bind:value={passwordConfirm}
-        onblur={() => touch("passwordConfirm")}
-        placeholder="Confirm password"
-        autocomplete="new-password"
-        class:invalid={touched.passwordConfirm && passwordConfirmError}
-        aria-invalid={touched.passwordConfirm && !!passwordConfirmError}
-      />
-      {#if touched.passwordConfirm && passwordConfirmError}<p class="field-error">{passwordConfirmError}</p>{/if}
-    </div>
-
-    <div class="field">
-      <input
-        type="text"
-        bind:value={inviteCode}
-        onblur={() => touch("inviteCode")}
-        placeholder="Invite code"
-        autocomplete="off"
-        class:invalid={touched.inviteCode && inviteCodeError}
-        aria-invalid={touched.inviteCode && !!inviteCodeError}
-      />
-      {#if touched.inviteCode && inviteCodeError}<p class="field-error">{inviteCodeError}</p>{/if}
-    </div>
-  {/if}
-
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
-
-  <button class="btn btn-primary" type="submit" disabled={submitting}>
-    {#if submitting}<span class="spinner" aria-hidden="true"></span>{/if}
-    {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
-  </button>
-  </form>
-
-  <button class="toggle" type="button" onclick={switchMode}>
-    {mode === "login" ? "Need an account?" : "Already have an account?"}
-    <span class="toggle-action">{mode === "login" ? "Register" : "Sign in"}</span>
-  </button>
-  {/if}
-
 </ModalShell>
 
 <style>
-  .toggle { background: none; border: none; color: var(--ink-soft); font-weight: 400; font-size: 0.875rem; padding: 0; cursor: pointer; align-self: flex-start; }
-  .toggle-action { color: var(--pine); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
-  .toggle:hover .toggle-action { color: var(--pine-deep); }
-  .forgot-link { align-self: flex-end; margin-top: -0.4rem; }
-  .reset-confirm { color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5; margin: 0 0 0.2rem; }
+  .toggle {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-weight: 400;
+    font-size: 0.875rem;
+    padding: 0;
+    cursor: pointer;
+    align-self: flex-start;
+  }
+  .toggle-action {
+    color: var(--pine);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .toggle:hover .toggle-action {
+    color: var(--pine-deep);
+  }
+  .forgot-link {
+    align-self: flex-end;
+    margin-top: -0.4rem;
+  }
+  .reset-confirm {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0 0 0.2rem;
+  }
 </style>

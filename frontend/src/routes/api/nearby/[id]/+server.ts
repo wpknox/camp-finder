@@ -1,53 +1,77 @@
 // frontend/src/routes/api/nearby/[id]/+server.ts
-import { json } from '@sveltejs/kit'
-import { tbFetch } from '$lib/server/tbFetch'
-import { readCacheRow, writeCacheRow, isFresh } from '$lib/server/cacheRow'
-import { isSafeId } from '$lib/server/facilities'
-import { buildOverpassQuery, normalizeOverpass, type NearbyPoi, type OverpassResponse } from '$lib/server/overpass'
-import { parseJson } from '$lib/json'
-import type { RequestHandler } from './$types'
+import { json } from "@sveltejs/kit";
+import { tbFetch } from "$lib/server/tbFetch";
+import { readCacheRow, writeCacheRow, isFresh } from "$lib/server/cacheRow";
+import { isSafeId } from "$lib/server/facilities";
+import {
+  buildOverpassQuery,
+  normalizeOverpass,
+  type NearbyPoi,
+  type OverpassResponse,
+} from "$lib/server/overpass";
+import { parseJson } from "$lib/json";
+import type { RequestHandler } from "./$types";
 
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 export const GET: RequestHandler = async ({ params }) => {
-  const facilityId = params.id
-  if (!isSafeId(facilityId)) return json({ pois: null })
+  const facilityId = params.id;
+  if (!isSafeId(facilityId)) return json({ pois: null });
 
-  const row = await readCacheRow<{ id: string; pois: unknown; fetched_at: string }>('nearby_pois', facilityId)
+  const row = await readCacheRow<{ id: string; pois: unknown; fetched_at: string }>(
+    "nearby_pois",
+    facilityId,
+  );
 
   if (row && isFresh(row.fetched_at, CACHE_TTL_MS)) {
-    return json({ pois: parseJson<NearbyPoi[] | null>(row.pois, null), fetched_at: row.fetched_at, cached: true })
+    return json({
+      pois: parseJson<NearbyPoi[] | null>(row.pois, null),
+      fetched_at: row.fetched_at,
+      cached: true,
+    });
   }
 
-  const facRes = await tbFetch(`/api/v1/table/facilities/view/${facilityId}`)
-  const facility = facRes.ok ? await facRes.json() as { lat?: number; lng?: number } : null
+  const facRes = await tbFetch(`/api/v1/table/facilities/view/${facilityId}`);
+  const facility = facRes.ok ? ((await facRes.json()) as { lat?: number; lng?: number }) : null;
 
-  if (facility?.lat == null || facility?.lng == null) return json({ pois: null })
+  if (facility?.lat == null || facility?.lng == null) return json({ pois: null });
 
-  let pois: NearbyPoi[] | null = null
+  let pois: NearbyPoi[] | null = null;
   try {
     const res = await fetch(OVERPASS_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'CampFinder/1.0 (campground info aggregator)',
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "CampFinder/1.0 (campground info aggregator)",
       },
       body: `data=${encodeURIComponent(buildOverpassQuery(facility.lat, facility.lng))}`,
       signal: AbortSignal.timeout(10000),
-    })
-    if (res.ok) pois = normalizeOverpass(await res.json() as OverpassResponse, facility.lat, facility.lng)
-  } catch { /* fail gracefully below */ }
+    });
+    if (res.ok)
+      pois = normalizeOverpass((await res.json()) as OverpassResponse, facility.lat, facility.lng);
+  } catch {
+    /* fail gracefully below */
+  }
 
   if (pois === null) {
     // Overpass down or rate-limited: serve stale if we have anything at all.
-    if (row) return json({ pois: parseJson<NearbyPoi[] | null>(row.pois, null), fetched_at: row.fetched_at, cached: true, stale: true })
-    return json({ pois: null })
+    if (row)
+      return json({
+        pois: parseJson<NearbyPoi[] | null>(row.pois, null),
+        fetched_at: row.fetched_at,
+        cached: true,
+        stale: true,
+      });
+    return json({ pois: null });
   }
 
-  const fetched_at = new Date().toISOString()
+  const fetched_at = new Date().toISOString();
 
-  await writeCacheRow('nearby_pois', row?.id ?? null, facilityId, { pois: JSON.stringify(pois), fetched_at })
+  await writeCacheRow("nearby_pois", row?.id ?? null, facilityId, {
+    pois: JSON.stringify(pois),
+    fetched_at,
+  });
 
-  return json({ pois, fetched_at, cached: false })
-}
+  return json({ pois, fetched_at, cached: false });
+};

@@ -40,12 +40,8 @@ export const GET: RequestHandler = async ({ locals, cookies, url }) => {
 export const POST: RequestHandler = async ({ locals, cookies, request }) => {
   if (!locals.user) return json({ error: "Unauthenticated" }, { status: 401 });
   const token = cookies.get(ACCESS_COOKIE)!;
-  const { facility_id, personal_notes } = (await request.json()) as Record<
-    string,
-    string
-  >;
-  if (!facility_id)
-    return json({ error: "facility_id required" }, { status: 400 });
+  const { facility_id, personal_notes } = (await request.json()) as Record<string, string>;
+  if (!facility_id) return json({ error: "facility_id required" }, { status: 400 });
 
   // Idempotent save: a campground can only be saved once per user. Check for an
   // existing row first and return it rather than inserting a duplicate. The DB

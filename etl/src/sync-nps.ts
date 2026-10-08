@@ -28,7 +28,10 @@ function feeLabel(f: NormalizedFacility): string {
   return `$${f.fee_min}`;
 }
 
-async function buildDedupeIndex(): Promise<{ byName: DedupeIndex; ridbIndex: Map<string, string> }> {
+async function buildDedupeIndex(): Promise<{
+  byName: DedupeIndex;
+  ridbIndex: Map<string, string>;
+}> {
   console.log("Loading existing facilities for dedup...");
   const existing = await tb.listAllWithMerged();
   const byName: DedupeIndex = new Map();
@@ -45,12 +48,7 @@ async function buildDedupeIndex(): Promise<{ byName: DedupeIndex; ridbIndex: Map
   return { byName, ridbIndex };
 }
 
-function isNearMatch(
-  byName: DedupeIndex,
-  name: string,
-  lat: number,
-  lng: number,
-): string | null {
+function isNearMatch(byName: DedupeIndex, name: string, lat: number, lng: number): string | null {
   const match = findDuplicate(byName, name, lat, lng);
   return match?.ridb_id ?? null;
 }
@@ -112,7 +110,11 @@ async function main() {
   const normalized = raw.map((c) =>
     normalizeNpsCampground(c, CO_NPS_PARKS[c.parkCode] ?? c.parkCode),
   );
-  const { toUpsert, skippedOutOfState, skippedDupes } = classifyCampgrounds(normalized, byName, ridbIndex);
+  const { toUpsert, skippedOutOfState, skippedDupes } = classifyCampgrounds(
+    normalized,
+    byName,
+    ridbIndex,
+  );
 
   if (skippedOutOfState > 0) {
     console.log(`\nSkipped ${skippedOutOfState} campgrounds outside Colorado bounding box`);

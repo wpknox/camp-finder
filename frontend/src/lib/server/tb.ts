@@ -14,10 +14,7 @@ export const tbHeaders = {
 
 export const tb = (path: string) => `/api/v1/table/${path}`;
 
-export async function tbList<T>(
-  table: string,
-  body: Record<string, unknown>,
-): Promise<T[]> {
+export async function tbList<T>(table: string, body: Record<string, unknown>): Promise<T[]> {
   const res = await tbFetch(tb(`${table}/list`), {
     method: "POST",
     headers: tbHeaders,

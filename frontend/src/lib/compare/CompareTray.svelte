@@ -43,8 +43,11 @@
     transform: translateX(-50%);
     z-index: 1500;
     width: min(420px, calc(100% - 2rem));
-    background:
-      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 90%, var(--paper)));
+    background: linear-gradient(
+      180deg,
+      var(--paper-2),
+      color-mix(in srgb, var(--paper-2) 90%, var(--paper))
+    );
     border: 1px solid var(--line-strong);
     border-radius: 12px;
     box-shadow: var(--shadow-lg);
@@ -65,8 +68,14 @@
     border: 1px solid var(--ink-faint);
   }
   @keyframes tray-in {
-    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   }
   .tray-head {
     display: flex;
@@ -132,7 +141,9 @@
     color: var(--ink-soft);
     font-size: 0.62rem;
     cursor: pointer;
-    transition: background 0.13s var(--ease), color 0.13s var(--ease);
+    transition:
+      background 0.13s var(--ease),
+      color 0.13s var(--ease);
   }
   .chip-x:hover {
     background: var(--rust);

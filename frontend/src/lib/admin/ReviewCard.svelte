@@ -67,15 +67,27 @@
             maxlength="1000"
           />
           <div class="actions">
-            <button class="btn btn-secondary" type="button" onclick={() => (rejecting = false)}>Back</button>
-            <button class="btn btn-danger" type="button" disabled={busy} onclick={() => onreject(note)}>
+            <button class="btn btn-secondary" type="button" onclick={() => (rejecting = false)}
+              >Back</button
+            >
+            <button
+              class="btn btn-danger"
+              type="button"
+              disabled={busy}
+              onclick={() => onreject(note)}
+            >
               Confirm reject
             </button>
           </div>
         </div>
       {:else}
         <div class="actions">
-          <button class="btn btn-secondary" type="button" disabled={busy} onclick={() => (rejecting = true)}>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            disabled={busy}
+            onclick={() => (rejecting = true)}
+          >
             Reject
           </button>
           <button
@@ -94,8 +106,11 @@
 
 <style>
   .card {
-    background:
-      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 86%, var(--paper)));
+    background: linear-gradient(
+      180deg,
+      var(--paper-2),
+      color-mix(in srgb, var(--paper-2) 86%, var(--paper))
+    );
     border: 1px solid var(--line-strong);
     border-radius: 14px;
     padding: 1.1rem 1.4rem;

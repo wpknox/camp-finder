@@ -19,8 +19,7 @@ export function parseFacility(raw: Record<string, unknown>): Facility {
 }
 
 /** True for admin-tombstoned rows (SQLite booleans may arrive as true or 1). */
-export const isTombstoned = (raw: Record<string, unknown>): boolean =>
-  !!raw.is_deleted;
+export const isTombstoned = (raw: Record<string, unknown>): boolean => !!raw.is_deleted;
 
 /**
  * All non-tombstoned facilities, parsed. Teenybase can't do compound WHERE, so

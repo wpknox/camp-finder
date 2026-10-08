@@ -81,7 +81,11 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     const facility = await tbView<RawFacility>("facilities", suggestion.facility_id);
     if (!facility) return json({ error: "Facility not found" }, { status: 404 });
 
-    const { amenities: amenityChanges, cell_coverage: carrierChanges, ...scalarChanges } = changes as {
+    const {
+      amenities: amenityChanges,
+      cell_coverage: carrierChanges,
+      ...scalarChanges
+    } = changes as {
       amenities?: Partial<Amenities>;
       cell_coverage?: Record<string, boolean | null>;
     } & Record<string, unknown>;
@@ -93,7 +97,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     }
     if (carrierChanges && typeof carrierChanges === "object") {
       const current = parseJson<Record<string, unknown>>(facility.cell_coverage, {
-        verizon: null, att: null, tmobile: null, as_of: null,
+        verizon: null,
+        att: null,
+        tmobile: null,
+        as_of: null,
       });
       const existing = Array.isArray(current.user_edited) ? (current.user_edited as string[]) : [];
       const userEdited = new Set(existing);
@@ -123,10 +130,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       body: JSON.stringify(patch),
     });
     if (!editRes.ok) {
-      return json(
-        { error: "Failed to apply edit", detail: await editRes.text() },
-        { status: 502 },
-      );
+      return json({ error: "Failed to apply edit", detail: await editRes.text() }, { status: 502 });
     }
 
     editedFacility = { id: facility.id, name: facility.name };

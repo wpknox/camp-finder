@@ -1,77 +1,77 @@
 <script lang="ts">
-  import { submitJson } from '$lib/api'
-  import { untrack } from 'svelte'
-  import type { Facility } from '$lib/types'
-  import { distanceMiles } from '$lib/geo'
-  import { sourceLabel } from '$lib/source'
-  import ModalShell from '$lib/ui/ModalShell.svelte'
+  import { submitJson } from "$lib/api";
+  import { untrack } from "svelte";
+  import type { Facility } from "$lib/types";
+  import { distanceMiles } from "$lib/geo";
+  import { sourceLabel } from "$lib/source";
+  import ModalShell from "$lib/ui/ModalShell.svelte";
 
-  let { facility, onclose }: { facility: Facility; onclose: () => void } = $props()
+  let { facility, onclose }: { facility: Facility; onclose: () => void } = $props();
 
   // Snapshot the facility once at open — mirrors SuggestEditModal's pattern to
   // avoid the state_referenced_locally warning.
-  const initial = untrack(() => facility)
+  const initial = untrack(() => facility);
 
-  let query = $state('')
-  let selected = $state<Facility | null>(null)
-  let note = $state('')
-  let candidates = $state<Facility[]>([])
-  let loading = $state(true)
-  let loadError = $state('')
-  let submitting = $state(false)
-  let submitted = $state(false)
-  let alreadyReported = $state(false)
-  let errorMsg = $state('')
+  let query = $state("");
+  let selected = $state<Facility | null>(null);
+  let note = $state("");
+  let candidates = $state<Facility[]>([]);
+  let loading = $state(true);
+  let loadError = $state("");
+  let submitting = $state(false);
+  let submitted = $state(false);
+  let alreadyReported = $state(false);
+  let errorMsg = $state("");
 
   async function loadCandidates() {
-    loading = true
-    loadError = ''
+    loading = true;
+    loadError = "";
     try {
-      const res = await fetch('/api/facilities?north=90&south=-90&east=180&west=-180')
+      const res = await fetch("/api/facilities?north=90&south=-90&east=180&west=-180");
       if (!res.ok) {
-        loadError = 'Could not load campgrounds — try again later.'
-        return
+        loadError = "Could not load campgrounds — try again later.";
+        return;
       }
-      candidates = (await res.json()) as Facility[]
+      candidates = (await res.json()) as Facility[];
     } catch {
-      loadError = 'Could not load campgrounds — try again later.'
+      loadError = "Could not load campgrounds — try again later.";
     } finally {
-      loading = false
+      loading = false;
     }
   }
 
-  loadCandidates()
+  loadCandidates();
 
   let filtered = $derived.by(() => {
-    const q = query.trim().toLowerCase()
+    const q = query.trim().toLowerCase();
     return candidates
       .filter((f) => f.id !== initial.id)
-      .filter((f) => (q === '' ? true : f.name.toLowerCase().includes(q)))
+      .filter((f) => (q === "" ? true : f.name.toLowerCase().includes(q)))
       .map((f) => ({ f, mi: distanceMiles(initial, f) }))
       .sort((a, b) => a.mi - b.mi)
-      .slice(0, 20)
-  })
+      .slice(0, 20);
+  });
 
   async function submit() {
-    if (!selected || submitting) return
-    submitting = true
-    errorMsg = ''
+    if (!selected || submitting) return;
+    submitting = true;
+    errorMsg = "";
     try {
-      const r = await submitJson<{ duplicate?: boolean }>('/api/duplicates', {
+      const r = await submitJson<{ duplicate?: boolean }>("/api/duplicates", {
         facility_a: initial.id,
         facility_b: selected.id,
         note,
-      })
+      });
       if (r.status === 201) {
-        submitted = true
+        submitted = true;
       } else if (r.ok) {
-        if (r.data?.duplicate) alreadyReported = true
-        else submitted = true
+        if (r.data?.duplicate) alreadyReported = true;
+        else submitted = true;
       } else {
-        errorMsg = r.error
+        errorMsg = r.error;
       }
     } finally {
-      submitting = false
+      submitting = false;
     }
   }
 </script>
@@ -91,7 +91,13 @@
     <p class="success">Already reported — thanks!</p>
     <button class="btn btn-primary" type="button" onclick={onclose}>Close</button>
   {:else}
-    <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+    <form
+      class="form"
+      onsubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
       <div class="field">
         <span class="section-label">A</span>
         <p class="facility-a">{initial.name}</p>
@@ -142,8 +148,7 @@
           bind:value={note}
           maxlength="1000"
           rows="3"
-          placeholder="e.g. Same location, different RIDB listing"
-        ></textarea>
+          placeholder="e.g. Same location, different RIDB listing"></textarea>
       </div>
 
       {#if errorMsg}<p class="error" role="alert">{errorMsg}</p>{/if}
@@ -152,7 +157,7 @@
         <button class="btn btn-secondary" type="button" onclick={onclose}>Cancel</button>
         <button class="btn btn-primary" type="submit" disabled={!selected || submitting}>
           {#if submitting}<span class="spinner" aria-hidden="true"></span>{/if}
-          {submitting ? 'Submitting…' : 'Report duplicate'}
+          {submitting ? "Submitting…" : "Report duplicate"}
         </button>
       </div>
     </form>
@@ -160,9 +165,21 @@
 </ModalShell>
 
 <style>
-  .section-label { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
-  .facility-a { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--ink); }
-  .hint { font-size: 0.85rem; line-height: normal; }
+  .section-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .facility-a {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .hint {
+    font-size: 0.85rem;
+    line-height: normal;
+  }
   .candidate {
     width: 100%;
     display: flex;
@@ -176,14 +193,58 @@
     cursor: pointer;
     text-align: left;
     font-family: inherit;
-    transition: background 0.13s var(--ease), border-color 0.13s var(--ease);
+    transition:
+      background 0.13s var(--ease),
+      border-color 0.13s var(--ease);
   }
-  .candidates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 9px; padding: 0.4rem; }
-  .candidates .empty { padding: 0.5rem; font-size: 0.85rem; color: var(--ink-faint); }
-  .candidate:hover { background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong)); }
-  .candidate.active { border-color: var(--pine); background: color-mix(in srgb, var(--moss) 16%, var(--paper-2)); }
-  .candidate-name { font-size: 0.86rem; color: var(--ink); }
-  .candidate-meta { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-  .badge { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; color: var(--ink-soft); background: var(--paper); border: 1px solid var(--line-strong); border-radius: 5px; padding: 0.1rem 0.35rem; }
-  .dist { font-family: var(--font-mono); font-size: 0.76rem; color: var(--ink-faint); }
+  .candidates {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 0.4rem;
+  }
+  .candidates .empty {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--ink-faint);
+  }
+  .candidate:hover {
+    background: color-mix(in srgb, var(--paper-deep) 80%, var(--line-strong));
+  }
+  .candidate.active {
+    border-color: var(--pine);
+    background: color-mix(in srgb, var(--moss) 16%, var(--paper-2));
+  }
+  .candidate-name {
+    font-size: 0.86rem;
+    color: var(--ink);
+  }
+  .candidate-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    padding: 0.1rem 0.35rem;
+  }
+  .dist {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+  }
 </style>

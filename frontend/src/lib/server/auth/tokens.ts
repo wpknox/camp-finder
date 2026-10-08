@@ -28,10 +28,7 @@ function fromB64url(s: string): Uint8Array | null {
   }
 }
 
-async function importKey(
-  secret: string,
-  usage: "sign" | "verify",
-): Promise<CryptoKey> {
+async function importKey(secret: string, usage: "sign" | "verify"): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
     enc.encode(secret),
@@ -56,11 +53,7 @@ export async function signToken(
   const payload: TokenPayload = { ...payloadIn, exp: Date.now() + ttlMs };
   const body = b64url(enc.encode(JSON.stringify(payload)));
   const key = await importKey(secret, "sign");
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    enc.encode(`${body}.${updatedStamp}`),
-  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(`${body}.${updatedStamp}`));
   return `${body}.${b64url(new Uint8Array(sig))}`;
 }
 
@@ -71,9 +64,7 @@ export function decodeToken(token: string): TokenPayload | null {
   if (!bytes) return null;
   try {
     const payload = JSON.parse(new TextDecoder().decode(bytes)) as TokenPayload;
-    return typeof payload.uid === "string" && typeof payload.exp === "number"
-      ? payload
-      : null;
+    return typeof payload.uid === "string" && typeof payload.exp === "number" ? payload : null;
   } catch {
     return null;
   }

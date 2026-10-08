@@ -53,8 +53,7 @@ export function mergeFacilityFields(
   for (const f of SCALAR_FIELDS) {
     const choice = choices?.[f as ChoiceField];
     const takeLoser =
-      choice === "loser" ||
-      (choice === undefined && isEmpty(merged[f]) && !isEmpty(loser[f]));
+      choice === "loser" || (choice === undefined && isEmpty(merged[f]) && !isEmpty(loser[f]));
     if (takeLoser) {
       (merged as unknown as Record<string, unknown>)[f] = loser[f];
     }
@@ -64,9 +63,7 @@ export function mergeFacilityFields(
   // none at all (scraped records often lack counts entirely).
   const takeLoserFcfs =
     choices?.fcfs === "loser" ||
-    (choices?.fcfs === undefined &&
-      merged.fcfs_total == null &&
-      merged.reservable_total == null);
+    (choices?.fcfs === undefined && merged.fcfs_total == null && merged.reservable_total == null);
   if (takeLoserFcfs) {
     merged.fcfs_total = loser.fcfs_total;
     merged.reservable_total = loser.reservable_total;

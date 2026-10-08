@@ -8,11 +8,7 @@ export interface TbAuthResult {
   record: { id: string; username: string; email: string; name?: string };
 }
 
-async function call(
-  path: string,
-  body: unknown,
-  bearer?: string,
-): Promise<Response> {
+async function call(path: string, body: unknown, bearer?: string): Promise<Response> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -37,10 +33,7 @@ export async function tbSignUp(input: {
   return { ok: res.ok, status: res.status };
 }
 
-export async function tbLogin(
-  identity: string,
-  password: string,
-): Promise<TbAuthResult | null> {
+export async function tbLogin(identity: string, password: string): Promise<TbAuthResult | null> {
   const res = await call("login-password", { identity, password });
   if (!res.ok) return null;
   return res.json();
@@ -50,11 +43,7 @@ export async function tbRefresh(
   accessToken: string,
   refreshToken: string,
 ): Promise<TbAuthResult | null> {
-  const res = await call(
-    "refresh-token",
-    { refresh_token: refreshToken },
-    accessToken,
-  );
+  const res = await call("refresh-token", { refresh_token: refreshToken }, accessToken);
   if (!res.ok) return null;
   return res.json();
 }
@@ -64,15 +53,11 @@ export async function tbRefresh(
  * `name` field, so we read it from the users table (the user can read their
  * own record). Returns null on any failure — name is cosmetic.
  */
-export async function tbGetName(
-  accessToken: string,
-  userId: string,
-): Promise<string | null> {
+export async function tbGetName(accessToken: string, userId: string): Promise<string | null> {
   try {
-    const res = await tbFetch(
-      `/api/v1/table/users/view/${userId}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
+    const res = await tbFetch(`/api/v1/table/users/view/${userId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as { name?: string };
     return data.name?.trim() || null;

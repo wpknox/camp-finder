@@ -36,29 +36,31 @@
 
   /** One flattened label / current / proposed row per changed value. */
   const rows = $derived(
-    Object.entries(row.changes).flatMap(([key, value]): { label: string; current: unknown; proposed: unknown }[] => {
-      if (key === "amenities" && value && typeof value === "object") {
-        return Object.entries(value as Record<string, unknown>).map(([aKey, aVal]) => ({
-          label: AMENITY_LABELS[aKey] ?? aKey,
-          current: row.current?.amenities?.[aKey as keyof Amenities],
-          proposed: aVal,
-        }));
-      }
-      if (key === "cell_coverage" && value && typeof value === "object") {
-        return Object.entries(value as Record<string, unknown>).map(([cKey, cVal]) => ({
-          label: CARRIER_LABELS[cKey] ?? cKey,
-          current: row.current?.cell_coverage?.[cKey as CarrierKey],
-          proposed: cVal,
-        }));
-      }
-      return [
-        {
-          label: FIELD_LABELS[key] ?? key,
-          current: row.current ? row.current[key as keyof Facility] : undefined,
-          proposed: value,
-        },
-      ];
-    }),
+    Object.entries(row.changes).flatMap(
+      ([key, value]): { label: string; current: unknown; proposed: unknown }[] => {
+        if (key === "amenities" && value && typeof value === "object") {
+          return Object.entries(value as Record<string, unknown>).map(([aKey, aVal]) => ({
+            label: AMENITY_LABELS[aKey] ?? aKey,
+            current: row.current?.amenities?.[aKey as keyof Amenities],
+            proposed: aVal,
+          }));
+        }
+        if (key === "cell_coverage" && value && typeof value === "object") {
+          return Object.entries(value as Record<string, unknown>).map(([cKey, cVal]) => ({
+            label: CARRIER_LABELS[cKey] ?? cKey,
+            current: row.current?.cell_coverage?.[cKey as CarrierKey],
+            proposed: cVal,
+          }));
+        }
+        return [
+          {
+            label: FIELD_LABELS[key] ?? key,
+            current: row.current ? row.current[key as keyof Facility] : undefined,
+            proposed: value,
+          },
+        ];
+      },
+    ),
   );
 
   const propLat = $derived(row.changes.lat);

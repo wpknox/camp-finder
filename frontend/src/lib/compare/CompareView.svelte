@@ -1,31 +1,44 @@
 <script lang="ts">
-  import type { Facility } from '$lib/types'
-  import { formatElevationFt } from '$lib/weather'
-  import { formatFeeShort } from '$lib/format'
-  import { CARRIERS } from '$lib/fields'
+  import type { Facility } from "$lib/types";
+  import { formatElevationFt } from "$lib/weather";
+  import { formatFeeShort } from "$lib/format";
+  import { CARRIERS } from "$lib/fields";
 
-  let { facilities }: { facilities: Facility[] } = $props()
+  let { facilities }: { facilities: Facility[] } = $props();
 
   const rows: Array<{ label: string; key: (f: Facility) => string }> = [
-    { label: 'Forest',       key: f => f.forest || '—' },
-    { label: 'Elevation',    key: f => formatElevationFt(f.elevation_m) ?? '?' },
-    { label: 'Cell Signal',  key: f => {
-        const c = f.cell_coverage
-        if (!c) return '?'
-        const on = CARRIERS.filter((k) => c[k.key]).map((k) => k.label[0])
-        return on.length ? on.join(' · ') : 'None'
-      } },
-    { label: 'FCFS Sites',   key: f => f.fcfs_total > 0 ? `${f.fcfs_total}/${f.fcfs_total + f.reservable_total}` : 'None' },
-    { label: 'Fee/night',    key: f => formatFeeShort(f, '?') },
-    { label: 'Water',        key: f => f.amenities.potableWater ? '✓' : '—' },
-    { label: 'Toilet',       key: f => f.amenities.toiletType === 'unknown' ? '?' : f.amenities.toiletType },
-    { label: 'Bear Boxes',   key: f => f.amenities.bearBoxes ? '✓' : '—' },
-    { label: 'Pets',         key: f => f.amenities.petsAllowed ? '✓' : '—' },
-    { label: 'Max RV',       key: f => f.amenities.maxRvLength ? `${f.amenities.maxRvLength}ft` : '—' },
-    { label: 'Electric',     key: f => f.amenities.electricHookups ? '✓' : '—' },
-    { label: 'Fire Rings',   key: f => f.amenities.fireRings ? '✓' : '—' },
-    { label: 'Accessible',   key: f => f.amenities.accessible ? '✓' : '—' },
-  ]
+    { label: "Forest", key: (f) => f.forest || "—" },
+    { label: "Elevation", key: (f) => formatElevationFt(f.elevation_m) ?? "?" },
+    {
+      label: "Cell Signal",
+      key: (f) => {
+        const c = f.cell_coverage;
+        if (!c) return "?";
+        const on = CARRIERS.filter((k) => c[k.key]).map((k) => k.label[0]);
+        return on.length ? on.join(" · ") : "None";
+      },
+    },
+    {
+      label: "FCFS Sites",
+      key: (f) =>
+        f.fcfs_total > 0 ? `${f.fcfs_total}/${f.fcfs_total + f.reservable_total}` : "None",
+    },
+    { label: "Fee/night", key: (f) => formatFeeShort(f, "?") },
+    { label: "Water", key: (f) => (f.amenities.potableWater ? "✓" : "—") },
+    {
+      label: "Toilet",
+      key: (f) => (f.amenities.toiletType === "unknown" ? "?" : f.amenities.toiletType),
+    },
+    { label: "Bear Boxes", key: (f) => (f.amenities.bearBoxes ? "✓" : "—") },
+    { label: "Pets", key: (f) => (f.amenities.petsAllowed ? "✓" : "—") },
+    {
+      label: "Max RV",
+      key: (f) => (f.amenities.maxRvLength ? `${f.amenities.maxRvLength}ft` : "—"),
+    },
+    { label: "Electric", key: (f) => (f.amenities.electricHookups ? "✓" : "—") },
+    { label: "Fire Rings", key: (f) => (f.amenities.fireRings ? "✓" : "—") },
+    { label: "Accessible", key: (f) => (f.amenities.accessible ? "✓" : "—") },
+  ];
 </script>
 
 <div class="compare-wrap">
@@ -34,13 +47,13 @@
       <tr>
         <th></th>
         {#each facilities as f}
-          <th><a href={f.fs_url || '#'} target="_blank">{f.name}</a></th>
+          <th><a href={f.fs_url || "#"} target="_blank">{f.name}</a></th>
         {/each}
       </tr>
     </thead>
     <tbody>
       {#each rows as row}
-        {@const values = facilities.map(f => row.key(f))}
+        {@const values = facilities.map((f) => row.key(f))}
         {@const allSame = new Set(values).size === 1}
         <tr class:highlight={!allSame}>
           <td class="row-label">{row.label}</td>
@@ -62,14 +75,27 @@
     background: var(--paper-2);
     box-shadow: var(--shadow-sm);
   }
-  table { border-collapse: collapse; width: 100%; font-size: .875rem; }
-  th, td { padding: .65rem .9rem; border-bottom: 1px solid var(--line); text-align: left; }
-  td:not(.row-label), th:not(:first-child) {
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.875rem;
+  }
+  th,
+  td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+  }
+  td:not(.row-label),
+  th:not(:first-child) {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
   /* Column dividers between campgrounds, drawn light like pencil. */
-  th + th, td + td { border-left: 1px solid var(--line); }
+  th + th,
+  td + td {
+    border-left: 1px solid var(--line);
+  }
   thead th {
     position: sticky;
     top: 0;
@@ -80,9 +106,18 @@
     color: var(--ink);
     border-bottom: 1px solid var(--line-strong);
   }
-  thead th a { color: var(--pine); text-decoration: none; }
-  thead th a:hover { color: var(--pine-deep); text-decoration: underline; text-underline-offset: 2px; }
-  tbody tr:last-child td { border-bottom: none; }
+  thead th a {
+    color: var(--pine);
+    text-decoration: none;
+  }
+  thead th a:hover {
+    color: var(--pine-deep);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
   .row-label {
     font-family: var(--font-ui);
     font-size: 0.68rem;
@@ -93,6 +128,10 @@
     white-space: nowrap;
   }
   /* Rows where the campgrounds differ get a soft ochre wash to draw the eye. */
-  tr.highlight td { background: color-mix(in srgb, var(--ochre) 12%, transparent); }
-  tr.highlight .row-label { color: #876213; }
+  tr.highlight td {
+    background: color-mix(in srgb, var(--ochre) 12%, transparent);
+  }
+  tr.highlight .row-label {
+    color: #876213;
+  }
 </style>

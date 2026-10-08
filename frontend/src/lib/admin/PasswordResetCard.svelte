@@ -42,8 +42,8 @@
 <QueueSection title="Password reset link">
   <div class="card">
     <p class="sub">
-      No email is sent in production — generate a fresh reset link here and hand it to the
-      user directly. The link is valid for 30 minutes.
+      No email is sent in production — generate a fresh reset link here and hand it to the user
+      directly. The link is valid for 30 minutes.
     </p>
     <div class="reset-form">
       <input
@@ -77,8 +77,11 @@
 
 <style>
   .card {
-    background:
-      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 86%, var(--paper)));
+    background: linear-gradient(
+      180deg,
+      var(--paper-2),
+      color-mix(in srgb, var(--paper-2) 86%, var(--paper))
+    );
     border: 1px solid var(--line-strong);
     border-radius: 14px;
     padding: 1.25rem 1.4rem;

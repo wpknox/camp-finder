@@ -12,28 +12,20 @@ import { sendEmail, verifyEmail } from "$lib/server/email";
 
 const GENERIC = "Could not create account. Please try again.";
 
-export const POST: RequestHandler = async ({
-  request,
-  cookies,
-  getClientAddress,
-  url,
-}) => {
+export const POST: RequestHandler = async ({ request, cookies, getClientAddress, url }) => {
   if (!authLimiter.check(getClientAddress()).allowed) {
-    return json(
-      { error: "Too many attempts, try again in a few minutes." },
-      { status: 429 },
-    );
+    return json({ error: "Too many attempts, try again in a few minutes." }, { status: 429 });
   }
 
   if (!env.INVITE_CODE) {
-    console.error(
-      "[register] INVITE_CODE is not configured — refusing all registrations",
-    );
+    console.error("[register] INVITE_CODE is not configured — refusing all registrations");
     return json({ error: "Invalid invite code." }, { status: 403 });
   }
 
-  const { email, name, password, passwordConfirm, inviteCode } =
-    (await request.json()) as Record<string, string>;
+  const { email, name, password, passwordConfirm, inviteCode } = (await request.json()) as Record<
+    string,
+    string
+  >;
 
   if (inviteCode !== env.INVITE_CODE) {
     return json({ error: "Invalid invite code." }, { status: 403 });
@@ -41,8 +33,7 @@ export const POST: RequestHandler = async ({
 
   if (!validateEmail(email ?? ""))
     return json({ error: "Enter a valid email address." }, { status: 400 });
-  if (!name?.trim())
-    return json({ error: "Display name is required." }, { status: 400 });
+  if (!name?.trim()) return json({ error: "Display name is required." }, { status: 400 });
   const pw = validatePassword(password ?? "");
   if (!pw.ok) return json({ error: pw.error }, { status: 400 });
   if (password !== passwordConfirm)
@@ -60,12 +51,7 @@ export const POST: RequestHandler = async ({
   const auth = await tbLogin(email, password);
   if (!auth) return json({ error: GENERIC }, { status: 400 });
 
-  setSession(
-    cookies,
-    auth.token,
-    auth.refresh_token,
-    auth.record.name ?? name.trim(),
-  );
+  setSession(cookies, auth.token, auth.refresh_token, auth.record.name ?? name.trim());
 
   try {
     const record = await getUserById(auth.record.id);

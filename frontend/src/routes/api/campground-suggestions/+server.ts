@@ -1,33 +1,33 @@
-import { json } from '@sveltejs/kit'
-import type { RequestHandler } from './$types'
-import { guardSubmission, insertRow } from '$lib/server/moderation'
-import { validateSubmission, validateSourceUrl } from '$lib/campgroundSubmission'
+import { json } from "@sveltejs/kit";
+import type { RequestHandler } from "./$types";
+import { guardSubmission, insertRow } from "$lib/server/moderation";
+import { validateSubmission, validateSourceUrl } from "$lib/campgroundSubmission";
 
 // Deliberately uses the service token (see $lib/server/tb) — don't "fix" this to the
 // per-request user-token pattern of sibling routes (api/saved, api/ratings).
 
 export const POST: RequestHandler = async ({ locals, request, getClientAddress }) => {
-  const blocked = guardSubmission(locals, getClientAddress)
-  if (blocked) return blocked
+  const blocked = guardSubmission(locals, getClientAddress);
+  if (blocked) return blocked;
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
-  if (typeof body !== 'object' || body === null || Array.isArray(body))
-    return json({ error: 'Invalid request body' }, { status: 400 })
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (typeof body !== "object" || body === null || Array.isArray(body))
+    return json({ error: "Invalid request body" }, { status: 400 });
 
   // source_url / note are optional: non-strings are treated as empty.
-  const sourceUrl = typeof body.source_url === 'string' ? body.source_url.trim() : ''
-  const note = typeof body.note === 'string' ? body.note.trim().slice(0, 1000) : ''
+  const sourceUrl = typeof body.source_url === "string" ? body.source_url.trim() : "";
+  const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) : "";
 
-  const submissionError = validateSubmission(body.submission)
-  if (submissionError) return json({ error: submissionError }, { status: 400 })
-  const urlError = validateSourceUrl(sourceUrl)
-  if (urlError) return json({ error: urlError }, { status: 400 })
+  const submissionError = validateSubmission(body.submission);
+  if (submissionError) return json({ error: submissionError }, { status: 400 });
+  const urlError = validateSourceUrl(sourceUrl);
+  if (urlError) return json({ error: urlError }, { status: 400 });
 
-  return insertRow('campground_suggestions', {
+  return insertRow("campground_suggestions", {
     user_id: locals.user!.id,
     submission: JSON.stringify(body.submission),
     source_url: sourceUrl || null,
     note: note || null,
-    status: 'pending',
-  })
-}
+    status: "pending",
+  });
+};

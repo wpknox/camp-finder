@@ -9,9 +9,7 @@
   let scraped_at: string | null = $state(null);
   let error = $state(false);
 
-  let dateStr = $derived(
-    scraped_at ? formatDate(scraped_at) : "",
-  );
+  let dateStr = $derived(scraped_at ? formatDate(scraped_at) : "");
 
   onMount(async () => {
     try {
@@ -38,7 +36,10 @@
     </p>
   {:else if content}
     <div class="content">
-      {#each [...new Set(content.split('\n\n').map(s => s.trim()).filter(s => s))] as paragraph}
+      {#each [...new Set(content
+            .split("\n\n")
+            .map((s) => s.trim())
+            .filter((s) => s))] as paragraph}
         <p>{paragraph}</p>
       {/each}
     </div>

@@ -7,8 +7,7 @@
   let {
     onselect,
     onbackgroundclick,
-  }: { onselect?: (f: Facility) => void; onbackgroundclick?: () => void } =
-    $props();
+  }: { onselect?: (f: Facility) => void; onbackgroundclick?: () => void } = $props();
 
   let mapEl: HTMLDivElement = $state(null!);
   let L: any = $state(null);
@@ -50,8 +49,7 @@
         usgsTopo.off("tileerror", fallback);
         usgsTopo.remove();
         L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-          attribution:
-            'Map: © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+          attribution: 'Map: © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
           maxZoom: 17,
         }).addTo(map);
       });

@@ -96,9 +96,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
         ? body.submission
         : parseJson(row.submission, null);
     finalSourceUrl =
-      typeof body.source_url === "string"
-        ? body.source_url.trim() || null
-        : row.source_url;
+      typeof body.source_url === "string" ? body.source_url.trim() || null : row.source_url;
 
     const subError = validateSubmission(finalSubmission);
     if (subError) return json({ error: subError }, { status: 400 });
@@ -140,10 +138,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       found = await findCreated();
     }
     if (!found[0]) {
-      return json(
-        { error: "Facility created but could not be located" },
-        { status: 502 },
-      );
+      return json({ error: "Facility created but could not be located" }, { status: 502 });
     }
     created = { id: found[0].id, name: found[0].name };
   }
@@ -177,8 +172,6 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   }
 
   return json(
-    created
-      ? { ok: true, facility_id: created.id, facility_name: created.name }
-      : { ok: true },
+    created ? { ok: true, facility_id: created.id, facility_name: created.name } : { ok: true },
   );
 };

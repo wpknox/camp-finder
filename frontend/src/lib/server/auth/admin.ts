@@ -39,9 +39,7 @@ export async function requireAdmin(locals: App.Locals): Promise<AdminUser> {
  * Display-only role lookup — never throws. Used to surface an "Admin" link
  * in the UI; the actual gate for any admin action is requireAdmin() above.
  */
-export async function getRoleForDisplay(
-  locals: App.Locals,
-): Promise<string | null> {
+export async function getRoleForDisplay(locals: App.Locals): Promise<string | null> {
   if (!locals.user) return null;
   const record = await fetchUserRecord(locals.user.id);
   return record?.role ?? null;

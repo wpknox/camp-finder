@@ -25,10 +25,7 @@ export async function getUserById(id: string): Promise<TbUserRecord | null> {
   return tbView<TbUserRecord>("users", id);
 }
 
-export async function updateUser(
-  id: string,
-  patch: Record<string, unknown>,
-): Promise<boolean> {
+export async function updateUser(id: string, patch: Record<string, unknown>): Promise<boolean> {
   const res = await tbFetch(`/api/v1/table/users/edit/${id}`, {
     method: "POST",
     headers: tbHeaders,
