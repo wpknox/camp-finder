@@ -4,7 +4,7 @@
 
 CampFinder is a map-first web app for discovering Colorado campgrounds. See `CLAUDE.md` for stack, commands, architectural decisions, and Teenybase quirks. See `docs/design-language.md` ("Folded Field Map") before any UI work.
 
-## Current status (2026-10-07): "Suggest a campground" (PR #4) MERGED to `main` + prod backend deployed; code-reuse refactor queued on `chore/code-reuse-refactor`
+## Current status (2026-10-07): "Suggest a campground" (PR #4) MERGED to `main` + prod backend deployed; code-reuse refactor DONE on `chore/code-reuse-refactor` (15 commits, not pushed)
 
 The app is in a good spot to share with real users. Moderation wishlist merged (PR #2), brand icon unified, prod smoke-checked. **Post-launch features (directions, elevation+weather, nearby, cell coverage) are now live in prod** — PR #3 merged 2026-07-21 following the `docs/rollout-pr3.md` runbook (backend schema deployed, both enrichments run against prod, frontend auto-deployed). See "Session 2026-07-21" below for the rollout log and "Wishlist: post-launch" for remaining future work.
 
@@ -122,7 +122,16 @@ Built on **`feat/suggest-campground`** (plan: Sonnet subagents per task, Opus re
 - pnpm file decision (`pnpm-workspace.yaml` / `pnpm-lock.yaml`, lockfile v9) was committed in `ba5d5aa` and is now on `main`; confirm the Pages build is happy with it.
 - **Codebase reuse sweep** done (read-only); findings + ordered plan in **`docs/refactor-sweep.md`**.
 
-**⏭ Next session — execute `docs/refactor-sweep.md` on `chore/code-reuse-refactor`** (branch already created from updated `main`). Start with section A (server routes + the likely `is_deleted` bug), then B (ModalShell / submitJson / SegmentedControl), then C. One commit per item; `pnpm check` 0/0 + `pnpm test` green each step; browser-verify UI changes.
+**⏭ Superseded — see "Session 2026-10-07 (later)" below.**
+
+### Session 2026-10-07 (later) — code-reuse refactor executed on `chore/code-reuse-refactor`
+
+- 15 commits, one per task (Sonnet/Haiku subagents implemented, Opus reviewed each before committing). Full table, intentional behavior changes and found-not-fixed issues: **`docs/refactor-sweep.md`**. New "Where shared code lives" section in `CLAUDE.md`.
+- **Bug fixed:** tombstoned facilities were still returned by `/api/facilities/[id]` and shown in Compare.
+- Tests: frontend 167 (was 89), etl 155 (was 146), svelte-check 0/0, `pnpm build` OK, `pnpm format:check` clean.
+- **Prettier added** (root `package.json` + `pnpm format`). This adds a root importer to `pnpm-lock.yaml` — **watch the first Cloudflare Pages build after merging**.
+- **Not pushed / no PR yet.** No backend schema changes, so no deploy-order constraint.
+- **Local DB state:** `testview@example.com` promoted to `role='admin'` (local only) for browser verification. Test campgrounds created during admin-page verification were merged/tombstoned; queues are empty; the two PIKE COMMUNITY test edit suggestions were rejected (record unchanged).
 
 ### Session 2026-07-21 — PR #3 rolled out to prod (merge commit `febc72b`)
 
@@ -214,7 +223,7 @@ cd etl && pnpm sync       # RIDB; pnpm discover (fs.usda.gov); pnpm sync-nps (NP
 cd backend && pnpm generate && pnpm migrate   # after schema changes
 ```
 
-Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (89); `etl pnpm test` (146).
+Tests: `frontend pnpm check` (0/0 before every commit) + `pnpm test` (167); `etl pnpm test` (155); root `pnpm format:check`.
 
 **Teenybase regenerated `backend/migrations/` as a squashed 0000–0006 set during the prod deploy** (gitignored; old 0001–0012 history is gone — local dev DB predates the squash and is fine).
 
