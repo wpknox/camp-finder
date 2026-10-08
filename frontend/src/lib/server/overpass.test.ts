@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { haversineMeters, buildOverpassQuery, normalizeOverpass, type OverpassResponse } from './overpass'
+import { distanceMeters } from '../geo'
+import { buildOverpassQuery, normalizeOverpass, type OverpassResponse } from './overpass'
 
-describe('haversineMeters', () => {
+describe('distanceMeters', () => {
   it('is ~1.11 km per 0.01° latitude', () => {
-    const d = haversineMeters(39.0, -106.0, 39.01, -106.0)
+    const d = distanceMeters(39.0, -106.0, 39.01, -106.0)
     expect(d).toBeGreaterThan(1100)
     expect(d).toBeLessThan(1125)
   })

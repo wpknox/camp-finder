@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { Facility } from '$lib/types'
+  import { distanceMiles } from '$lib/geo'
 
   let { facility, onclose }: { facility: Facility; onclose: () => void } = $props()
 
@@ -18,16 +19,6 @@
   let submitted = $state(false)
   let alreadyReported = $state(false)
   let errorMsg = $state('')
-
-  function distMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-    const R = 3958.8,
-      dLat = ((b.lat - a.lat) * Math.PI) / 180,
-      dLng = ((b.lng - a.lng) * Math.PI) / 180
-    const h =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
-    return 2 * R * Math.asin(Math.sqrt(h))
-  }
 
   function sourceBadge(ridbId: string): string {
     if (ridbId.startsWith('nps-')) return 'NPS'
@@ -60,7 +51,7 @@
     return candidates
       .filter((f) => f.id !== initial.id)
       .filter((f) => (q === '' ? true : f.name.toLowerCase().includes(q)))
-      .map((f) => ({ f, mi: distMiles(initial, f) }))
+      .map((f) => ({ f, mi: distanceMiles(initial, f) }))
       .sort((a, b) => a.mi - b.mi)
       .slice(0, 20)
   })

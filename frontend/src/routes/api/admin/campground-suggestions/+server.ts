@@ -17,8 +17,8 @@ import {
   validateSubmission,
   validateSourceUrl,
   buildFacilityValues,
-  findNearby,
 } from "$lib/campgroundSubmission";
+import { findNearby } from "$lib/geo";
 import type { CampgroundSubmission } from "$lib/types";
 
 interface RawCampground {
