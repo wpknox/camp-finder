@@ -39,6 +39,9 @@ function validateChanges(changes: EditChanges): string | null {
   // lat/lng travel together — a half-updated location is never intended.
   if ((changes.lat === undefined) !== (changes.lng === undefined))
     return 'lat and lng must be provided together'
+  const toilet = (changes.amenities as { toiletType?: unknown } | undefined)?.toiletType
+  if (toilet !== undefined && !['flush', 'vault', 'none', 'unknown'].includes(toilet as string))
+    return 'toiletType must be flush, vault, none or unknown'
   if (changes.cell_coverage !== undefined) {
     if (typeof changes.cell_coverage !== 'object' || changes.cell_coverage === null)
       return 'cell_coverage must be an object'

@@ -122,6 +122,7 @@ export interface CampgroundSubmission {
   fcfs_total?: number | null;
   reservable_total?: number | null;
   amenities?: Partial<Record<EditableAmenityKey, boolean | null>>;
+  toiletType?: ToiletType;
   // Admin-only on review (description is public; submitter notes are not)
   description?: string | null;
   forest?: string | null;

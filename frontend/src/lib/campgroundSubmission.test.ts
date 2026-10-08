@@ -13,8 +13,18 @@ describe('draft <-> submission', () => {
     expect(d.lngStr).toBe('-110.50000')
     expect(Object.values(d.amenities).every((v) => v === 'unknown')).toBe(true)
   })
-  it('minimal draft omits empty fields and unknown amenities', () => {
-    expect(draftToSubmission(valid())).toEqual({ name: 'Pine Flat', lat: 44.12346, lng: -110.5 })
+  it('minimal draft defaults blank numerics to 0 and omits text, toilets and unknown amenities', () => {
+    expect(draftToSubmission(valid())).toEqual({
+      name: 'Pine Flat', lat: 44.12346, lng: -110.5,
+      fee_min: 0, fee_max: 0, fcfs_total: 0, reservable_total: 0,
+    })
+  })
+  it('round trips toiletType and omits it when unknown', () => {
+    const d = valid()
+    d.toiletType = 'vault'
+    expect(draftToSubmission(d).toiletType).toBe('vault')
+    expect(draftFromSubmission(draftToSubmission(d)).toiletType).toBe('vault')
+    expect(draftToSubmission(valid()).toiletType).toBeUndefined()
   })
   it('round trips a full submission', () => {
     const s = {
@@ -72,6 +82,10 @@ describe('validateSubmission', () => {
     expect(validateSubmission({ ...ok, evil: 1 })).toMatch(/Unknown field/)
     expect(validateSubmission({ ...ok, amenities: { horsesAllowed: true } })).toMatch(/Unknown amenity/)
   })
+  it('validates toiletType', () => {
+    expect(validateSubmission({ ...ok, toiletType: 'flush' })).toBeNull()
+    expect(validateSubmission({ ...ok, toiletType: 'portapotty' })).toBeTruthy()
+  })
   it('rejects non-boolean amenities', () => {
     expect(validateSubmission({ ...ok, amenities: { potableWater: 'yes' } })).toBeTruthy()
     expect(validateSubmission({ ...ok, amenities: [] })).toBeTruthy()
@@ -113,7 +127,7 @@ describe('buildFacilityValues', () => {
     const v = buildFacilityValues(s, 'abc', null, now)
     expect(v.ridb_id).toBe('user-abc')
     expect(v.name).toBe('Pine Flat')
-    expect(v.fee_min).toBeNull()
+    expect(v.fee_min).toBe(0)
     expect(v.description).toBeNull()
     expect(v.is_closed).toBe(false)
     expect(v.is_deleted).toBe(false)

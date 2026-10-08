@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { Facility, EditChanges, Amenities } from '$lib/types'
+  import type { Facility, EditChanges, Amenities, ToiletType } from '$lib/types'
   import LocationPicker from './LocationPicker.svelte'
   import { EDITABLE_AMENITIES } from '$lib/amenityFields'
 
@@ -10,6 +10,13 @@
     { key: 'verizon', label: 'Verizon' },
     { key: 'att', label: 'AT&T' },
     { key: 'tmobile', label: 'T-Mobile' },
+  ]
+
+  const TOILET_OPTIONS: Array<{ value: ToiletType; label: string }> = [
+    { value: 'flush', label: 'Flush' },
+    { value: 'vault', label: 'Vault' },
+    { value: 'none', label: 'None' },
+    { value: 'unknown', label: 'Unknown' },
   ]
 
   function triState(v: boolean | null | undefined): 'yes' | 'no' | 'unknown' {
@@ -45,6 +52,7 @@
   let amenityValues = $state(Object.fromEntries(
     EDITABLE_AMENITIES.map(({ key }) => [key, triState(initial.amenities?.[key] as boolean | null)]),
   ) as Record<string, 'yes' | 'no' | 'unknown'>)
+  let toiletType = $state<ToiletType>(initial.amenities?.toiletType ?? 'unknown')
   let carrierValues = $state(Object.fromEntries(
     CARRIERS.map(({ key }) => [key, triState(initial.cell_coverage?.[key])]),
   ) as Record<string, 'yes' | 'no' | 'unknown'>)
@@ -106,6 +114,7 @@
           current === 'yes' ? true : current === 'no' ? false : null
       }
     }
+    if (toiletType !== (facility.amenities?.toiletType ?? 'unknown')) amenityDiff.toiletType = toiletType
     if (Object.keys(amenityDiff).length) c.amenities = amenityDiff
     const carrierDiff: NonNullable<EditChanges['cell_coverage']> = {}
     for (const { key } of CARRIERS) {
@@ -268,6 +277,15 @@
 
         <div class="amenities">
           <span class="section-label">Amenities</span>
+          <div class="amenity-row">
+            <span class="amenity-label">Toilets</span>
+            <div class="segmented">
+              {#each TOILET_OPTIONS as { value, label: optLabel } (value)}
+                <button type="button" class:active={toiletType === value}
+                        onclick={() => (toiletType = value)}>{optLabel}</button>
+              {/each}
+            </div>
+          </div>
           {#each EDITABLE_AMENITIES as { key, label } (key)}
             <div class="amenity-row">
               <span class="amenity-label">{label}</span>

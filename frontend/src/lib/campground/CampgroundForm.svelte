@@ -2,7 +2,7 @@
   import LocationPicker from '$lib/detail/LocationPicker.svelte'
   import { EDITABLE_AMENITIES } from '$lib/amenityFields'
   import type { CampgroundDraft } from '$lib/campgroundSubmission'
-  import type { TriState } from '$lib/types'
+  import type { ToiletType, TriState } from '$lib/types'
 
   let {
     draft = $bindable(),
@@ -21,6 +21,13 @@
   const TRI_OPTIONS: Array<{ value: TriState; label: string }> = [
     { value: 'yes', label: 'Yes' },
     { value: 'no', label: 'No' },
+    { value: 'unknown', label: 'Unknown' },
+  ]
+
+  const TOILET_OPTIONS: Array<{ value: ToiletType; label: string }> = [
+    { value: 'flush', label: 'Flush' },
+    { value: 'vault', label: 'Vault' },
+    { value: 'none', label: 'None' },
     { value: 'unknown', label: 'Unknown' },
   ]
 
@@ -86,14 +93,14 @@
     <div class="field">
       <label for="{idPrefix}-fee-min">Fee min ($/night) <span class="ink-faint">(optional)</span></label>
       <input id="{idPrefix}-fee-min" type="text" inputmode="decimal" bind:value={draft.feeMin}
-             onblur={() => touch('feeMin')} placeholder="e.g. 15"
+             onblur={() => touch('feeMin')} placeholder="e.g. 15 (blank = 0)"
              class:invalid={!!err('feeMin')} aria-invalid={!!err('feeMin')} />
       {#if err('feeMin')}<p class="field-error">{err('feeMin')}</p>{/if}
     </div>
     <div class="field">
       <label for="{idPrefix}-fee-max">Fee max ($/night) <span class="ink-faint">(optional)</span></label>
       <input id="{idPrefix}-fee-max" type="text" inputmode="decimal" bind:value={draft.feeMax}
-             onblur={() => touch('feeMax')} placeholder="e.g. 25"
+             onblur={() => touch('feeMax')} placeholder="e.g. 25 (blank = 0)"
              class:invalid={!!err('feeMax')} aria-invalid={!!err('feeMax')} />
       {#if err('feeMax')}<p class="field-error">{err('feeMax')}</p>{/if}
     </div>
@@ -103,14 +110,14 @@
     <div class="field">
       <label for="{idPrefix}-fcfs">FCFS sites <span class="ink-faint">(optional)</span></label>
       <input id="{idPrefix}-fcfs" type="text" inputmode="numeric" bind:value={draft.fcfsTotal}
-             onblur={() => touch('fcfsTotal')} placeholder="e.g. 12"
+             onblur={() => touch('fcfsTotal')} placeholder="e.g. 12 (blank = 0)"
              class:invalid={!!err('fcfsTotal')} aria-invalid={!!err('fcfsTotal')} />
       {#if err('fcfsTotal')}<p class="field-error">{err('fcfsTotal')}</p>{/if}
     </div>
     <div class="field">
       <label for="{idPrefix}-reservable">Reservable sites <span class="ink-faint">(optional)</span></label>
       <input id="{idPrefix}-reservable" type="text" inputmode="numeric" bind:value={draft.reservableTotal}
-             onblur={() => touch('reservableTotal')} placeholder="e.g. 18"
+             onblur={() => touch('reservableTotal')} placeholder="e.g. 18 (blank = 0)"
              class:invalid={!!err('reservableTotal')} aria-invalid={!!err('reservableTotal')} />
       {#if err('reservableTotal')}<p class="field-error">{err('reservableTotal')}</p>{/if}
     </div>
@@ -135,6 +142,15 @@
 
   <div class="amenities">
     <span class="section-label">Amenities <span class="ink-faint">(optional)</span></span>
+    <div class="amenity-row">
+      <span class="amenity-label">Toilets</span>
+      <div class="segmented">
+        {#each TOILET_OPTIONS as { value, label: optLabel } (value)}
+          <button type="button" class:active={draft.toiletType === value}
+                  onclick={() => (draft.toiletType = value)}>{optLabel}</button>
+        {/each}
+      </div>
+    </div>
     {#each EDITABLE_AMENITIES as { key, label } (key)}
       <div class="amenity-row">
         <span class="amenity-label">{label}</span>

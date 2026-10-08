@@ -1,13 +1,14 @@
 // Shared by browser and server routes: no $env / $lib/server imports here.
 import { EDITABLE_AMENITIES, type EditableAmenityKey } from './amenityFields'
 import { deriveFcfsFlags } from './fcfs'
-import type { Amenities, CampgroundSubmission, DataQuality, TriState } from './types'
+import type { Amenities, CampgroundSubmission, DataQuality, ToiletType, TriState } from './types'
 
 const AMENITY_KEYS = EDITABLE_AMENITIES.map((a) => a.key) as EditableAmenityKey[]
 const SUBMISSION_KEYS = new Set([
   'name', 'lat', 'lng', 'fee_min', 'fee_max', 'season_start', 'season_end',
-  'fcfs_total', 'reservable_total', 'amenities', 'description', 'forest', 'district',
+  'fcfs_total', 'reservable_total', 'amenities', 'toiletType', 'description', 'forest', 'district',
 ])
+const TOILET_TYPES: ToiletType[] = ['flush', 'vault', 'none', 'unknown']
 const NAME_MAX = 120
 const STRING_MAX = 200
 const DESCRIPTION_MAX = 2000
@@ -26,6 +27,7 @@ export interface CampgroundDraft {
   description: string
   forest: string
   district: string
+  toiletType: ToiletType
   amenities: Record<EditableAmenityKey, TriState>
 }
 
@@ -47,6 +49,7 @@ export function emptyDraft(lat: number, lng: number): CampgroundDraft {
     description: '',
     forest: '',
     district: '',
+    toiletType: 'unknown',
     amenities: Object.fromEntries(AMENITY_KEYS.map((k) => [k, 'unknown'])) as Record<EditableAmenityKey, TriState>,
   }
 }
@@ -64,6 +67,7 @@ export function draftFromSubmission(s: CampgroundSubmission): CampgroundDraft {
   d.description = str(s.description)
   d.forest = str(s.forest)
   d.district = str(s.district)
+  d.toiletType = s.toiletType ?? 'unknown'
   for (const k of AMENITY_KEYS) d.amenities[k] = triState(s.amenities?.[k])
   return d
 }
@@ -118,7 +122,8 @@ export function draftToSubmission(d: CampgroundDraft): CampgroundSubmission {
     lat: Number(Number(d.latStr).toFixed(5)),
     lng: Number(Number(d.lngStr).toFixed(5)),
   }
-  const num = (v: string) => (v.trim() === '' ? null : Number(v))
+  // Blank numeric fields mean "none", not "unknown" — store 0 rather than null.
+  const num = (v: string) => (v.trim() === '' ? 0 : Number(v))
   const txt = (v: string) => (v.trim() === '' ? null : v.trim())
   const fields: Array<[keyof CampgroundSubmission, number | string | null]> = [
     ['fee_min', num(d.feeMin)],
@@ -138,6 +143,7 @@ export function draftToSubmission(d: CampgroundDraft): CampgroundSubmission {
     else if (d.amenities[k] === 'no') amenities[k] = false
   }
   if (Object.keys(amenities).length) s.amenities = amenities
+  if (d.toiletType !== 'unknown') s.toiletType = d.toiletType
   return s
 }
 
@@ -174,6 +180,8 @@ export function validateSubmission(s: unknown): string | null {
     if (typeof v !== 'string') return `${key} must be a string`
     if (v.length > max) return `${key} must be ${max} characters or fewer`
   }
+  if (o.toiletType !== undefined && !TOILET_TYPES.includes(o.toiletType as ToiletType))
+    return 'toiletType must be flush, vault, none or unknown'
   if (o.amenities !== undefined) {
     if (typeof o.amenities !== 'object' || o.amenities === null || Array.isArray(o.amenities))
       return 'amenities must be an object'
@@ -235,6 +243,7 @@ export function buildFacilityValues(
     accessible: false,
   }
   for (const k of AMENITY_KEYS) if (s.amenities?.[k] === true) full[k] = true
+  if (s.toiletType) full.toiletType = s.toiletType
 
   let fsUrl: string | null = null
   if (sourceUrl) {
@@ -253,12 +262,12 @@ export function buildFacilityValues(
     name: s.name.trim(),
     lat: s.lat,
     lng: s.lng,
-    fee_min: s.fee_min ?? null,
-    fee_max: s.fee_max ?? null,
+    fee_min: s.fee_min ?? 0,
+    fee_max: s.fee_max ?? 0,
     season_start: s.season_start ?? null,
     season_end: s.season_end ?? null,
-    fcfs_total: s.fcfs_total ?? null,
-    reservable_total: s.reservable_total ?? null,
+    fcfs_total: fcfs,
+    reservable_total: res,
     ...deriveFcfsFlags(fcfs, res),
     description: s.description ?? null,
     forest: s.forest ?? null,
