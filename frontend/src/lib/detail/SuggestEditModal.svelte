@@ -1,7 +1,7 @@
 <script lang="ts">
   import { submitJson } from "$lib/api";
   import { untrack } from "svelte";
-  import type { Facility, EditChanges, Amenities, ToiletType } from "$lib/types";
+  import type { Facility, EditChanges, ToiletType } from "$lib/types";
   import {
     countError,
     feeError,
@@ -9,6 +9,7 @@
     latError as checkLat,
     lngError as checkLng,
   } from "$lib/validation";
+  import { buildEditChanges } from "$lib/editChanges";
   import LocationPicker from "./LocationPicker.svelte";
   import ModalShell from "$lib/ui/ModalShell.svelte";
   import SegmentedControl from "$lib/ui/SegmentedControl.svelte";
@@ -17,7 +18,6 @@
     CARRIERS,
     EDITABLE_AMENITIES,
     TRI_OPTIONS,
-    fromTriState,
     triState,
     type EditableAmenityKey,
     type CarrierKey,
@@ -45,9 +45,9 @@
   let lngStr = $state(initial.lng.toFixed(5));
   const latNum = $derived(Number(latStr));
   const lngNum = $derived(Number(lngStr));
-  const latError = $derived(checkLat(latStr, { required: false }));
-  const lngError = $derived(checkLng(lngStr, { required: false }));
-  const locationValid = $derived(!latError && !lngError && latStr !== "" && lngStr !== "");
+  const latError = $derived(checkLat(latStr, { required: true }));
+  const lngError = $derived(checkLng(lngStr, { required: true }));
+  const locationValid = $derived(!latError && !lngError);
 
   function onPinMove(newLat: number, newLng: number) {
     latStr = newLat.toFixed(5);
@@ -85,50 +85,22 @@
   const reservableTotalError = $derived(countError(reservableTotal));
   const countsValid = $derived(!fcfsTotalError && !reservableTotalError);
 
-  let changes = $derived.by(() => {
-    const c: EditChanges = {};
-    if (!feesValid || !countsValid || !locationValid) return c;
-    const fMin = feeMin === "" ? null : Number(feeMin);
-    const fMax = feeMax === "" ? null : Number(feeMax);
-    if (fMin !== (facility.fee_min ?? null)) c.fee_min = fMin;
-    if (fMax !== (facility.fee_max ?? null)) c.fee_max = fMax;
-    if (seasonStart !== (facility.season_start ?? "")) c.season_start = seasonStart;
-    if (seasonEnd !== (facility.season_end ?? "")) c.season_end = seasonEnd;
-    const ft = fcfsTotal === "" ? null : Number(fcfsTotal);
-    if (ft !== (facility.fcfs_total ?? null)) c.fcfs_total = ft;
-    const rt = reservableTotal === "" ? null : Number(reservableTotal);
-    if (rt !== (facility.reservable_total ?? null)) c.reservable_total = rt;
-    if ((closedStatus === "closed") !== !!facility.is_closed)
-      c.is_closed = closedStatus === "closed";
-    const latRounded = Number(latNum.toFixed(5));
-    const lngRounded = Number(lngNum.toFixed(5));
-    const origLat = Number(facility.lat.toFixed(5));
-    const origLng = Number(facility.lng.toFixed(5));
-    if (latRounded !== origLat || lngRounded !== origLng) {
-      c.lat = latRounded;
-      c.lng = lngRounded;
-    }
-    const amenityDiff: Partial<Amenities> = {};
-    for (const { key } of EDITABLE_AMENITIES) {
-      const original = triState(facility.amenities?.[key] as boolean | null);
-      const current = amenityValues[key];
-      if (current !== original) {
-        (amenityDiff as Record<string, boolean | null>)[key] = fromTriState(current);
-      }
-    }
-    if (toiletType !== (facility.amenities?.toiletType ?? "unknown"))
-      amenityDiff.toiletType = toiletType;
-    if (Object.keys(amenityDiff).length) c.amenities = amenityDiff;
-    const carrierDiff: NonNullable<EditChanges["cell_coverage"]> = {};
-    for (const { key } of CARRIERS) {
-      const original = triState(facility.cell_coverage?.[key]);
-      const current = carrierValues[key];
-      if (current !== original) {
-        carrierDiff[key] = fromTriState(current);
-      }
-    }
-    if (Object.keys(carrierDiff).length) c.cell_coverage = carrierDiff;
-    return c;
+  let changes: EditChanges = $derived.by(() => {
+    if (!feesValid || !countsValid || !locationValid) return {};
+    return buildEditChanges(facility, {
+      feeMin,
+      feeMax,
+      seasonStart,
+      seasonEnd,
+      fcfsTotal,
+      reservableTotal,
+      closed: closedStatus === "closed",
+      lat: latStr,
+      lng: lngStr,
+      amenityValues,
+      toiletType,
+      carrierValues,
+    });
   });
   let hasChanges = $derived(Object.keys(changes).length > 0);
 

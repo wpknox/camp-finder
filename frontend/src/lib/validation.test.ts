@@ -6,9 +6,16 @@ import {
   lngError,
   feeRangeError,
   validateEditChanges,
+  numOrNull,
 } from "./validation";
 
 describe("field helpers", () => {
+  it("numOrNull treats whitespace as blank", () => {
+    expect(numOrNull("")).toBeNull();
+    expect(numOrNull("   ")).toBeNull();
+    expect(numOrNull(" 12 ")).toBe(12);
+    expect(numOrNull("0")).toBe(0);
+  });
   it("feeError", () => {
     expect(feeError("")).toBe("");
     expect(feeError("   ")).toBe("");

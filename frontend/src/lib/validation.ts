@@ -2,6 +2,9 @@
 import { CARRIER_KEYS, TOILET_TYPES, type CarrierKey } from "./fields";
 import type { ToiletType } from "./types";
 
+/** Optional numeric input → number, or null when blank (whitespace counts as blank). */
+export const numOrNull = (v: string): number | null => (v.trim() === "" ? null : Number(v));
+
 // String-input field validators: '' means OK, otherwise the message to show.
 
 export function feeError(v: string): string {
