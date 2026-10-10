@@ -19,6 +19,7 @@
   import { formatDate } from "$lib/format";
   import { sourceLabel } from "$lib/source";
   import { CHOICE_FIELDS, type ChoiceField } from "$lib/admin/mergeFields";
+  import { refsFacility } from "$lib/admin/queues";
 
   interface DeletionRow {
     id: string;
@@ -218,7 +219,16 @@
         field_choices,
       },
       {
-        onResolved: () => (merges = merges.filter((m) => m.id !== row.id)),
+        onResolved: () => {
+          merges = merges.filter((m) => m.id !== row.id);
+          if (action !== "approve") return;
+          // The loser is deleted: its edits cascade away and the server rejects
+          // its other deletion flags and merges, so drop them here too.
+          const loserId = winnerId === row.facility_a ? row.facility_b : row.facility_a;
+          edits = edits.filter((e) => !refsFacility(e, loserId));
+          merges = merges.filter((m) => !refsFacility(m, loserId));
+          deletions = deletions.filter((d) => !refsFacility(d, loserId));
+        },
         notice: noticeFrom("the surviving campground"),
       },
     );
