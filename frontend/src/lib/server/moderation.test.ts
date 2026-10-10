@@ -111,19 +111,36 @@ describe("guardSubmission", () => {
 });
 
 describe("insertRow", () => {
-  it("returns 201 on success and wraps values", async () => {
-    mockFetch.mockReturnValueOnce(reply({ id: "n" }, 200));
+  it("returns 201 { ok: true } on success and wraps values", async () => {
+    // Teenybase answers an insert with `[]`.
+    mockFetch.mockReturnValueOnce(reply([], 200));
     const res = await insertRow("delete_suggestions", { a: 1 });
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ id: "n" });
+    expect(await res.json()).toEqual({ ok: true });
     const [path, init] = mockFetch.mock.calls[0];
     expect(path).toBe("/api/v1/table/delete_suggestions/insert");
     expect(JSON.parse(init!.body as string)).toEqual({ values: { a: 1 } });
   });
-  it("passes through error status", async () => {
-    mockFetch.mockReturnValueOnce(reply({ error: "bad" }, 400));
+  it("logs a Teenybase error and returns a generic 502 without relaying it", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFetch.mockReturnValueOnce(
+      reply({ code: 400, message: "D1_ERROR: FOREIGN KEY constraint failed" }, 400),
+    );
     const res = await insertRow("t", {});
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "bad" });
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "Could not save your submission" });
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining("t insert failed (400)"),
+      expect.stringContaining("FOREIGN KEY"),
+    );
+    log.mockRestore();
+  });
+  it("handles a non-JSON error body", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFetch.mockReturnValueOnce(Promise.resolve(new Response("boom", { status: 500 })));
+    const res = await insertRow("t", {});
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "Could not save your submission" });
+    log.mockRestore();
   });
 });

@@ -117,13 +117,18 @@ export function guardSubmission(
   return null;
 }
 
-/** Insert a row with the service token; 201 on success, else passthrough of Teenybase's status/body. */
+/**
+ * Insert a row with the service token: 201 `{ ok: true }` on success. Teenybase
+ * errors (`{ code, message }`, possibly raw D1 text) are logged, never relayed to
+ * these public routes; the client gets a generic 502.
+ */
 export async function insertRow(table: string, values: Record<string, unknown>): Promise<Response> {
   const res = await tbFetch(tb(`${table}/insert`), {
     method: "POST",
     headers: tbHeaders,
     body: JSON.stringify({ values }),
   });
-  const data = await res.json();
-  return json(data, { status: res.ok ? 201 : res.status });
+  if (res.ok) return json({ ok: true }, { status: 201 });
+  console.error(`[insertRow] ${table} insert failed (${res.status}):`, await res.text());
+  return json({ error: "Could not save your submission" }, { status: 502 });
 }

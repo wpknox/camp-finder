@@ -4,6 +4,7 @@ import { requireAdmin } from "$lib/server/auth/admin";
 import { tb, tbHeaders, tbView } from "$lib/server/tb";
 import { parseJson } from "$lib/json";
 import { tbFetch } from "$lib/server/tbFetch";
+import { fetchElevationM } from "$lib/server/elevation";
 import { isTombstoned } from "$lib/server/facilities";
 import {
   listPending,
@@ -122,6 +123,13 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       const fcfs = (changes.fcfs_total ?? facility.fcfs_total ?? 0) as number;
       const reservable = (changes.reservable_total ?? facility.reservable_total ?? 0) as number;
       Object.assign(patch, deriveFcfsFlags(fcfs, reservable));
+    }
+
+    // A move makes the stored elevation stale. On lookup failure keep the old
+    // value: most moves are small pin nudges, so it's still close.
+    if (typeof changes.lat === "number" && typeof changes.lng === "number") {
+      const elevationM = await fetchElevationM(changes.lat, changes.lng);
+      if (elevationM !== null) patch.elevation_m = elevationM;
     }
 
     const editRes = await tbFetch(tb(`facilities/edit/${facility.id}`), {

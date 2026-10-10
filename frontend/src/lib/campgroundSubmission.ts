@@ -217,6 +217,7 @@ export function buildFacilityValues(
   suggestionId: string,
   sourceUrl: string | null,
   nowIso: string,
+  opts: { elevationM?: number | null } = {},
 ) {
   const full = defaultAmenities();
   for (const k of AMENITY_KEYS) if (s.amenities?.[k] === true) full[k] = true;
@@ -256,5 +257,7 @@ export function buildFacilityValues(
     is_deleted: false,
     merged_ridb_ids: "[]",
     last_synced: nowIso,
+    // Omitted rather than null when unknown; the ETL backfill fills nulls either way.
+    ...(opts.elevationM != null ? { elevation_m: opts.elevationM } : {}),
   };
 }

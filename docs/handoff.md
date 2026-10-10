@@ -2,21 +2,17 @@
 
 Current state, next steps and hard-won gotchas. Stack, rules and code map: `CLAUDE.md`. Per-session history before 2026-10-07: `git log -p docs/handoff.md` and PRs #1–#5.
 
-## Status (2026-10-07)
+## Status (2026-10-10)
 
-- **Live and soft-launched** (since 2026-07-11). PRs #1–#4 are merged and deployed: moderation, suggest-edit/deletion, post-launch features (directions, elevation + weather, nearby, cell coverage), suggest-a-campground.
-- **PR #5 open**: `chore/code-reuse-refactor` (change record in the PR description). No schema change. It adds a root `package.json` + Prettier, which adds a root importer to `pnpm-lock.yaml`, so **watch the first Pages build after merging**.
+- **Live and soft-launched** (since 2026-07-11). PRs #1–#5 are merged; #5 (code-reuse refactor + Prettier) built cleanly on Pages.
+- **Branch `fix/next-up-batch`** (unmerged, no schema change): the 2026-10-07 "Next up" list — submit routes return `{ ok: true }` and log Teenybase errors instead of relaying them; whitespace-only suggest-an-edit fields are blank, not `0` (`lib/editChanges.ts`); a merge rejects the loser's other pending flags/merges and `/admin` drops its rows (`lib/admin/queues.ts` `refsFacility`); elevation is fetched on campground approve and on approved moves (`lib/server/elevation.ts`).
 - **The owner's stance:** next work should come from user feedback, not speculation.
 
 ## Next up
 
-1. **Stale admin rows after a merge.** Approving a merge on `/admin` leaves the loser's pending edits/deletion flags/merge rows visible, and approving one then errors "Suggestion not found". Fix in `routes/admin/+page.svelte` `resolveMerge` `onResolved`: drop rows whose `facility_id`/`facility_a`/`facility_b` is the loser, or `invalidateAll()`.
-2. **Whitespace-only fields read as `0` in suggest-an-edit.** The `lib/detail/SuggestEditModal.svelte` `changes` builder checks `=== ''`, so `Number('  ') === 0`. Trim first (the `lib/validation.ts` validators already do), and make `locationValid` treat whitespace as blank.
-3. **Submit routes return `[]` with 201** (Teenybase `insert` responds `[]`; `insertRow` in `lib/server/moderation.ts`). Low priority: return `{ ok: true }`.
-
-4. **Approved user campgrounds get no Cell Signal (or elevation).** This is a feature gap, found 2026-10-07 on a local test submission (`user-b4gs8hjIQ2i1k_4FfKerZA`, "Zapata Falls Campground"; prod already has it from RIDB `261715` with coverage). `cell_coverage` comes only from the offline `etl` `enrich-cell` run (the FCC hex CSVs live only on the owner's machine), and `buildFacilityValues` (`lib/campgroundSubmission.ts`) sets neither field, so `CellCoverageChips` hides. Short-term fix: rerun `enrich-cell --as-of 2025-12` + `enrich-elevation` against prod after approvals, or suggest an edit with carriers. Real fix: on approve, fetch elevation from Open-Meteo (keyless) and look up the H3 res-9 cell in a server-side copy of the FCC hex sets (a D1 table or R2 object; `h3-js` is already an ETL dep). Also consider carrier tri-states on the suggest-a-campground form.
-
-One commit each, with a test where possible. Item 4 probably folds into the brainstorm below.
+1. **Cell coverage for approved user campgrounds** — deferred to the brainstorm. `cell_coverage` still comes only from the offline `enrich-cell` run; rerun it against prod after approvals. Planned design (2026-10-10): a `cell_tiles` table with one row per H3 res-5 parent holding three 2,401-bit carrier bitsets (CO ≈ 1,054 rows / ~1.3 MB; a row per res-9 cell is ~1.77M rows for CO, which the free tier's 100k writes/day can't load). A tile row is authoritative over its extent; no tile ⇒ null. h3-js is asm.js; import its browser build in Pages to avoid the Node `require("fs")` branch. Carrier tri-states on the suggest form were also deferred: chips render `null` and `false` identically, so partly known carriers would read as "no signal".
+2. **Merge gaps:** `mergeFacilityFields` ignores `elevation_m`/`cell_coverage` (a loser's values are lost when the winner's are null, including when the loser's location is chosen). Pending edits on the loser cascade-delete with no audit row. Pending rows involving the winner show pre-merge data until reload.
+3. **Orphaned rows in prod** from earlier merges (pending deletion flags/merges with a NULL facility): reject them via `/admin` once (it shows a "reject to clear" hint).
 
 ## Direction brainstorm (planned session)
 
@@ -60,7 +56,7 @@ cd backend && pnpm dev    # :8787 — Pocket UI /api/v1/pocket/, Swagger /api/v1
 cd frontend && pnpm dev   # :5173 — emails print here as [email:dev] (reset links)
 ```
 
-Tests: frontend `pnpm check` (0/0 before every commit) + `pnpm test` (167); etl `pnpm test` (155); root `pnpm format:check`.
+Tests: frontend `pnpm check` (0/0 before every commit) + `pnpm test` (185); etl `pnpm test` (155); root `pnpm format:check`.
 
 - Local admin `willis+admin@email.com`; test user `testview@example.com` / `password123` (also promoted to admin locally).
 - Promote locally with `sqlite3 backend/.local-persist/v3/d1/miniflare-D1DatabaseObject/da240ff2….sqlite "UPDATE users SET role='admin' WHERE email='<you>'"`. In prod: `cd backend && npx wrangler d1 execute backend-db --remote --command "…"`.
@@ -74,7 +70,7 @@ Tests: frontend `pnpm check` (0/0 before every commit) + `pnpm test` (167); etl 
 - **Rate limits:** fs.usda.gov 429s the scraper (multi-pass `pnpm discover` with 10–15 min cooldowns converges; dedupe makes reruns safe). Overpass 504s/429s under load and timeouts stack a cooldown. The Nearby section hides when there's no cache, and a mirror fallback (kumi.systems) is the fix if this becomes chronic.
 - **FCC cell data:** the download flow is in `etl/README.md`. Never filter on `environmnt`: coverage is the union of both values.
 - **Carrier overrides:** suggesting "Unknown" removes the carrier from `user_edited`, so FCC data can repopulate it.
-- **Blank numerics save as `0`,** so a fee of 0 reads as "free" even when the submitter just didn't know.
+- **Blank numerics save as `0` in suggest-a-campground** (by design in `draftToSubmission`), so a fee of 0 reads as "free" even when the submitter just didn't know. Suggest-an-edit sends blank as `null`.
 - **GitHub "Cannot update the protected ref":** the `main` ruleset (https://github.com/wpknox/camp-finder/rules/18509008) picked up an `update` rule. Keep only `deletion` + `non_fast_forward`.
 
 ## Known issues

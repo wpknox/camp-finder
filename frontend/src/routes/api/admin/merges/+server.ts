@@ -13,6 +13,7 @@ import {
   userEmail,
 } from "$lib/server/moderation";
 import { pickWinner, mergeFacilityFields, CHOICE_FIELDS } from "$lib/server/admin/merge";
+import { refsFacility, type FacilityRefs } from "$lib/admin/queues";
 import type { ChoiceField, FieldChoices } from "$lib/server/admin/merge";
 import type { Facility } from "$lib/types";
 
@@ -110,6 +111,43 @@ async function repointChildren(table: string, loserId: string, winnerId: string)
   }
 }
 
+type QueueTable = "delete_suggestions" | "merge_suggestions";
+
+/** Other pending deletion flags and merges that point at `facilityId`. Read
+ * before the facility is deleted: its SET NULL foreign keys erase the link. */
+async function pendingRefsTo(
+  facilityId: string,
+  excludeMergeId: string,
+): Promise<Array<{ table: QueueTable; id: string }>> {
+  const tables: QueueTable[] = ["delete_suggestions", "merge_suggestions"];
+  const lists = await Promise.all(tables.map((t) => listPending<{ id: string } & FacilityRefs>(t)));
+  return lists.flatMap((rows, i) =>
+    rows
+      .filter((r) => r.id !== excludeMergeId && refsFacility(r, facilityId))
+      .map((r) => ({ table: tables[i], id: r.id })),
+  );
+}
+
+/** Reject rows superseded by a merge. Best-effort housekeeping: a failure only
+ * leaves an orphaned row that /admin already lets the admin reject by hand. */
+async function rejectSuperseded(
+  rows: Array<{ table: QueueTable; id: string }>,
+  adminId: string,
+  note: string,
+): Promise<void> {
+  const results = await Promise.allSettled(
+    rows.map(async ({ table, id }) => {
+      const res = await resolveRow(table, id, adminId, "reject", note);
+      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    }),
+  );
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      console.warn(`[merge] could not reject superseded ${rows[i].table}/${rows[i].id}:`, r.reason);
+    }
+  });
+}
+
 /** POST /api/admin/merges → approve (run the merge engine) or reject. */
 export const POST: RequestHandler = async ({ locals, request }) => {
   const admin = await requireAdmin(locals);
@@ -133,8 +171,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
   if (action === "approve") {
     // The merge is deliberately NON-transactional: Teenybase has no multi-op
-    // transaction. Every step (child repoint, winner edit, loser delete) is
-    // idempotent, so a merge that fails partway can be safely re-approved.
+    // transaction. Every step up to the loser delete (child repoint, winner
+    // edit) is idempotent, so a merge that fails before the delete can be
+    // re-approved. After the delete it can't (the loser is gone): if marking
+    // the suggestion fails then, it shows "(deleted)" and should be rejected.
     const [a, b] = await Promise.all([
       loadFacility(suggestion.facility_a),
       loadFacility(suggestion.facility_b),
@@ -190,12 +230,27 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       );
     }
 
-    // Delete the loser LAST — children already repointed; any stragglers cascade.
-    await tbFetch(tb("facilities/delete"), {
+    const superseded = await pendingRefsTo(loser.id, id);
+
+    // Delete the loser LAST — children already repointed; any stragglers cascade
+    // (including the loser's pending edit suggestions).
+    const deleteRes = await tbFetch(tb("facilities/delete"), {
       method: "POST",
       headers: tbHeaders,
       body: JSON.stringify({ where: `id == '${loser.id}'` }),
     });
+    if (!deleteRes.ok) {
+      return json(
+        { error: "Failed to delete merged duplicate", detail: await deleteRes.text() },
+        { status: 502 },
+      );
+    }
+
+    await rejectSuperseded(
+      superseded,
+      admin.id,
+      `Superseded: "${loser.name}" was merged into "${merged.name}". Re-file against the surviving campground if still relevant.`,
+    );
 
     mergedWinner = { id: winner.id, name: merged.name };
   }
