@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fcfsTier } from "$lib/status";
+
   let {
     fcfs_total,
     reservable_total,
@@ -18,7 +20,7 @@
         : `${fcfs_total}/${total} FCFS sites`,
   );
   let color = $derived(
-    is_fully_fcfs ? "green" : fcfs_total > 0 ? "yellow" : "blue",
+    { fully: "green", partial: "yellow", reservable: "blue" }[fcfsTier(fcfs_total, is_fully_fcfs)],
   );
 </script>
 

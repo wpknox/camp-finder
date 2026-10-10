@@ -5,8 +5,7 @@ journal.** The user should feel like they're unfolding a topographic map on a
 tailgate — not staring at a SaaS dashboard. Earthy, organic, almost paperlike.
 Nothing about it should read as "a computer map."
 
-This file is the source of truth for the visual identity. Read it before any UI
-work and keep it in sync when the system evolves.
+Source of truth for the visual identity; keep it in sync when the system evolves.
 
 ## Principles
 
@@ -68,19 +67,16 @@ Defined in `app.css` `:root`. Always reference the variable, never the hex.
 | Reservable only | `--lake` | "" |
 | Closed | `--rust` | markers, sidebar dots, closed banner |
 
-The single source for marker colors is `CampMap.renderPins`; the sidebar
-`statusColor()` and any badges must mirror it.
+Single source: `STATUS_META` / `facilityStatus()` in `lib/status.ts`.
 
 ## The basemap (most important single choice)
 
 Leaflet tile layer = **USGS Topo** (no API key):
 `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}`
 
-It renders as a folded paper topographic quad — contours, shaded relief, forest
-boundaries — which *is* the "handheld map" feeling. A subtle warm CSS filter on
-the tile pane (`sepia`/`saturate`/`brightness`) pushes it further toward aged
-paper without hurting legibility. Attribution: "USGS The National Map".
-(Alternative if USGS is ever down: OpenTopoMap, CC-BY-SA.)
+A subtle warm CSS filter on the tile pane (`sepia`/`saturate`/`brightness`)
+pushes it toward aged paper. Attribution: "USGS The National Map". OpenTopoMap
+is the fallback and the tile layer for the small picker/diff maps.
 
 ## Texture & atmosphere
 
@@ -95,7 +91,7 @@ paper without hurting legibility. Attribution: "USGS The National Map".
 
 ## Motion
 
-- Easing: `cubic-bezier(.22,.61,.36,1)` (organic ease-out). Never bounce/elastic.
+- Easing: `var(--ease)` = `cubic-bezier(.22,.61,.36,1)`. Never bounce/elastic.
 - Page load: staggered fade-up on sidebar result rows (`animation-delay`).
 - Panel: slide/settle in. Markers: gentle scale on hover.
 

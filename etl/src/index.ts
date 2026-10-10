@@ -9,11 +9,7 @@ import {
   inCoBbox,
   parentOrgToAgency,
 } from "./forests.js";
-import {
-  groupByCanonicalName,
-  findDuplicate,
-  isNonRidbSourceId,
-} from "./dedupe.js";
+import { groupByCanonicalName, findDuplicate, isNonRidbSourceId } from "./dedupe.js";
 import {
   normalizeAmenities,
   parseDescriptionAmenities,
@@ -24,12 +20,7 @@ import {
   extractFsUrl,
 } from "./normalize.js";
 import { scrapeFsPage } from "./fsScraper.js";
-import type {
-  NormalizedFacility,
-  RidbAttribute,
-  RidbCampsite,
-  RidbFacility,
-} from "./types.js";
+import type { NormalizedFacility, RidbAttribute, RidbCampsite, RidbFacility } from "./types.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -112,9 +103,7 @@ async function main() {
 
     // Facility-level ATTRIBUTES are empty in RIDB. Use campsite attributes for
     // structured fields, then fill gaps (water, toilets, bear boxes) from description text.
-    const campsiteAttrs: RidbAttribute[] = campsites.flatMap(
-      (c) => c.ATTRIBUTES ?? [],
-    );
+    const campsiteAttrs: RidbAttribute[] = campsites.flatMap((c) => c.ATTRIBUTES ?? []);
     const amenities = {
       ...normalizeAmenities(campsiteAttrs),
       ...parseDescriptionAmenities(detail.FacilityDescription ?? ""),

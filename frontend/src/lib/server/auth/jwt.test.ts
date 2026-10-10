@@ -3,8 +3,7 @@ import { decodeJwtPayload, isExpired } from "./jwt";
 
 // Build a fake JWT: header.payload.signature (only payload matters here).
 function makeJwt(payload: Record<string, unknown>): string {
-  const b64 = (o: unknown) =>
-    Buffer.from(JSON.stringify(o)).toString("base64url");
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
   return `${b64({ alg: "HS256" })}.${b64(payload)}.sig`;
 }
 

@@ -14,8 +14,7 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
     const b64 = parts[1].replaceAll("-", "+").replaceAll("_", "/");
     const bytes = Uint8Array.from(atob(b64), (c) => c.codePointAt(0) ?? 0);
     const json = JSON.parse(new TextDecoder().decode(bytes));
-    if (!json || typeof json.id !== "string" || typeof json.exp !== "number")
-      return null;
+    if (!json || typeof json.id !== "string" || typeof json.exp !== "number") return null;
     return { id: json.id, user: json.user, sub: json.sub, exp: json.exp };
   } catch {
     return null;

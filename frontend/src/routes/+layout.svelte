@@ -60,12 +60,11 @@
     justify-content: space-between;
     padding: 0 1rem;
     border-bottom: 1px solid var(--line-strong);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--paper-2) 92%, transparent),
-        color-mix(in srgb, var(--paper) 96%, transparent)
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--paper-2) 92%, transparent),
+      color-mix(in srgb, var(--paper) 96%, transparent)
+    );
     box-shadow: var(--shadow-sm);
     height: 56px;
     box-sizing: border-box;

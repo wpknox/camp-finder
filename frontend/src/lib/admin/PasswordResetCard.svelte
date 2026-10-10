@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from "$lib/api";
   import QueueSection from "./QueueSection.svelte";
 
   let resetEmail = $state("");
@@ -14,22 +15,14 @@
     resetLink = "";
     resetCopied = false;
     try {
-      const res = await fetch("/api/admin/reset-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail.trim() }),
+      const r = await submitJson<{ link?: string }>("/api/admin/reset-link", {
+        email: resetEmail.trim(),
       });
-      const body = (await res.json().catch(() => ({}))) as {
-        link?: string;
-        error?: string;
-      };
-      if (res.ok && body.link) {
-        resetLink = body.link;
+      if (r.ok && r.data?.link) {
+        resetLink = r.data.link;
       } else {
-        resetError = body.error ?? "Something went wrong";
+        resetError = r.error;
       }
-    } catch {
-      resetError = "Something went wrong";
     } finally {
       resetBusy = false;
     }
@@ -49,8 +42,8 @@
 <QueueSection title="Password reset link">
   <div class="card">
     <p class="sub">
-      No email is sent in production — generate a fresh reset link here and hand it to the
-      user directly. The link is valid for 30 minutes.
+      No email is sent in production — generate a fresh reset link here and hand it to the user
+      directly. The link is valid for 30 minutes.
     </p>
     <div class="reset-form">
       <input
@@ -61,7 +54,7 @@
       />
       <button
         type="button"
-        class="primary"
+        class="btn btn-primary"
         disabled={resetBusy || !resetEmail.trim()}
         onclick={generateResetLink}
       >
@@ -74,7 +67,7 @@
     {#if resetLink}
       <div class="reset-result">
         <input type="text" class="reset-link" readonly value={resetLink} />
-        <button type="button" class="cancel" onclick={copyResetLink}>
+        <button type="button" class="btn btn-secondary" onclick={copyResetLink}>
           {resetCopied ? "Copied ✓" : "Copy"}
         </button>
       </div>
@@ -84,8 +77,11 @@
 
 <style>
   .card {
-    background:
-      linear-gradient(180deg, var(--paper-2), color-mix(in srgb, var(--paper-2) 86%, var(--paper)));
+    background: linear-gradient(
+      180deg,
+      var(--paper-2),
+      color-mix(in srgb, var(--paper-2) 86%, var(--paper))
+    );
     border: 1px solid var(--line-strong);
     border-radius: 14px;
     padding: 1.25rem 1.4rem;
@@ -140,22 +136,6 @@
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
-  }
-  button:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-  .cancel {
-    background: var(--paper-deep);
-    color: var(--ink);
-    border: 1px solid var(--line-strong);
-  }
-  .primary {
-    background: var(--pine);
-    color: #f4ecd6;
-    border: 1px solid var(--pine-deep);
-  }
-  .primary:hover:not(:disabled) {
-    background: var(--pine-deep);
+    box-shadow: none;
   }
 </style>

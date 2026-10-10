@@ -17,9 +17,7 @@ function stripHtml(html: string): string {
 
 // Parse amenity fields from free-text facility description as a fallback
 // when structured attribute data isn't available.
-export function parseDescriptionAmenities(
-  description: string,
-): Partial<Amenities> {
+export function parseDescriptionAmenities(description: string): Partial<Amenities> {
   const text = stripHtml(description);
   const has = (...terms: string[]) => terms.some((t) => text.includes(t));
 
@@ -29,17 +27,10 @@ export function parseDescriptionAmenities(
 
   let toiletType: ToiletType | undefined;
   if (has("flush toilet", "flush restroom")) toiletType = "flush";
-  else if (has("vault toilet", "pit toilet", "vault restroom"))
-    toiletType = "vault";
-  else if (has("no toilet", "no restroom", "no sanitation"))
-    toiletType = "none";
+  else if (has("vault toilet", "pit toilet", "vault restroom")) toiletType = "vault";
+  else if (has("no toilet", "no restroom", "no sanitation")) toiletType = "none";
 
-  const bearBoxes = has(
-    "bear box",
-    "bear locker",
-    "food storage locker",
-    "food storage box",
-  );
+  const bearBoxes = has("bear box", "bear locker", "food storage locker", "food storage box");
 
   const picnicTables = has("picnic table") && !has("no picnic table");
 
@@ -48,10 +39,19 @@ export function parseDescriptionAmenities(
     !has("no campfire", "campfire not allowed", "campfire prohibited", "no open fire");
 
   const petsAllowed =
-    (has("pets allowed", "dogs allowed", "pets are permitted", "dogs permitted",
-         "leash required", "dogs must be leashed", "dogs on leash", "pets on leash",
-         "do not leave pets") &&
-     !has("no pets", "pets not allowed", "pets prohibited")) || undefined;
+    (has(
+      "pets allowed",
+      "dogs allowed",
+      "pets are permitted",
+      "dogs permitted",
+      "leash required",
+      "dogs must be leashed",
+      "dogs on leash",
+      "pets on leash",
+      "do not leave pets",
+    ) &&
+      !has("no pets", "pets not allowed", "pets prohibited")) ||
+    undefined;
 
   return {
     ...(potableWater ? { potableWater } : {}),
@@ -67,15 +67,13 @@ export function normalizeAmenities(attributes: RidbAttribute[]): Amenities {
   const get = (needles: string[]): string | null => {
     const needle = needles.map((n) => n.toLowerCase());
     return (
-      attributes.find((a) =>
-        needle.some((n) => a.AttributeName.toLowerCase().includes(n)),
-      )?.AttributeValue ?? null
+      attributes.find((a) => needle.some((n) => a.AttributeName.toLowerCase().includes(n)))
+        ?.AttributeValue ?? null
     );
   };
 
   const bool = (v: string | null): boolean =>
-    v != null &&
-    ["yes", "true", "y", "1", "available"].includes(v.toLowerCase().trim());
+    v != null && ["yes", "true", "y", "1", "available"].includes(v.toLowerCase().trim());
 
   const toiletRaw = get(["toilet", "restroom"]);
   let toiletType: ToiletType = "unknown";
@@ -87,19 +85,13 @@ export function normalizeAmenities(attributes: RidbAttribute[]): Amenities {
   }
 
   const rvRaw = get(["max vehicle length", "max rv length", "rv length"]);
-  const maxRvLength = rvRaw
-    ? Number.parseInt(rvRaw.replace(/\D.*/, ""), 10) || null
-    : null;
+  const maxRvLength = rvRaw ? Number.parseInt(rvRaw.replace(/\D.*/, ""), 10) || null : null;
 
   // driveUp: true if any driveway/site-access attribute exists and isn't walk/hike-in
   const driveUp = (() => {
     const siteAccess = get(["site access"]);
     if (siteAccess) return /drive/i.test(siteAccess);
-    const driveAttr = get([
-      "driveway entry",
-      "driveway surface",
-      "driveway length",
-    ]);
+    const driveAttr = get(["driveway entry", "driveway surface", "driveway length"]);
     return driveAttr != null && driveAttr !== "0" && driveAttr !== "";
   })();
 
@@ -112,22 +104,14 @@ export function normalizeAmenities(attributes: RidbAttribute[]): Amenities {
     driveUp,
     maxRvLength,
     electricHookups: bool(
-      get([
-        "electric hookup",
-        "electrical hookup",
-        "electricity",
-        "amp hookup",
-        "electric",
-      ]),
+      get(["electric hookup", "electrical hookup", "electricity", "amp hookup", "electric"]),
     ),
     waterHookups: bool(get(["water hookup", "water service hookup"])),
     sewerHookups: bool(get(["sewer hookup", "sewer service hookup"])),
     petsAllowed: bool(get(["pets allowed", "pets", "dogs allowed"])),
     horsesAllowed: bool(get(["horses", "horse allowed"])),
     picnicTables: bool(get(["picnic table", "table"])),
-    fireRings: bool(
-      get(["fire pit", "fire ring", "campfire ring", "campfire allowed"]),
-    ),
+    fireRings: bool(get(["fire pit", "fire ring", "campfire ring", "campfire allowed"])),
     accessible: bool(get(["ada", "accessible", "wheelchair"])),
   };
 }
@@ -179,11 +163,7 @@ export function extractFeesFromDescription(description: string): {
   const text = stripHtml(description);
 
   // "no fee" / "free" — check before dollar extraction
-  if (
-    /no fee|free of charge|no charge|\bfree\b.*(?:camp|site)|(?:camp|site).*\bfree\b/.test(
-      text,
-    )
-  )
+  if (/no fee|free of charge|no charge|\bfree\b.*(?:camp|site)|(?:camp|site).*\bfree\b/.test(text))
     return { fee_min: 0, fee_max: 0 };
 
   // Fee-context keywords that must appear near a dollar amount

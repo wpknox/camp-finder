@@ -9,11 +9,7 @@ export interface RateLimitResult {
   retryAfterMs?: number;
 }
 
-export function createRateLimiter({
-  max,
-  windowMs,
-  now = Date.now,
-}: RateLimiterOptions) {
+export function createRateLimiter({ max, windowMs, now = Date.now }: RateLimiterOptions) {
   const hits = new Map<string, number[]>();
 
   return {

@@ -43,8 +43,17 @@ describe("tombstoned facilities", () => {
     mockFetch.mockResolvedValueOnce(
       okJson({
         items: [
-          { id: "row1", ridb_id: "232157", name: "Rosy Lane", lat: 38.73, lng: -106.74,
-            fee_min: 15, fs_url: "", merged_ridb_ids: "[]", is_deleted: true },
+          {
+            id: "row1",
+            ridb_id: "232157",
+            name: "Rosy Lane",
+            lat: 38.73,
+            lng: -106.74,
+            fee_min: 15,
+            fs_url: "",
+            merged_ridb_ids: "[]",
+            is_deleted: true,
+          },
         ],
       }),
     );
@@ -58,8 +67,17 @@ describe("tombstoned facilities", () => {
     mockFetch.mockResolvedValueOnce(
       okJson({
         items: [
-          { id: "row1", ridb_id: "232157", name: "Rosy Lane", lat: 38.73, lng: -106.74,
-            fee_min: 15, fs_url: "", merged_ridb_ids: "[]", is_deleted: false },
+          {
+            id: "row1",
+            ridb_id: "232157",
+            name: "Rosy Lane",
+            lat: 38.73,
+            lng: -106.74,
+            fee_min: 15,
+            fs_url: "",
+            merged_ridb_ids: "[]",
+            is_deleted: false,
+          },
         ],
       }),
     );
@@ -74,8 +92,17 @@ describe("tombstoned facilities", () => {
     mockFetch.mockResolvedValueOnce(
       okJson({
         items: [
-          { id: "row1", ridb_id: "fs-old-scrape", name: "Rosy Lane", lat: 38.73, lng: -106.74,
-            fee_min: 15, fs_url: "", merged_ridb_ids: '["232157"]', is_deleted: true },
+          {
+            id: "row1",
+            ridb_id: "fs-old-scrape",
+            name: "Rosy Lane",
+            lat: 38.73,
+            lng: -106.74,
+            fee_min: 15,
+            fs_url: "",
+            merged_ridb_ids: '["232157"]',
+            is_deleted: true,
+          },
         ],
       }),
     );

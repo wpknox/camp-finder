@@ -1,8 +1,8 @@
 <script lang="ts">
-  import CompareView from '$lib/compare/CompareView.svelte'
-  import type { PageData } from './$types'
+  import CompareView from "$lib/compare/CompareView.svelte";
+  import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props()
+  let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head><title>Compare Campgrounds — CampFinder</title></svelte:head>
@@ -33,8 +33,15 @@
     color: var(--pine);
     text-decoration: none;
   }
-  .back:hover { color: var(--pine-deep); text-decoration: underline; text-underline-offset: 2px; }
-  .eyebrow { display: block; margin: 1.2rem 0 0.3rem; }
+  .back:hover {
+    color: var(--pine-deep);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .eyebrow {
+    display: block;
+    margin: 1.2rem 0 0.3rem;
+  }
   h1 {
     font-family: var(--font-display);
     font-size: 2rem;

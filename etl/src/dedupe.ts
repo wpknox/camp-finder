@@ -21,9 +21,7 @@ export function canonicalName(name: string): string {
 // ~1km at Colorado latitudes
 const PROXIMITY_DEG = 0.01;
 
-export function groupByCanonicalName<T extends { name: string }>(
-  rows: T[],
-): Map<string, T[]> {
+export function groupByCanonicalName<T extends { name: string }>(rows: T[]): Map<string, T[]> {
   const map = new Map<string, T[]>();
   for (const row of rows) {
     const key = canonicalName(row.name);
@@ -41,9 +39,7 @@ export function findDuplicate<T extends { lat: number; lng: number }>(
 ): T | undefined {
   const candidates = byName.get(canonicalName(name)) ?? [];
   return candidates.find(
-    (r) =>
-      Math.abs(r.lat - lat) < PROXIMITY_DEG &&
-      Math.abs(r.lng - lng) < PROXIMITY_DEG,
+    (r) => Math.abs(r.lat - lat) < PROXIMITY_DEG && Math.abs(r.lng - lng) < PROXIMITY_DEG,
   );
 }
 
@@ -51,9 +47,5 @@ export function findDuplicate<T extends { lat: number; lng: number }>(
 // and approved user submissions ("user-"). The ETL absorbs new RIDB ids into
 // these by name+proximity instead of inserting duplicates.
 export function isNonRidbSourceId(ridbId: string): boolean {
-  return (
-    ridbId.startsWith("fs-") ||
-    ridbId.startsWith("nps-") ||
-    ridbId.startsWith("user-")
-  );
+  return ridbId.startsWith("fs-") || ridbId.startsWith("nps-") || ridbId.startsWith("user-");
 }

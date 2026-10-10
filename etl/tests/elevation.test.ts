@@ -27,19 +27,19 @@ describe("fetchElevations", () => {
     expect(url).toContain("longitude=-106.99,-106.5");
   });
   it("throws on non-ok response", async () => {
-    const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 429, text: async () => "rate limited" });
-    await expect(fetchElevations([{ lat: 1, lng: 2 }], fetchFn as unknown as typeof fetch)).rejects.toThrow("429");
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 429, text: async () => "rate limited" });
+    await expect(
+      fetchElevations([{ lat: 1, lng: 2 }], fetchFn as unknown as typeof fetch),
+    ).rejects.toThrow("429");
   });
 });
 
 describe("patchBatch", () => {
   it("rounds and patches finite elevations", async () => {
     const patchFn = vi.fn().mockResolvedValue(undefined);
-    const patched = await patchBatch(
-      [{ id: "a" }, { id: "b" }],
-      [2987.4, 3105.6],
-      patchFn,
-    );
+    const patched = await patchBatch([{ id: "a" }, { id: "b" }], [2987.4, 3105.6], patchFn);
     expect(patched).toBe(2);
     expect(patchFn).toHaveBeenCalledWith("a", { elevation_m: 2987 });
     expect(patchFn).toHaveBeenCalledWith("b", { elevation_m: 3106 });

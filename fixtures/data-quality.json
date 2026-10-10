@@ -1,0 +1,172 @@
+{
+  "_comment": "Shared by etl/tests/lockstep.test.ts and frontend/src/lib/lockstep.test.ts — both packages must agree.",
+  "defaultAmenities": {
+    "potableWater": false,
+    "toiletType": "unknown",
+    "bearBoxes": false,
+    "driveUp": false,
+    "maxRvLength": null,
+    "electricHookups": false,
+    "waterHookups": false,
+    "sewerHookups": false,
+    "petsAllowed": false,
+    "horsesAllowed": false,
+    "picnicTables": false,
+    "fireRings": false,
+    "accessible": false
+  },
+  "cases": [
+    {
+      "name": "default all-off/unknown object scores unknown",
+      "amenities": {
+        "potableWater": false,
+        "toiletType": "unknown",
+        "bearBoxes": false,
+        "driveUp": false,
+        "maxRvLength": null,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": false,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "unknown"
+    },
+    {
+      "name": "only toiletType set (flush) scores sparse",
+      "amenities": {
+        "potableWater": false,
+        "toiletType": "flush",
+        "bearBoxes": false,
+        "driveUp": false,
+        "maxRvLength": null,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": false,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "sparse"
+    },
+    {
+      "name": "toiletType none counts as populated (not unknown)",
+      "amenities": {
+        "potableWater": false,
+        "toiletType": "none",
+        "bearBoxes": false,
+        "driveUp": false,
+        "maxRvLength": null,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": false,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "sparse"
+    },
+    {
+      "name": "4 populated fields scores sparse",
+      "amenities": {
+        "potableWater": true,
+        "toiletType": "flush",
+        "bearBoxes": true,
+        "driveUp": true,
+        "maxRvLength": null,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": false,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "sparse"
+    },
+    {
+      "name": "5 populated fields scores rich",
+      "amenities": {
+        "potableWater": true,
+        "toiletType": "flush",
+        "bearBoxes": true,
+        "driveUp": true,
+        "maxRvLength": null,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": true,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "rich"
+    },
+    {
+      "name": "maxRvLength number counts as populated",
+      "amenities": {
+        "potableWater": true,
+        "toiletType": "flush",
+        "bearBoxes": true,
+        "driveUp": true,
+        "maxRvLength": 30,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": false,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "rich"
+    },
+    {
+      "name": "maxRvLength alone counts as one populated field (sparse)",
+      "amenities": {
+        "potableWater": false,
+        "toiletType": "unknown",
+        "bearBoxes": false,
+        "driveUp": false,
+        "maxRvLength": 30,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": false,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "sparse"
+    },
+    {
+      "name": "false booleans are not counted",
+      "amenities": {
+        "potableWater": true,
+        "toiletType": "flush",
+        "bearBoxes": true,
+        "driveUp": true,
+        "maxRvLength": null,
+        "electricHookups": false,
+        "waterHookups": false,
+        "sewerHookups": false,
+        "petsAllowed": false,
+        "horsesAllowed": false,
+        "picnicTables": false,
+        "fireRings": false,
+        "accessible": false
+      },
+      "expected": "sparse"
+    }
+  ]
+}

@@ -181,14 +181,18 @@ describe("normalizeNpsCampground", () => {
 describe("normalizeNpsAmenities", () => {
   it("classifies flush toilets", () => {
     const result = normalizeNpsAmenities(
-      makeCampground({ amenities: { ...makeCampground().amenities, toilets: ["Flush Toilets - year round"] } }),
+      makeCampground({
+        amenities: { ...makeCampground().amenities, toilets: ["Flush Toilets - year round"] },
+      }),
     );
     expect(result.toiletType).toBe("flush");
   });
 
   it("classifies vault toilets", () => {
     const result = normalizeNpsAmenities(
-      makeCampground({ amenities: { ...makeCampground().amenities, toilets: ["Vault Toilets - seasonal"] } }),
+      makeCampground({
+        amenities: { ...makeCampground().amenities, toilets: ["Vault Toilets - seasonal"] },
+      }),
     );
     expect(result.toiletType).toBe("vault");
   });
@@ -209,7 +213,9 @@ describe("normalizeNpsAmenities", () => {
 
   it("classifies no toilet facilities phrasing as none", () => {
     const result = normalizeNpsAmenities(
-      makeCampground({ amenities: { ...makeCampground().amenities, toilets: ["No toilet facilities"] } }),
+      makeCampground({
+        amenities: { ...makeCampground().amenities, toilets: ["No toilet facilities"] },
+      }),
     );
     expect(result.toiletType).toBe("none");
   });
@@ -221,7 +227,9 @@ describe("normalizeNpsAmenities", () => {
 
   it("detects potable water from structured field", () => {
     const result = normalizeNpsAmenities(
-      makeCampground({ amenities: { ...makeCampground().amenities, potableWater: ["Tap Water - year round"] } }),
+      makeCampground({
+        amenities: { ...makeCampground().amenities, potableWater: ["Tap Water - year round"] },
+      }),
     );
     expect(result.potableWater).toBe(true);
   });
@@ -240,7 +248,9 @@ describe("normalizeNpsAmenities", () => {
 
   it("detects bear boxes from foodStorageLockers Yes", () => {
     const result = normalizeNpsAmenities(
-      makeCampground({ amenities: { ...makeCampground().amenities, foodStorageLockers: "Yes - year round" } }),
+      makeCampground({
+        amenities: { ...makeCampground().amenities, foodStorageLockers: "Yes - year round" },
+      }),
     );
     expect(result.bearBoxes).toBe(true);
   });
@@ -304,14 +314,21 @@ describe("normalizeNpsAmenities", () => {
 
   it("detects ADA accessible from wheelchairAccess field", () => {
     const result = normalizeNpsAmenities(
-      makeCampground({ accessibility: { ...makeCampground().accessibility, wheelchairAccess: "Partially accessible" } }),
+      makeCampground({
+        accessibility: {
+          ...makeCampground().accessibility,
+          wheelchairAccess: "Partially accessible",
+        },
+      }),
     );
     expect(result.accessible).toBe(true);
   });
 
   it('returns false for accessible when wheelchairAccess is "None"', () => {
     const result = normalizeNpsAmenities(
-      makeCampground({ accessibility: { ...makeCampground().accessibility, wheelchairAccess: "None" } }),
+      makeCampground({
+        accessibility: { ...makeCampground().accessibility, wheelchairAccess: "None" },
+      }),
     );
     expect(result.accessible).toBe(false);
   });
@@ -403,8 +420,7 @@ describe("extractNpsFees", () => {
 // ─── detectIsClosed ───────────────────────────────────────────────────────────
 
 describe("detectIsClosed", () => {
-  const closed = (text: string) =>
-    detectIsClosed(makeCampground({ description: text }));
+  const closed = (text: string) => detectIsClosed(makeCampground({ description: text }));
 
   it("detects 'temporarily closed'", () => {
     expect(closed("This campground is temporarily closed for repairs.")).toBe(true);
@@ -435,7 +451,9 @@ describe("detectIsClosed", () => {
   });
 
   it("returns false for a normal open campground description", () => {
-    expect(closed("Beautiful campground near the lake. Sites have fire pits and picnic tables.")).toBe(false);
+    expect(
+      closed("Beautiful campground near the lake. Sites have fire pits and picnic tables."),
+    ).toBe(false);
   });
 
   it("checks reservationInfo and regulationsOverview as well", () => {

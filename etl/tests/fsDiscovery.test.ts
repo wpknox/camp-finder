@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { scrapeForestCampgroundUrls, isRidbCampground, scrapeCampgroundPage } from '../src/fsScraper.js'
+import { describe, it, expect } from "vitest";
+import {
+  scrapeForestCampgroundUrls,
+  isRidbCampground,
+  scrapeCampgroundPage,
+} from "../src/fsScraper.js";
 
-describe('scrapeForestCampgroundUrls', () => {
+describe("scrapeForestCampgroundUrls", () => {
   const listingHtml = `
     <html><body>
       <a href="/r02/whiteriver/recreation/opportunities">Opportunities</a>
@@ -12,59 +16,63 @@ describe('scrapeForestCampgroundUrls', () => {
       <a href="/r02/whiteriver/recreation/bogan-flats-campground">Bogan Flats</a>
       <a href="/r02/whiteriver/recreation/bogan-flats-group-campground">Bogan Flats Group</a>
     </body></html>
-  `
+  `;
 
-  it('returns campground paths and filters non-campground links', () => {
+  it("returns campground paths and filters non-campground links", () => {
     expect(scrapeForestCampgroundUrls(listingHtml)).toEqual([
-      '/r02/whiteriver/recreation/avalanche-campground',
-      '/r02/whiteriver/recreation/bogan-flats-campground',
-      '/r02/whiteriver/recreation/bogan-flats-group-campground',
-    ])
-  })
+      "/r02/whiteriver/recreation/avalanche-campground",
+      "/r02/whiteriver/recreation/bogan-flats-campground",
+      "/r02/whiteriver/recreation/bogan-flats-group-campground",
+    ]);
+  });
 
-  it('returns empty array for a page with no campground links', () => {
-    expect(scrapeForestCampgroundUrls('<html><body><a href="/about">About</a></body></html>')).toEqual([])
-  })
+  it("returns empty array for a page with no campground links", () => {
+    expect(
+      scrapeForestCampgroundUrls('<html><body><a href="/about">About</a></body></html>'),
+    ).toEqual([]);
+  });
 
-  it('deduplicates repeated links', () => {
+  it("deduplicates repeated links", () => {
     const html = `
       <html><body>
         <a href="/r02/arp/recreation/mirror-lake-campground">Mirror Lake</a>
         <a href="/r02/arp/recreation/mirror-lake-campground">Mirror Lake</a>
       </body></html>
-    `
+    `;
     expect(scrapeForestCampgroundUrls(html)).toEqual([
-      '/r02/arp/recreation/mirror-lake-campground',
-    ])
-  })
-})
+      "/r02/arp/recreation/mirror-lake-campground",
+    ]);
+  });
+});
 
-describe('isRidbCampground', () => {
-  it('returns true when page has a specific recreation.gov reservation iframe', () => {
+describe("isRidbCampground", () => {
+  it("returns true when page has a specific recreation.gov reservation iframe", () => {
     const html = `
       <html><body>
         <iframe src="https://cdn.recreation.gov/widget/fs/camping/index.html?id=231880"
                 width="100%" height="800"></iframe>
       </body></html>
-    `
-    expect(isRidbCampground(html)).toBe(true)
-  })
+    `;
+    expect(isRidbCampground(html)).toBe(true);
+  });
 
-  it('returns false when page only has the generic recreation.gov link', () => {
+  it("returns false when page only has the generic recreation.gov link", () => {
     const html = `
       <html><body>
         <a href="https://recreation.gov" class="first">Recreation.gov</a>
       </body></html>
-    `
-    expect(isRidbCampground(html)).toBe(false)
-  })
+    `;
+    expect(isRidbCampground(html)).toBe(false);
+  });
 
-  it('returns false for a page with no recreation.gov reference at all', () => {
-    expect(isRidbCampground('<html><body><p>Primitive camping area.</p></body></html>')).toBe(false)
-  })
-})
+  it("returns false for a page with no recreation.gov reference at all", () => {
+    expect(isRidbCampground("<html><body><p>Primitive camping area.</p></body></html>")).toBe(
+      false,
+    );
+  });
+});
 
-describe('scrapeCampgroundPage', () => {
+describe("scrapeCampgroundPage", () => {
   const fcfsHtml = `
     <html>
     <head>
@@ -79,24 +87,25 @@ describe('scrapeCampgroundPage', () => {
       <p><b>Longitude: </b> -107.203346</p>
       <a href="https://recreation.gov" class="first">Recreation.gov</a>
     </body></html>
-  `
-  const fcfsUrl = 'https://www.fs.usda.gov/r02/whiteriver/recreation/avalanche-campground'
+  `;
+  const fcfsUrl = "https://www.fs.usda.gov/r02/whiteriver/recreation/avalanche-campground";
 
-  it('extracts a full ScrapedCampground from a FCFS page', () => {
+  it("extracts a full ScrapedCampground from a FCFS page", () => {
     expect(scrapeCampgroundPage(fcfsHtml, fcfsUrl)).toEqual({
-      name: 'Avalanche Campground',
+      name: "Avalanche Campground",
       lat: 39.236566,
       lng: -107.203346,
-      description: 'Avalanche Campground has 6 first-come first-serve campsites. Located adjacent to Avalanche Creek.',
+      description:
+        "Avalanche Campground has 6 first-come first-serve campsites. Located adjacent to Avalanche Creek.",
       fee_min: 21,
       fee_max: 21,
       fcfs_total: 6,
       is_closed: false,
       fs_url: fcfsUrl,
-    })
-  })
+    });
+  });
 
-  it('returns null for a RIDB campground page (has reservation iframe)', () => {
+  it("returns null for a RIDB campground page (has reservation iframe)", () => {
     const ridbHtml = `
       <html>
       <head>
@@ -108,11 +117,16 @@ describe('scrapeCampgroundPage', () => {
         <p><b>Latitude: </b> 39.14255</p>
         <p><b>Longitude: </b> -106.77365</p>
       </body></html>
-    `
-    expect(scrapeCampgroundPage(ridbHtml, 'https://www.fs.usda.gov/r02/whiteriver/recreation/difficult-campground')).toBeNull()
-  })
+    `;
+    expect(
+      scrapeCampgroundPage(
+        ridbHtml,
+        "https://www.fs.usda.gov/r02/whiteriver/recreation/difficult-campground",
+      ),
+    ).toBeNull();
+  });
 
-  it('returns null when lat/lng are missing', () => {
+  it("returns null when lat/lng are missing", () => {
     const noLatLng = `
       <html>
       <head>
@@ -120,11 +134,16 @@ describe('scrapeCampgroundPage', () => {
         <meta name="description" content="Some campground." />
       </head>
       <body><p>No coordinates here.</p></body></html>
-    `
-    expect(scrapeCampgroundPage(noLatLng, 'https://www.fs.usda.gov/r02/whiteriver/recreation/mystery-camp')).toBeNull()
-  })
+    `;
+    expect(
+      scrapeCampgroundPage(
+        noLatLng,
+        "https://www.fs.usda.gov/r02/whiteriver/recreation/mystery-camp",
+      ),
+    ).toBeNull();
+  });
 
-  it('defaults fcfs_total to 0 when not mentioned in description', () => {
+  it("defaults fcfs_total to 0 when not mentioned in description", () => {
     const noCount = `
       <html>
       <head>
@@ -135,10 +154,13 @@ describe('scrapeCampgroundPage', () => {
         <p><b>Latitude: </b> 37.5</p>
         <p><b>Longitude: </b> -106.8</p>
       </body></html>
-    `
-    const result = scrapeCampgroundPage(noCount, 'https://www.fs.usda.gov/r02/riogrande/recreation/lost-trail-campground')
-    expect(result?.fcfs_total).toBe(0)
-  })
+    `;
+    const result = scrapeCampgroundPage(
+      noCount,
+      "https://www.fs.usda.gov/r02/riogrande/recreation/lost-trail-campground",
+    );
+    expect(result?.fcfs_total).toBe(0);
+  });
 
   it('extracts fees from an h3-based fee section (no id="rec_acc_fees")', () => {
     const h3FeeHtml = `
@@ -153,13 +175,16 @@ describe('scrapeCampgroundPage', () => {
         <p><b>Latitude: </b> 37.214</p>
         <p><b>Longitude: </b> -107.339</p>
       </body></html>
-    `
-    const result = scrapeCampgroundPage(h3FeeHtml, 'https://www.fs.usda.gov/r02/sanjuan/recreation/lower-piedra-campground')
-    expect(result?.fee_min).toBe(28)
-    expect(result?.fee_max).toBe(28)
-  })
+    `;
+    const result = scrapeCampgroundPage(
+      h3FeeHtml,
+      "https://www.fs.usda.gov/r02/sanjuan/recreation/lower-piedra-campground",
+    );
+    expect(result?.fee_min).toBe(28);
+    expect(result?.fee_max).toBe(28);
+  });
 
-  it('detects a closed campground from h2 Site Closed heading', () => {
+  it("detects a closed campground from h2 Site Closed heading", () => {
     const closedHtml = `
       <html>
       <head>
@@ -172,17 +197,20 @@ describe('scrapeCampgroundPage', () => {
         <p><b>Latitude: </b> 37.214</p>
         <p><b>Longitude: </b> -107.339</p>
       </body></html>
-    `
-    const result = scrapeCampgroundPage(closedHtml, 'https://www.fs.usda.gov/r02/sanjuan/recreation/lower-piedra-campground')
-    expect(result?.is_closed).toBe(true)
-  })
+    `;
+    const result = scrapeCampgroundPage(
+      closedHtml,
+      "https://www.fs.usda.gov/r02/sanjuan/recreation/lower-piedra-campground",
+    );
+    expect(result?.is_closed).toBe(true);
+  });
 
-  it('sets is_closed to false for a normal open campground', () => {
-    const result = scrapeCampgroundPage(fcfsHtml, fcfsUrl)
-    expect(result?.is_closed).toBe(false)
-  })
+  it("sets is_closed to false for a normal open campground", () => {
+    const result = scrapeCampgroundPage(fcfsHtml, fcfsUrl);
+    expect(result?.is_closed).toBe(false);
+  });
 
-  it('returns null fee fields when no fee info is present', () => {
+  it("returns null fee fields when no fee info is present", () => {
     const noFee = `
       <html>
       <head>
@@ -193,9 +221,12 @@ describe('scrapeCampgroundPage', () => {
         <p><b>Latitude: </b> 37.6</p>
         <p><b>Longitude: </b> -106.9</p>
       </body></html>
-    `
-    const result = scrapeCampgroundPage(noFee, 'https://www.fs.usda.gov/r02/riogrande/recreation/free-camp')
-    expect(result?.fee_min).toBeNull()
-    expect(result?.fee_max).toBeNull()
-  })
-})
+    `;
+    const result = scrapeCampgroundPage(
+      noFee,
+      "https://www.fs.usda.gov/r02/riogrande/recreation/free-camp",
+    );
+    expect(result?.fee_min).toBeNull();
+    expect(result?.fee_max).toBeNull();
+  });
+});

@@ -1,7 +1,7 @@
 packages:
-  - 'frontend'
-  - 'backend'
-  - 'etl'
+  - "frontend"
+  - "backend"
+  - "etl"
 allowBuilds:
   esbuild: true
   workerd: true

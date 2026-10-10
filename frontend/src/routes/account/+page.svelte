@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { submitJson } from "$lib/api";
   import { auth, currentUser } from "$lib/auth/authStore";
   import { goto, invalidateAll } from "$app/navigation";
   import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
@@ -35,17 +36,9 @@
     pending = null;
     if (!p) return;
     if (p.kind === "unsave") {
-      await fetch("/api/saved", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id: p.id }),
-      });
+      await submitJson("/api/saved", { id: p.id }, { method: "DELETE" });
     } else {
-      await fetch(`/api/ratings/${p.facilityId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      await submitJson(`/api/ratings/${p.facilityId}`, undefined, { method: "DELETE" });
     }
     await invalidateAll();
   }
@@ -62,9 +55,7 @@
 
   <section class="profile">
     <div>
-      <span class="label">Display name</span><span
-        >{data.account.name || "—"}</span
-      >
+      <span class="label">Display name</span><span>{data.account.name || "—"}</span>
     </div>
     <div><span class="label">Email</span><span>{data.account.email}</span></div>
     <div>
@@ -99,8 +90,7 @@
           <li>
             <span class="name">{s.facility?.name ?? "Unknown campground"}</span>
             <span class="spacer"></span>
-            {#if s.facility}<a class="link" href={`/?facility=${s.facility.id}`}
-                >View on map</a
+            {#if s.facility}<a class="link" href={`/?facility=${s.facility.id}`}>View on map</a
               >{/if}
             <button
               class="link danger"
@@ -127,14 +117,10 @@
           <li class="review-row">
             <div class="rev-main">
               <span class="stars">{stars(r.score)}</span>
-              <span class="name"
-                >{r.facility?.name ?? "Unknown campground"}</span
-              >
+              <span class="name">{r.facility?.name ?? "Unknown campground"}</span>
               {#if r.notes}<p class="notes">"{r.notes}"</p>{/if}
             </div>
-            {#if r.facility}<a
-                class="link"
-                href={`/?facility=${r.facility.id}&reviews=1`}>Edit</a
+            {#if r.facility}<a class="link" href={`/?facility=${r.facility.id}&reviews=1`}>Edit</a
               >{/if}
             <button
               class="link danger"
@@ -262,7 +248,9 @@
     border-radius: 8px;
     padding: 0.7rem 0.85rem;
     font-size: 0.9rem;
-    transition: border-color 0.13s var(--ease), box-shadow 0.13s var(--ease);
+    transition:
+      border-color 0.13s var(--ease),
+      box-shadow 0.13s var(--ease);
   }
   .rows li:hover {
     border-color: var(--line-strong);

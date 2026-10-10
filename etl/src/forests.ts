@@ -31,12 +31,7 @@ export const CO_BBOX = {
 } as const;
 
 export function inCoBbox(lat: number, lng: number): boolean {
-  return (
-    lat >= CO_BBOX.south &&
-    lat <= CO_BBOX.north &&
-    lng >= CO_BBOX.west &&
-    lng <= CO_BBOX.east
-  );
+  return lat >= CO_BBOX.south && lat <= CO_BBOX.north && lng >= CO_BBOX.west && lng <= CO_BBOX.east;
 }
 
 // RIDB silently clamps the `radius` param to ~25 miles (measured: 25/50/100/200

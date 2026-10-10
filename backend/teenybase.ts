@@ -1,15 +1,6 @@
 // backend/teenybase.ts
-import {
-  DatabaseSettings,
-  TableAuthExtensionData,
-  TableRulesExtensionData,
-} from "teenybase";
-import {
-  baseFields,
-  authFields,
-  createdTrigger,
-  updatedTrigger,
-} from "teenybase/scaffolds/fields";
+import { DatabaseSettings, TableAuthExtensionData, TableRulesExtensionData } from "teenybase";
+import { baseFields, authFields, createdTrigger, updatedTrigger } from "teenybase/scaffolds/fields";
 
 // Shared moderation-review fields for edit_suggestions / merge_suggestions.
 // authFields ships `email_verified` with `noUpdate: true`, which Teenybase's

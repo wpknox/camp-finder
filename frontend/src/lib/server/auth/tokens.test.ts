@@ -38,7 +38,9 @@ describe("auth tokens", () => {
     const token = await signToken({ uid: "u1", purpose: "reset" }, STAMP, RESET_TTL_MS);
     const [body, sig] = token.split(".");
     const evil = btoa(JSON.stringify({ uid: "u2", purpose: "reset", exp: Date.now() + 9e6 }))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
     expect(await verifyToken(`${evil}.${sig}`, "reset", STAMP)).toBeNull();
     expect(await verifyToken("not-a-token", "reset", STAMP)).toBeNull();
     expect(await verifyToken(`${body}.AAAA`, "reset", STAMP)).toBeNull();

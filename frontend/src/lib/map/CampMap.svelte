@@ -2,12 +2,12 @@
   import { onMount } from "svelte";
   import type { Facility } from "$lib/types";
   import { searchPending } from "./mapStore";
+  import { STATUS_META, facilityStatus } from "$lib/status";
 
   let {
     onselect,
     onbackgroundclick,
-  }: { onselect?: (f: Facility) => void; onbackgroundclick?: () => void } =
-    $props();
+  }: { onselect?: (f: Facility) => void; onbackgroundclick?: () => void } = $props();
 
   let mapEl: HTMLDivElement = $state(null!);
   let L: any = $state(null);
@@ -49,8 +49,7 @@
         usgsTopo.off("tileerror", fallback);
         usgsTopo.remove();
         L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-          attribution:
-            'Map: © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+          attribution: 'Map: © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
           maxZoom: 17,
         }).addTo(map);
       });
@@ -81,15 +80,9 @@
     pinsLayer.clearLayers();
 
     for (const f of facilityList) {
-      // Earthy pigments — mirror docs/design-language.md status colors and the
-      // sidebar statusColor(). Cream stroke so pins read on the topo paper.
-      const fillColor = f.is_closed
-        ? "#a23a17" // rust
-        : f.is_fully_fcfs
-          ? "#5f7d34" // moss
-          : f.is_partial_fcfs
-            ? "#c8932f" // ochre
-            : "#356b7d"; // lake
+      // Earthy pigments — mirror docs/design-language.md status colors via
+      // STATUS_META in lib/status.ts. Cream stroke so pins read on the topo paper.
+      const fillColor = STATUS_META[facilityStatus(f)].hex;
 
       const marker = L.circleMarker([f.lat, f.lng], {
         radius: 8,

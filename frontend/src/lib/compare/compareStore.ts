@@ -14,9 +14,7 @@ function createCompareStore() {
     subscribe,
     add(item: CompareItem) {
       update((list) =>
-        list.some((c) => c.id === item.id) || list.length >= MAX_COMPARE
-          ? list
-          : [...list, item],
+        list.some((c) => c.id === item.id) || list.length >= MAX_COMPARE ? list : [...list, item],
       );
     },
     remove(id: string) {

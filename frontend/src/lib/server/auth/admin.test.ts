@@ -14,9 +14,7 @@ beforeEach(() => {
 
 describe("requireAdmin", () => {
   it("throws 401 when unauthenticated", async () => {
-    await expect(requireAdmin({ user: null } as never)).rejects.toMatchObject(
-      { status: 401 },
-    );
+    await expect(requireAdmin({ user: null } as never)).rejects.toMatchObject({ status: 401 });
   });
 
   it("throws 403 when role is not admin", async () => {
@@ -28,25 +26,23 @@ describe("requireAdmin", () => {
         }),
       ),
     );
-    await expect(
-      requireAdmin({ user: { id: "u1" } } as never),
-    ).rejects.toMatchObject({ status: 403 });
+    await expect(requireAdmin({ user: { id: "u1" } } as never)).rejects.toMatchObject({
+      status: 403,
+    });
   });
 
   it("returns the record for an admin", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(adminRecord), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(adminRecord), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      requireAdmin({ user: { id: "u1" } } as never),
-    ).resolves.toMatchObject({ role: "admin" });
+    await expect(requireAdmin({ user: { id: "u1" } } as never)).resolves.toMatchObject({
+      role: "admin",
+    });
 
     // Verify the lookup hits users/view with the service token.
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("/api/v1/table/users/view/u1");
-    expect(new Headers(init.headers).get("Authorization")).toMatch(
-      /^Bearer /,
-    );
+    expect(new Headers(init.headers).get("Authorization")).toMatch(/^Bearer /);
   });
 });

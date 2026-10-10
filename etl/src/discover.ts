@@ -1,15 +1,8 @@
 import "dotenv/config";
 import { parse as parseHtml } from "node-html-parser";
 import { TbClient, buildRidbIndex } from "./teenybase.js";
-import {
-  scrapeForestCampgroundUrls,
-  scrapeCampgroundPage,
-} from "./fsScraper.js";
-import {
-  normalizeAmenities,
-  parseDescriptionAmenities,
-  scoreDataQuality,
-} from "./normalize.js";
+import { scrapeForestCampgroundUrls, scrapeCampgroundPage } from "./fsScraper.js";
+import { normalizeAmenities, parseDescriptionAmenities, scoreDataQuality } from "./normalize.js";
 import { groupByCanonicalName, findDuplicate } from "./dedupe.js";
 import type { NormalizedFacility } from "./types.js";
 
@@ -64,9 +57,7 @@ async function collectCampgroundUrls(slug: string): Promise<string[]> {
     const result = await fetchHtml(url);
     if (result === false) break;
     if (result === null) {
-      console.warn(
-        `  Pagination error at page ${page} for ${slug} — results may be incomplete`,
-      );
+      console.warn(`  Pagination error at page ${page} for ${slug} — results may be incomplete`);
       break;
     }
     const found = scrapeForestCampgroundUrls(result);
@@ -121,7 +112,7 @@ async function main() {
       } // RIDB campground — skip
 
       const bodyRoot = parseHtml(result);
-      bodyRoot.querySelectorAll("nav, header, footer, script, style").forEach(el => el.remove());
+      bodyRoot.querySelectorAll("nav, header, footer, script, style").forEach((el) => el.remove());
       const pageText = bodyRoot.text;
 
       const amenities = {
@@ -131,12 +122,7 @@ async function main() {
 
       // If an RIDB record already covers this campground (matched by name + ~1km
       // proximity), enrich it with FS-derived data rather than creating a duplicate.
-      const ridbMatch = findDuplicate(
-        ridbByName,
-        campground.name,
-        campground.lat,
-        campground.lng,
-      );
+      const ridbMatch = findDuplicate(ridbByName, campground.name, campground.lat, campground.lng);
       if (ridbMatch) {
         await tb.patchFacility(ridbMatch.id, {
           fs_url: campground.fs_url,
@@ -197,9 +183,7 @@ async function main() {
     }
   }
 
-  console.log(
-    `\nDiscover complete. ${totalDiscovered} FCFS-only campgrounds upserted.`,
-  );
+  console.log(`\nDiscover complete. ${totalDiscovered} FCFS-only campgrounds upserted.`);
 }
 
 try {

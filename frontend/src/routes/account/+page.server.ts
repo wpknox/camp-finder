@@ -20,12 +20,9 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 
   // Display name (not in JWT).
   let name = "";
-  const me = await tbFetch(
-    `/api/v1/table/users/view/${locals.user.id}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    },
-  );
+  const me = await tbFetch(`/api/v1/table/users/view/${locals.user.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (me.ok) name = ((await me.json()) as { name?: string }).name ?? "";
 
   // Facility id → {name, lat, lng} map (single fetch; ~600 rows at current scale).
@@ -34,22 +31,18 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ limit: 10000 }),
   });
-  const facItems =
-    ((await facRes.json()) as { items?: FacilityLite[] }).items ?? [];
+  const facItems = ((await facRes.json()) as { items?: FacilityLite[] }).items ?? [];
   const facMap = new Map(facItems.map((f) => [f.id, f]));
 
   // Saved campgrounds (scoped to the user by their token).
-  const savedRes = await tbFetch(
-    `/api/v1/table/saved_campgrounds/list`,
-    {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify({
-        where: `user_id == '${locals.user.id}'`,
-        limit: 1000,
-      }),
-    },
-  );
+  const savedRes = await tbFetch(`/api/v1/table/saved_campgrounds/list`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({
+      where: `user_id == '${locals.user.id}'`,
+      limit: 1000,
+    }),
+  });
   const savedItems =
     (
       (await savedRes.json()) as {

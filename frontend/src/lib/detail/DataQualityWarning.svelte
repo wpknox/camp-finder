@@ -1,13 +1,11 @@
 <script lang="ts">
-  let { quality, fsUrl }: { quality: "sparse" | "unknown"; fsUrl: string } =
-    $props();
+  let { quality, fsUrl }: { quality: "sparse" | "unknown"; fsUrl: string } = $props();
 </script>
 
 <div class="warning">
   ⚠️ Limited data available for this campground.
   {#if fsUrl}
-    <a href={fsUrl} target="_blank" rel="noopener">Check the official page</a> for
-    full details.
+    <a href={fsUrl} target="_blank" rel="noopener">Check the official page</a> for full details.
   {:else}
     Check the fs.usda.gov page for full details.
   {/if}

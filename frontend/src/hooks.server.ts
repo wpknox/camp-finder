@@ -29,12 +29,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       // Access token expired (or unreadable) — try silent refresh.
       const refreshed = await tbRefresh(access, refresh);
       if (refreshed) {
-        setSession(
-          event.cookies,
-          refreshed.token,
-          refreshed.refresh_token,
-          refreshed.record.name,
-        );
+        setSession(event.cookies, refreshed.token, refreshed.refresh_token, refreshed.record.name);
         event.locals.user = {
           id: refreshed.record.id,
           username: refreshed.record.username,

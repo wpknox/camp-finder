@@ -34,21 +34,12 @@ export const GET: RequestHandler = async ({ params }) => {
 };
 
 // Authenticated upsert — one review per (user, facility).
-export const POST: RequestHandler = async ({
-  params,
-  request,
-  locals,
-  cookies,
-}) => {
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
   if (!locals.user) return json({ error: "Unauthenticated" }, { status: 401 });
   const token = cookies.get(ACCESS_COOKIE)!;
-  const { score, notes, visited_at } = (await request.json()) as Record<
-    string,
-    unknown
-  >;
+  const { score, notes, visited_at } = (await request.json()) as Record<string, unknown>;
   const n = Number(score);
-  if (!n || n < 1 || n > 5)
-    return json({ error: "Score must be 1–5" }, { status: 400 });
+  if (!n || n < 1 || n > 5) return json({ error: "Score must be 1–5" }, { status: 400 });
 
   const headers = {
     "Content-Type": "application/json",
