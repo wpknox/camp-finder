@@ -163,6 +163,13 @@ describe("buildFacilityValues", () => {
     expect(v.merged_ridb_ids).toBe("[]");
     expect(v.last_synced).toBe(now);
   });
+  it("sets elevation_m only when known", () => {
+    expect(buildFacilityValues(s, "x", null, now, { elevationM: 2875 }).elevation_m).toBe(2875);
+    expect("elevation_m" in buildFacilityValues(s, "x", null, now, { elevationM: null })).toBe(
+      false,
+    );
+    expect("elevation_m" in buildFacilityValues(s, "x", null, now)).toBe(false);
+  });
   it("derives FCFS flags", () => {
     const f = (a: number, b: number) => {
       const v = buildFacilityValues({ ...s, fcfs_total: a, reservable_total: b }, "x", null, now);

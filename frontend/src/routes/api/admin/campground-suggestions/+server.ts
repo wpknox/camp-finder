@@ -13,6 +13,7 @@ import {
 import { parseJson } from "$lib/json";
 import { isSafeId } from "$lib/server/facilities";
 import { tbFetch } from "$lib/server/tbFetch";
+import { fetchElevationM } from "$lib/server/elevation";
 import {
   validateSubmission,
   validateSourceUrl,
@@ -116,16 +117,15 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       });
     let found = await findCreated();
     if (!found[0]) {
+      const submission = finalSubmission as CampgroundSubmission;
+      const elevationM = await fetchElevationM(submission.lat, submission.lng);
       const insertRes = await tbFetch(tb("facilities/insert"), {
         method: "POST",
         headers: tbHeaders,
         body: JSON.stringify({
-          values: buildFacilityValues(
-            finalSubmission as CampgroundSubmission,
-            id,
-            finalSourceUrl,
-            new Date().toISOString(),
-          ),
+          values: buildFacilityValues(submission, id, finalSourceUrl, new Date().toISOString(), {
+            elevationM,
+          }),
         }),
       });
       if (!insertRes.ok) {
