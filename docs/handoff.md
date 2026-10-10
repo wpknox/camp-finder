@@ -1,26 +1,48 @@
 # CampFinder — Handoff
 
-Current state, next steps and hard-won gotchas. Stack, rules and code map: `CLAUDE.md`. Per-session history before 2026-10-07: `git log -p docs/handoff.md` and PRs #1–#5.
+Current state, next steps and hard-won gotchas. Stack, rules and code map: `CLAUDE.md`. Per-session history: `git log -p docs/handoff.md` and PRs #1–#6.
 
 ## Status (2026-10-10)
 
-- **Live and soft-launched** (since 2026-07-11). PRs #1–#5 are merged; #5 (code-reuse refactor + Prettier) built cleanly on Pages.
-- **Branch `fix/next-up-batch`** (unmerged, no schema change): the 2026-10-07 "Next up" list — submit routes return `{ ok: true }` and log Teenybase errors instead of relaying them; whitespace-only suggest-an-edit fields are blank, not `0` (`lib/editChanges.ts`); a merge rejects the loser's other pending flags/merges and `/admin` drops its rows (`lib/admin/queues.ts` `refsFacility`); elevation is fetched on campground approve and on approved moves (`lib/server/elevation.ts`).
+- **Live and soft-launched** (since 2026-07-11). PRs #1–#6 are merged and deployed. #6 (2026-10-10): submit routes return `{ ok: true }` and log Teenybase errors instead of relaying them; whitespace-only suggest-an-edit fields are blank, not `0` (`lib/editChanges.ts`); a merge rejects the loser's other pending flags/merges and `/admin` drops its rows (`lib/admin/queues.ts` `refsFacility`); elevation is fetched on campground approve and on approved moves (`lib/server/elevation.ts`).
 - **The owner's stance:** next work should come from user feedback, not speculation.
 
-## Next up
+## Next session: research (no building yet)
 
-1. **Cell coverage for approved user campgrounds** — deferred to the brainstorm. `cell_coverage` still comes only from the offline `enrich-cell` run; rerun it against prod after approvals. Planned design (2026-10-10): a `cell_tiles` table with one row per H3 res-5 parent holding three 2,401-bit carrier bitsets (CO ≈ 1,054 rows / ~1.3 MB; a row per res-9 cell is ~1.77M rows for CO, which the free tier's 100k writes/day can't load). A tile row is authoritative over its extent; no tile ⇒ null. h3-js is asm.js; import its browser build in Pages to avoid the Node `require("fs")` branch. Carrier tri-states on the suggest form were also deferred: chips render `null` and `false` identically, so partly known carriers would read as "no signal".
+The owner wants a **research session** on one or both tracks below. Deliverable: a findings doc in `docs/research/` (sources, options compared, a recommendation and a rough phased plan), reviewed with the owner before any code. Verify claims against primary docs and real requests, not memory. The goal is a site the owner and friends use to find campsites anywhere in the **Mountain West** (CO, UT, WY, MT, ID, NM, AZ, NV), not just Colorado.
+
+### Track A: expand the database to most Mountain West states
+
+What's CO-specific today:
+- **ETL discovery:** `etl/src/forests.ts` has `CO_BBOX`/`inCoBbox` and `buildCoGrid()`. RIDB clamps `radius` to ~25 mi, so coverage is a grid of radius queries (0.4° × 0.5° steps); deliberately no `state`/`activity` filter (both drop real campgrounds). The forest list and fs.usda.gov scrape (`fsScraper.ts`, `discover.ts`) are CO forests; fs.usda.gov 429s (multi-pass with 10–15 min cooldowns). NPS via `sync-nps.ts`. Dedupe (`dedupe.ts`) absorbs `fs-`/`nps-`/`user-` rows.
+- **FCC cell data:** state_fips 08 only, CSVs on the owner's machine (`etl/README.md`). `enrich-cell` marks out-of-region facilities all-`false` instead of null.
+- **Frontend:** `WeatherStrip` hardcodes `timezone=America/Denver` (use `auto`); check the default map view and any CO wording.
+
+Questions to answer:
+- **Volume and limits:** how many campgrounds would 8 states add (RIDB, NPS, FS), how many RIDB calls a grid sweep needs (grid points × pages, rate limits), and whether D1/Teenybase free tier holds it (rows, 100k writes/day, `tbList` `limit: 10000` reads in `loadLookups` and `listPublicFacilities` that load all facilities).
+- **Better sources:** RIDB bulk export / full-dataset CSV vs the grid sweep; USFS EDW / Enterprise Data Warehouse recreation-site datasets (e.g. "Recreation Opportunities" feature service) as a replacement for scraping fs.usda.gov; BLM recreation sites; state park APIs; OSM `tourism=camp_site` as a gap check. Prefer bulk/official datasets that make discovery repeatable and less manual.
+- **Generalizing the ETL:** a `regions` config (state, bbox or polygon, forests, FCC state_fips) instead of `CO_*`; per-region runs and idempotent reruns.
+- **Cell coverage at scale:** see the deferred design below; the FCC BDC API (wishlist #4 `pnpm fetch-fcc`) becomes worth it at 8 states × 3 carriers.
+- **Backend fit:** whether Teenybase (no compound WHERE, everything filtered in JS after a 10k-row list) still works at ~5–10× the rows, or what the map query needs (bbox WHERE / an index).
+
+### Track B: make Nearby work
+
+The owner says Nearby "does not seem to work well at all". **Measured 2026-10-10:** `GET /api/nearby/<id>` on prod returned `{ pois: null }` for all 6 CO campgrounds tried (so the section hides). Running the same Overpass query from a laptop: `overpass-api.de` 504'd after ~13 s (the route aborts at 10 s), `overpass.kumi.systems` took ~13 s and returned nothing usable, `overpass.private.coffee` 500'd. The public Overpass instances are the problem, likely made worse by Cloudflare's shared egress IPs.
+
+How it works: `lib/server/overpass.ts` builds one query (named `highway=trailhead` within 8 km; named supermarket/convenience and fuel within 25 km; `out center 200`), and `normalizeOverpass` keeps 6 trailheads + 1 grocery + 1 fuel. `routes/api/nearby/[id]/+server.ts` caches in `nearby_pois` for 7 days and serves stale on failure, but a facility that never succeeded has no row.
+
+Questions to answer:
+- **Data source:** precompute in the ETL (offline Overpass or a Geofabrik OSM extract for the region, filtered with osmium) and store POIs per facility, vs a more reliable API (e.g. an Overpass instance with an SLA, Mapbox/HERE/Google Places/Foursquare free tiers, OpenTripMap), vs a hybrid. Precomputing removes the runtime dependency entirely and scales to new states with the same extract.
+- **What "activities" should mean:** today it's only trailheads/grocery/fuel. Candidates: trails (USFS trail datasets, OSM `route=hiking`), lakes/fishing access, hot springs, viewpoints, dump stations, water fill, ranger stations. Check what the owner and friends actually want.
+- **Quality:** named-only filtering drops many trailheads; 25 km radius by straight line misleads in the mountains; consider drive distance or at least labeling.
+- **Check first:** `wrangler pages deployment tail` while opening a detail panel, to confirm the prod failure mode (timeout vs 429 vs 403 from Overpass), and `SELECT COUNT(*), MAX(fetched_at) FROM nearby_pois` in prod (wrangler wasn't logged in on 2026-10-10: run `npx wrangler login` first).
+
+### Deferred work these tracks touch
+
+1. **Cell coverage for approved user campgrounds.** `cell_coverage` still comes only from the offline `enrich-cell` run; rerun it against prod after approvals. Planned design (2026-10-10): a `cell_tiles` table with one row per H3 res-5 parent holding three 2,401-bit carrier bitsets (CO ≈ 1,054 rows / ~1.3 MB; a row per res-9 cell is ~1.77M rows for CO, which the free tier's 100k writes/day can't load). A tile row is authoritative over its extent; no tile ⇒ null. h3-js is asm.js; import its browser build in Pages to avoid the Node `require("fs")` branch. Carrier tri-states on the suggest form were also deferred: chips render `null` and `false` identically, so partly known carriers would read as "no signal".
 2. **Merge gaps:** `mergeFacilityFields` ignores `elevation_m`/`cell_coverage` (a loser's values are lost when the winner's are null, including when the loser's location is chosen). Pending edits on the loser cascade-delete with no audit row. Pending rows involving the winner show pre-merge data until reload.
 3. **Orphaned rows in prod** from earlier merges (pending deletion flags/merges with a NULL facility): reject them via `/admin` once (it shows a "reject to clear" hint).
-
-## Direction brainstorm (planned session)
-
-The goal is a site the owner and friends use to find campsites anywhere they want to camp in the **Western US**, not just Colorado. Open questions to settle together before building:
-- **Expansion beyond CO:** the ETL is CO-bbox/forest-specific (`etl/src/forests.ts`), and so are the FCC data (state_fips 08) and the `WeatherStrip` timezone.
-- **Better campground discovery:** today it's RIDB grid sweep + fs.usda.gov scrape (429s) + NPS + user submissions. Look for better sources and a less manual process.
-- **Cell coverage at scale:** keep it working for new regions and newly approved campgrounds (Next up #4, wishlist #4).
-- **Backend:** stay on Teenybase (pre-alpha; no compound WHERE, local migrate pain) or move to something similar with more features.
+4. **Backend choice:** stay on Teenybase (pre-alpha; no compound WHERE, local migrate pain) or move to something similar with more features. Track A's findings should inform this.
 
 **Unverified in prod (owner):** a real-request `campground_suggestions/list` → 200; a suggest-a-campground smoke test (submit → approve → marker → flag for deletion); the PR #3 smoke list (elevation/weather/cell on a Denver-area panel, Has Cell Service filter, directions, Nearby, Compare rows, mobile filter collapse).
 
